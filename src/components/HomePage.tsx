@@ -246,24 +246,17 @@ const HomePage = () => {
           <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
           <span className="text-sm text-muted-foreground">· {todayFormatted}</span>
         </div>
-        {scheduledTasks.length > 0 || todayEvents.length > 0 ? (
+        {scheduledTasks.length > 0 || visibleEvents.length > 0 ? (
           <div className="space-y-3">
             {scheduledTasks.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={toggleTask} />
             ))}
-            {todayEvents.map((event) => (
-              <div key={event.id} className="bg-card rounded-xl p-4 shadow-card border border-border flex items-center gap-3">
-                <div className={`w-1.5 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
-                <div className="flex-1">
-                  <p className="text-[15px] font-medium">{event.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{event.time}</p>
-                </div>
-                <span className="text-[10px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-md">Calendar</span>
-              </div>
+            {visibleEvents.map((event) => (
+              <EventCard key={event.id} event={event} onRemove={removeEvent} />
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">No scheduled tasks for today</p>
+          <p className="text-sm text-muted-foreground text-center py-4">No scheduled items yet</p>
         )}
       </section>
 
