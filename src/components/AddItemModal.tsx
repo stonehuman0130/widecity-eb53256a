@@ -102,7 +102,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="w-full max-w-md bg-card rounded-t-2xl p-5 pb-8 border-t border-border max-h-[85vh] overflow-y-auto"
+          className="w-full max-w-md bg-card rounded-t-2xl p-5 pb-12 border-t border-border max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-5">
