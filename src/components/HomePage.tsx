@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Sparkles, Clock, Check, Loader2 } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2 } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
 import AddItemModal from "@/components/AddItemModal";
-import { useAppContext, Task } from "@/context/AppContext";
+import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -16,7 +16,7 @@ const HomePage = () => {
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent } = useAppContext();
+  const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent } = useAppContext();
 
   const morningHabits = habits.filter((h) => h.category === "morning");
 
