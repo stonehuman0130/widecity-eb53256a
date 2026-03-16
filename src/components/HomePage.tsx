@@ -113,8 +113,8 @@ const HomePage = () => {
     (e) => e.day === today.getDate() && e.month === today.getMonth() && e.year === today.getFullYear()
   );
 
-  const scheduledTasks = filteredTasks.filter((t) => t.time && !t.done);
-  const justDoIt = filteredTasks.filter((t) => !t.time && !t.done);
+  const scheduledTasks = filteredTasks.filter((t) => t.time);
+  const justDoIt = filteredTasks.filter((t) => !t.time);
 
   const todayFormatted = today.toLocaleDateString("en-US", {
     weekday: "short",
