@@ -6,6 +6,7 @@ import WorkoutsPage from "@/components/WorkoutsPage";
 import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
 import SettingsPage from "@/components/SettingsPage";
+import { AppProvider } from "@/context/AppContext";
 
 type Tab = "home" | "workout" | "habits" | "calendar" | "settings";
 
@@ -21,21 +22,23 @@ const Index = () => {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-md mx-auto bg-background min-h-svh relative">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, x: 10 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -10 }}
-          transition={{ duration: 0.15 }}
-          className="flex-1 pb-24 overflow-y-auto"
-        >
-          {pages[activeTab]}
-        </motion.div>
-      </AnimatePresence>
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-    </div>
+    <AppProvider>
+      <div className="flex flex-col w-full max-w-md mx-auto bg-background min-h-svh relative">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.15 }}
+            className="flex-1 pb-24 overflow-y-auto"
+          >
+            {pages[activeTab]}
+          </motion.div>
+        </AnimatePresence>
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
+    </AppProvider>
   );
 };
 

@@ -1,70 +1,164 @@
-import { Plus, Flame } from "lucide-react";
-
-const habits = [
-  { name: "Meditation", streak: 3, emoji: "🧘" },
-  { name: "Read 10 Pages", streak: 7, emoji: "📚" },
-  { name: "Gratitude Journal", streak: 4, emoji: "🙏" },
-  { name: "Stretch", streak: 6, emoji: "🤸" },
-];
+import { useState } from "react";
+import { Plus, Flame, Check } from "lucide-react";
+import { useAppContext } from "@/context/AppContext";
 
 const HabitsPage = () => {
-  const completed = 0;
-  const total = 5;
+  const { habits, toggleHabit, addHabit } = useAppContext();
+  const [newHabitLabel, setNewHabitLabel] = useState("");
+  const [addingTo, setAddingTo] = useState<"morning" | "other" | null>(null);
+
+  const morningHabits = habits.filter((h) => h.category === "morning");
+  const otherHabits = habits.filter((h) => h.category === "other");
+
+  const morningCompleted = morningHabits.filter((h) => h.done).length;
+  const totalCompleted = habits.filter((h) => h.done).length;
+  const total = habits.length;
+
+  const handleAdd = () => {
+    if (!newHabitLabel.trim() || !addingTo) return;
+    addHabit(newHabitLabel.trim(), addingTo);
+    setNewHabitLabel("");
+    setAddingTo(null);
+  };
 
   return (
     <div className="px-5">
       <header className="pt-12 pb-4 flex items-start justify-between">
         <div>
-          <h1 className="text-[1.75rem] font-bold tracking-display">Morning Habits</h1>
+          <h1 className="text-[1.75rem] font-bold tracking-display">Habits</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Build a better routine, one day at a time</p>
         </div>
-        <button className="w-11 h-11 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card">
-          <Plus size={22} />
-        </button>
       </header>
 
       {/* Progress Card */}
-      <div className="bg-card rounded-xl p-5 border border-border shadow-card mb-4">
+      <div className="bg-card rounded-xl p-5 border border-border shadow-card mb-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground font-medium">Today's Progress</p>
-            <p className="text-3xl font-bold tracking-display mt-1">{completed}/{total}</p>
+            <p className="text-3xl font-bold tracking-display mt-1">{totalCompleted}/{total}</p>
           </div>
           <span className="text-4xl">🌱</span>
         </div>
         <div className="mt-3 h-2 bg-secondary rounded-full overflow-hidden">
           <div
             className="h-full bg-primary rounded-full transition-all"
-            style={{ width: `${(completed / total) * 100}%` }}
+            style={{ width: `${total > 0 ? (totalCompleted / total) * 100 : 0}%` }}
           />
         </div>
-        <p className="text-xs text-muted-foreground mt-2 text-center">{Math.round((completed / total) * 100)}% Complete</p>
+        <p className="text-xs text-muted-foreground mt-2 text-center">
+          {total > 0 ? Math.round((totalCompleted / total) * 100) : 0}% Complete
+        </p>
       </div>
 
-      {/* Daily Goal */}
-      <div className="bg-primary/5 rounded-xl p-3 border border-primary/20 mb-6">
-        <div className="h-1.5 bg-primary/20 rounded-full overflow-hidden mb-2">
-          <div className="h-full bg-primary rounded-full w-1/2" />
+      {/* Morning Habits */}
+      <section className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold tracking-display">☀️ Morning Habits</h2>
+          <button
+            onClick={() => setAddingTo(addingTo === "morning" ? null : "morning")}
+            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+          >
+            <Plus size={16} />
+          </button>
         </div>
-        <p className="text-sm font-medium text-center text-primary">50% of daily goal</p>
-      </div>
-
-      {/* Habits Grid */}
-      <h2 className="text-lg font-semibold tracking-display mb-3">Your Habits</h2>
-      <div className="grid grid-cols-2 gap-3">
-        {habits.map((habit) => (
-          <div key={habit.name} className="bg-card rounded-xl p-5 border border-border shadow-card flex flex-col items-center gap-2">
-            <span className="text-3xl">{habit.emoji}</span>
-            <p className="text-sm font-semibold text-center">{habit.name}</p>
-            <div className="flex items-center gap-1 text-accent">
-              <Flame size={14} />
-              <span className="text-xs font-bold">{habit.streak} days</span>
-            </div>
+        {addingTo === "morning" && (
+          <div className="flex gap-2 mb-3">
+            <input
+              value={newHabitLabel}
+              onChange={(e) => setNewHabitLabel(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+              placeholder="New morning habit..."
+              className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+              autoFocus
+            />
+            <button onClick={handleAdd} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+              Add
+            </button>
           </div>
-        ))}
-      </div>
+        )}
+        <div className="space-y-2">
+          {morningHabits.map((habit) => (
+            <HabitRow key={habit.id} habit={habit} onToggle={toggleHabit} />
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          {morningCompleted}/{morningHabits.length} completed
+        </p>
+      </section>
+
+      {/* Other Habits */}
+      <section className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold tracking-display">🌙 Other Habits</h2>
+          <button
+            onClick={() => setAddingTo(addingTo === "other" ? null : "other")}
+            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+        {addingTo === "other" && (
+          <div className="flex gap-2 mb-3">
+            <input
+              value={newHabitLabel}
+              onChange={(e) => setNewHabitLabel(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+              placeholder="New habit..."
+              className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+              autoFocus
+            />
+            <button onClick={handleAdd} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+              Add
+            </button>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          {otherHabits.map((habit) => (
+            <button
+              key={habit.id}
+              onClick={() => toggleHabit(habit.id)}
+              className={`bg-card rounded-xl p-5 border shadow-card flex flex-col items-center gap-2 transition-all active:scale-[0.97] ${
+                habit.done ? "border-habit-green" : "border-border"
+              }`}
+            >
+              {habit.done ? (
+                <span className="w-8 h-8 rounded-full bg-habit-green flex items-center justify-center">
+                  <Check size={16} className="text-primary-foreground" />
+                </span>
+              ) : (
+                <span className="w-8 h-8 rounded-full border-2 border-muted" />
+              )}
+              <p className="text-sm font-semibold text-center">{habit.label}</p>
+              <div className="flex items-center gap-1 text-accent">
+                <Flame size={14} />
+                <span className="text-xs font-bold">0 days</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
     </div>
   );
 };
+
+const HabitRow = ({ habit, onToggle }: { habit: { id: string; label: string; done: boolean }; onToggle: (id: string) => void }) => (
+  <button
+    onClick={() => onToggle(habit.id)}
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all active:scale-[0.98] ${
+      habit.done
+        ? "border-habit-green bg-habit-green/5"
+        : "border-border bg-card"
+    }`}
+  >
+    {habit.done ? (
+      <span className="w-6 h-6 rounded-full bg-habit-green flex items-center justify-center flex-shrink-0">
+        <Check size={14} className="text-primary-foreground" />
+      </span>
+    ) : (
+      <span className="w-6 h-6 rounded-full border-2 border-muted flex-shrink-0" />
+    )}
+    <span className={`text-sm font-medium ${habit.done ? "line-through opacity-50" : ""}`}>{habit.label}</span>
+  </button>
+);
 
 export default HabitsPage;

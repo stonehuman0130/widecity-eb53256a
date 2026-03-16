@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Plus, Sparkles, Mic, Clock, MoreVertical, Check } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
+import { useAppContext } from "@/context/AppContext";
 
 type Filter = "mine" | "partner" | "household";
 
@@ -15,18 +16,6 @@ interface Task {
   done: boolean;
 }
 
-interface Habit {
-  id: string;
-  label: string;
-  done: boolean;
-}
-
-const initialHabits: Habit[] = [
-  { id: "1", label: "Drink Olive Oil", done: false },
-  { id: "2", label: "Take Vitamins", done: true },
-  { id: "3", label: "Stretch", done: false },
-];
-
 const initialTasks: Task[] = [
   { id: "1", title: "Review design mockups", time: "10:30 AM", tag: "Work", assignee: "me", done: false },
   { id: "2", title: "Call mom about weekend", time: "2:00 PM", tag: "Personal", assignee: "me", done: false },
@@ -36,13 +25,11 @@ const initialTasks: Task[] = [
 
 const HomePage = () => {
   const [filter, setFilter] = useState<Filter>("mine");
-  const [habits, setHabits] = useState(initialHabits);
   const [tasks, setTasks] = useState(initialTasks);
   const [input, setInput] = useState("");
+  const { habits, toggleHabit, events } = useAppContext();
 
-  const toggleHabit = (id: string) => {
-    setHabits((h) => h.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
-  };
+  const morningHabits = habits.filter((h) => h.category === "morning");
 
   const toggleTask = (id: string) => {
     setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
@@ -69,8 +56,21 @@ const HomePage = () => {
     return t.tag === "Household";
   });
 
+  // Today's events from shared context
+  const today = new Date();
+  const todayEvents = events.filter(
+    (e) => e.day === today.getDate() && e.month === today.getMonth() && e.year === today.getFullYear()
+  );
+
+  // Merge scheduled: tasks with time + today's calendar events
   const scheduledTasks = filteredTasks.filter((t) => t.time && !t.done);
   const justDoIt = filteredTasks.filter((t) => !t.time && !t.done);
+
+  const todayFormatted = today.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 
   return (
     <div className="px-5">
@@ -123,7 +123,7 @@ const HomePage = () => {
       <section className="mb-6">
         <h2 className="text-lg font-semibold tracking-display mb-3">Morning Habits</h2>
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-          {habits.map((habit) => (
+          {morningHabits.map((habit) => (
             <button
               key={habit.id}
               onClick={() => toggleHabit(habit.id)}
@@ -147,22 +147,34 @@ const HomePage = () => {
       </section>
 
       {/* Scheduled Tasks */}
-      {scheduledTasks.length > 0 && (
-        <section className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock size={18} className="text-muted-foreground" />
-            <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
-            <span className="text-sm text-muted-foreground">({scheduledTasks.length})</span>
-          </div>
+      <section className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Clock size={18} className="text-muted-foreground" />
+          <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
+          <span className="text-sm text-muted-foreground">· {todayFormatted}</span>
+        </div>
+        {scheduledTasks.length > 0 || todayEvents.length > 0 ? (
           <div className="space-y-3">
             {scheduledTasks.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={toggleTask} />
             ))}
+            {todayEvents.map((event) => (
+              <div key={event.id} className="bg-card rounded-xl p-4 shadow-card border border-border flex items-center gap-3">
+                <div className={`w-1.5 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
+                <div className="flex-1">
+                  <p className="text-[15px] font-medium">{event.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{event.time}</p>
+                </div>
+                <span className="text-[10px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-md">Calendar</span>
+              </div>
+            ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-4">No scheduled tasks for today</p>
+        )}
+      </section>
 
-      {/* Just Do It */}
+      {/* Just Do It Today */}
       {justDoIt.length > 0 && (
         <section className="mb-6">
           <div className="flex items-center gap-2 mb-3">
