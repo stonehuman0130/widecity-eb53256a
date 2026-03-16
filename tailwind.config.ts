@@ -8,9 +8,7 @@ export default {
     container: {
       center: true,
       padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+      screens: { "2xl": "1400px" },
     },
     extend: {
       colors: {
@@ -57,28 +55,36 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "user-a": "hsl(var(--user-a))",
+        "user-b": "hsl(var(--user-b))",
+        "habit-green": "hsl(var(--habit-green))",
+        "nav-active": "hsl(var(--nav-active))",
+        "nav-inactive": "hsl(var(--nav-inactive))",
+        tag: {
+          work: "hsl(var(--tag-work))",
+          "work-text": "hsl(var(--tag-work-text))",
+          personal: "hsl(var(--tag-personal))",
+          "personal-text": "hsl(var(--tag-personal-text))",
+          household: "hsl(var(--tag-household))",
+          "household-text": "hsl(var(--tag-household-text))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        card: "var(--shadow-card)",
+      },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
