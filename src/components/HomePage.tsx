@@ -45,38 +45,41 @@ const HomePage = () => {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      const parsed = data;
-      const date = parsed.date ? new Date(parsed.date + "T00:00:00") : new Date();
-      const day = date.getDate();
-      const month = date.getMonth();
-      const year = date.getFullYear();
+      if (data.type === "add_habit") {
+        addHabit(data.label, data.category);
+        toast.success(`Habit added: ${data.label}`, {
+          description: `Added to ${data.category} habits`,
+        });
+      } else {
+        const date = data.date ? new Date(data.date + "T00:00:00") : new Date();
+        const day = date.getDate();
+        const month = date.getMonth();
+        const year = date.getFullYear();
 
-      addEvent({
-        title: parsed.title,
-        time: parsed.time || "All day",
-        description: parsed.description || "",
-        day,
-        month,
-        year,
-        user: "me",
-      });
+        addEvent({
+          title: data.title,
+          time: data.time || "All day",
+          description: data.description || "",
+          day,
+          month,
+          year,
+          user: "me",
+        });
 
-      const today = new Date();
-      if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
         addTask({
-          title: parsed.title,
-          time: parsed.time || "",
+          title: data.title,
+          time: data.time || "",
           tag: "Personal",
           assignee: "me",
           scheduledDay: day,
           scheduledMonth: month,
           scheduledYear: year,
         });
-      }
 
-      toast.success(`Scheduled: ${parsed.title}`, {
-        description: `${parsed.date} ${parsed.time || "All day"}`,
-      });
+        toast.success(`Scheduled: ${data.title}`, {
+          description: `${data.date} ${data.time || "All day"}`,
+        });
+      }
       setInput("");
     } catch (e: any) {
       console.error(e);
