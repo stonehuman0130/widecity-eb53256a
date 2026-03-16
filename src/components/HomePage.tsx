@@ -16,7 +16,7 @@ const HomePage = () => {
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const { habits, toggleHabit, events, tasks, toggleTask, addTask, addEvent } = useAppContext();
+  const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent } = useAppContext();
 
   const morningHabits = habits.filter((h) => h.category === "morning");
 
