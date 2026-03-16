@@ -260,36 +260,45 @@ const HomePage = () => {
   );
 };
 
-const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) => (
-  <motion.div
-    layout
-    className="bg-card rounded-xl p-4 shadow-card border border-border active:scale-[0.99] transition-transform"
-  >
-    {task.time && (
-      <div className="flex items-center gap-1.5 mb-2">
-        <Clock size={13} className="text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) => {
+  const handleToggle = () => {
+    if (!task.done) {
+      toast.success("🎉 Task complete!", { description: "Great job, keep it up!" });
+    }
+    onToggle(task.id);
+  };
+
+  return (
+    <motion.div
+      layout
+      className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${task.done ? "border-habit-green/50" : "border-border"}`}
+    >
+      {task.time && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <Clock size={13} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleToggle}
+          className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+            task.done ? "bg-habit-green border-habit-green" : "border-muted"
+          }`}
+        >
+          {task.done && <Check size={14} className="text-primary-foreground" />}
+        </button>
+        <span className={`flex-1 text-[15px] font-medium tracking-body ${task.done ? "line-through opacity-40" : ""}`}>
+          {task.title}
+        </span>
+        <UserBadge user={task.assignee} />
+        <TaskActionMenu taskId={task.id} />
       </div>
-    )}
-    <div className="flex items-center gap-3">
-      <button
-        onClick={() => onToggle(task.id)}
-        className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-          task.done ? "bg-foreground border-foreground" : "border-muted"
-        }`}
-      >
-        {task.done && <Check size={14} className="text-background" />}
-      </button>
-      <span className={`flex-1 text-[15px] font-medium tracking-body ${task.done ? "line-through opacity-40" : ""}`}>
-        {task.title}
-      </span>
-      <UserBadge user={task.assignee} />
-      <TaskActionMenu taskId={task.id} />
-    </div>
-    <div className="mt-2 ml-9">
-      <TaskTag tag={task.tag} />
-    </div>
-  </motion.div>
-);
+      <div className="mt-2 ml-9">
+        <TaskTag tag={task.tag} />
+      </div>
+    </motion.div>
+  );
+};
 
 export default HomePage;
