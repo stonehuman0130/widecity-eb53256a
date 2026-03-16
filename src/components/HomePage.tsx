@@ -42,8 +42,12 @@ const HomePage = () => {
   };
 
   const toDateParts = (dateStr?: string) => {
-    const d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
-    return { day: d.getDate(), month: d.getMonth(), year: d.getFullYear() };
+    if (dateStr) {
+      const [y, m, d] = dateStr.split("-").map(Number);
+      return { day: d, month: m - 1, year: y };
+    }
+    const now = new Date();
+    return { day: now.getDate(), month: now.getMonth(), year: now.getFullYear() };
   };
 
   const processAction = (action: any) => {

@@ -198,7 +198,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const d = new Date();
     // Check today and backwards
     for (let i = 0; i < 365; i++) {
-      const key = d.toISOString().split("T")[0];
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       if (sorted.includes(key)) {
         streak++;
       } else if (i > 0) {
