@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { useAppContext } from "@/context/AppContext";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const [currentDate] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState(currentDate.getDate());
+  const { events, addEvent } = useAppContext();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newTime, setNewTime] = useState("");
+  const [newUser, setNewUser] = useState<"me" | "partner" | "both">("me");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -13,14 +19,37 @@ const CalendarPage = () => {
   const firstDay = new Date(year, month, 1).getDay();
   const monthName = currentDate.toLocaleString("default", { month: "long" });
 
-  const events = [
-    { day: 16, title: "Date night", time: "7:00 PM", user: "both" as const },
-    { day: 18, title: "Dentist appointment", time: "10:00 AM", user: "me" as const },
-    { day: 20, title: "Dinner with parents", time: "6:30 PM", user: "partner" as const },
-    { day: 22, title: "Grocery run", time: "11:00 AM", user: "both" as const },
-  ];
+  const today = new Date();
+  const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
 
-  const dayEvents = events.filter((e) => e.day === selectedDay);
+  const monthEvents = events.filter((e) => e.month === month && e.year === year);
+  const dayEvents = monthEvents.filter((e) => e.day === selectedDay);
+
+  const prevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+    setSelectedDay(1);
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+    setSelectedDay(1);
+  };
+
+  const handleAddEvent = () => {
+    if (!newTitle.trim()) return;
+    addEvent({
+      title: newTitle.trim(),
+      time: newTime || "All day",
+      day: selectedDay,
+      month,
+      year,
+      user: newUser,
+    });
+    setNewTitle("");
+    setNewTime("");
+    setNewUser("me");
+    setShowAddForm(false);
+  };
 
   return (
     <div className="px-5">
@@ -28,10 +57,10 @@ const CalendarPage = () => {
         <div className="flex items-center justify-between">
           <h1 className="text-[1.75rem] font-bold tracking-display">Calendar</h1>
           <div className="flex items-center gap-2">
-            <button className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-foreground">
+            <button onClick={prevMonth} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-foreground">
               <ChevronLeft size={16} />
             </button>
-            <button className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-foreground">
+            <button onClick={nextMonth} className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-foreground">
               <ChevronRight size={16} />
             </button>
           </div>
@@ -52,9 +81,9 @@ const CalendarPage = () => {
           ))}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const day = i + 1;
-            const isToday = day === currentDate.getDate();
+            const isToday = isCurrentMonth && day === today.getDate();
             const isSelected = day === selectedDay;
-            const hasEvent = events.some((e) => e.day === day);
+            const hasEvent = monthEvents.some((e) => e.day === day);
             return (
               <button
                 key={day}
@@ -78,15 +107,64 @@ const CalendarPage = () => {
       </div>
 
       {/* Events for selected day */}
-      <h2 className="text-lg font-semibold tracking-display mb-3">
-        {monthName} {selectedDay}
-      </h2>
-      {dayEvents.length === 0 ? (
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold tracking-display">
+          {monthName} {selectedDay}
+        </h2>
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+        >
+          {showAddForm ? <X size={18} /> : <Plus size={18} />}
+        </button>
+      </div>
+
+      {/* Add Event Form */}
+      {showAddForm && (
+        <div className="bg-card rounded-xl p-4 border border-border shadow-card mb-4 space-y-3">
+          <input
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Event title..."
+            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+            autoFocus
+          />
+          <input
+            value={newTime}
+            onChange={(e) => setNewTime(e.target.value)}
+            placeholder="Time (e.g. 3:00 PM)"
+            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+          />
+          <div className="flex gap-2">
+            {(["me", "partner", "both"] as const).map((u) => (
+              <button
+                key={u}
+                onClick={() => setNewUser(u)}
+                className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-all ${
+                  newUser === u
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground"
+                }`}
+              >
+                {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleAddEvent}
+            className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold"
+          >
+            Add Event
+          </button>
+        </div>
+      )}
+
+      {dayEvents.length === 0 && !showAddForm ? (
         <p className="text-sm text-muted-foreground text-center py-8">No events scheduled</p>
       ) : (
         <div className="space-y-3">
-          {dayEvents.map((event, i) => (
-            <div key={i} className="bg-card rounded-xl p-4 border border-border shadow-card flex items-center gap-3">
+          {dayEvents.map((event) => (
+            <div key={event.id} className="bg-card rounded-xl p-4 border border-border shadow-card flex items-center gap-3">
               <div className={`w-1 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
               <div className="flex-1">
                 <p className="text-[15px] font-medium">{event.title}</p>
