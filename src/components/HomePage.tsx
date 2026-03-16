@@ -130,14 +130,18 @@ const HomePage = () => {
     return tag === "Household" || assignee === "both";
   };
 
+  const today = new Date();
+
   const filteredTasks = tasks.filter((t) => matchesFilter(t.assignee, t.tag));
+  const visibleEvents = events.filter((e) => matchesFilter(e.user));
 
-  const todayEvents = events.filter(
-    (e) => e.day === today.getDate() && e.month === today.getMonth() && e.year === today.getFullYear()
-  );
+  const isTaskScheduled = (t: Task) => {
+    const hasNonTodayDate = !isToday(t.scheduledDay, t.scheduledMonth, t.scheduledYear);
+    return Boolean(t.time) || hasNonTodayDate;
+  };
 
-  const scheduledTasks = filteredTasks.filter((t) => t.time);
-  const justDoIt = filteredTasks.filter((t) => !t.time);
+  const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
+  const justDoIt = filteredTasks.filter((t) => !isTaskScheduled(t));
 
   const todayFormatted = today.toLocaleDateString("en-US", {
     weekday: "short",
