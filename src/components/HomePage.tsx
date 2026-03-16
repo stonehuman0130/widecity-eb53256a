@@ -290,15 +290,24 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
     onToggle(task.id);
   };
 
+  const hasDate = task.scheduledDay !== undefined && task.scheduledMonth !== undefined && task.scheduledYear !== undefined;
+  const dateLabel = hasDate
+    ? new Date(task.scheduledYear!, task.scheduledMonth!, task.scheduledDay!).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      })
+    : null;
+
   return (
     <motion.div
       layout
       className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${task.done ? "border-habit-green/50" : "border-border"}`}
     >
-      {task.time && (
-        <div className="flex items-center gap-1.5 mb-2">
+      {(task.time || dateLabel) && (
+        <div className="flex items-center gap-2 mb-2">
           <Clock size={13} className="text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+          {task.time ? <span className="text-xs font-medium text-muted-foreground">{task.time}</span> : null}
+          {dateLabel ? <span className="text-xs text-muted-foreground">· {dateLabel}</span> : null}
         </div>
       )}
       <div className="flex items-center gap-3">
@@ -320,6 +329,46 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
         <TaskTag tag={task.tag} />
       </div>
     </motion.div>
+  );
+};
+
+const EventCard = ({ event, onRemove }: { event: ScheduledEvent; onRemove: (id: string) => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const dateLabel = new Date(event.year, event.month, event.day).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <div className="bg-card rounded-xl p-4 shadow-card border border-border flex items-center gap-3">
+      <div className={`w-1.5 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
+      <div className="flex-1">
+        <p className="text-[15px] font-medium">{event.title}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{event.time} · {dateLabel}</p>
+      </div>
+      <div className="relative">
+        <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+          <MoreVertical size={16} />
+        </button>
+        {menuOpen ? (
+          <>
+            <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+            <div className="absolute right-0 top-8 z-50 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
+              <button
+                onClick={() => {
+                  onRemove(event.id);
+                  setMenuOpen(false);
+                  toast.success("Event deleted");
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 };
 
