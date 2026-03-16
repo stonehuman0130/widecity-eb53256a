@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Sparkles, Mic, Clock, Check } from "lucide-react";
+import { Plus, Sparkles, Mic, Clock, Check, Loader2 } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
 import AddItemModal from "@/components/AddItemModal";
 import { useAppContext, Task } from "@/context/AppContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type Filter = "mine" | "partner" | "household";
 
@@ -13,7 +15,8 @@ const HomePage = () => {
   const [filter, setFilter] = useState<Filter>("mine");
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const { habits, toggleHabit, events, tasks, toggleTask, addTask } = useAppContext();
+  const [aiLoading, setAiLoading] = useState(false);
+  const { habits, toggleHabit, events, tasks, toggleTask, addTask, addEvent } = useAppContext();
 
   const morningHabits = habits.filter((h) => h.category === "morning");
 
@@ -30,6 +33,57 @@ const HomePage = () => {
       scheduledYear: today.getFullYear(),
     });
     setInput("");
+  };
+
+  const handleAiSchedule = async () => {
+    if (!input.trim()) return;
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-schedule", {
+        body: { text: input },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      const parsed = data;
+      const date = parsed.date ? new Date(parsed.date + "T00:00:00") : new Date();
+      const day = date.getDate();
+      const month = date.getMonth();
+      const year = date.getFullYear();
+
+      addEvent({
+        title: parsed.title,
+        time: parsed.time || "All day",
+        description: parsed.description || "",
+        day,
+        month,
+        year,
+        user: "me",
+      });
+
+      const today = new Date();
+      if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+        addTask({
+          title: parsed.title,
+          time: parsed.time || "",
+          tag: "Personal",
+          assignee: "me",
+          scheduledDay: day,
+          scheduledMonth: month,
+          scheduledYear: year,
+        });
+      }
+
+      toast.success(`Scheduled: ${parsed.title}`, {
+        description: `${parsed.date} ${parsed.time || "All day"}`,
+      });
+      setInput("");
+    } catch (e: any) {
+      console.error(e);
+      toast.error("AI couldn't parse that", { description: e.message });
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const filters: { id: Filter; label: string }[] = [
@@ -96,19 +150,35 @@ const HomePage = () => {
         ))}
       </div>
 
+      {/* AI-powered input bar */}
       <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 mb-6 shadow-card border border-border">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
-          placeholder="Brain dump a task..."
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && e.shiftKey) {
+              e.preventDefault();
+              handleAiSchedule();
+            } else if (e.key === "Enter") {
+              handleQuickAdd();
+            }
+          }}
+          placeholder="Type 'dentist at 2pm Tuesday' then ✨ or Enter..."
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
-        <button className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-primary-foreground">
-          <Sparkles size={16} />
+        <button
+          onClick={handleAiSchedule}
+          disabled={aiLoading || !input.trim()}
+          className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-primary-foreground disabled:opacity-50"
+        >
+          {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
         </button>
-        <button className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
-          <Mic size={16} />
+        <button
+          onClick={handleQuickAdd}
+          disabled={!input.trim()}
+          className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-50"
+        >
+          <Plus size={16} />
         </button>
       </div>
 
