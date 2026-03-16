@@ -94,7 +94,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center"
+        className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center overflow-y-auto"
         onClick={handleClose}
       >
         <motion.div
@@ -102,7 +102,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="w-full max-w-md bg-card rounded-t-2xl p-5 pb-8 border-t border-border max-h-[85vh] overflow-y-auto"
+          className="w-full max-w-md bg-card rounded-t-2xl p-5 pb-12 border-t border-border max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-5">
@@ -171,10 +171,10 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                 className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
               />
               <input
+                type="time"
                 value={calTime}
                 onChange={(e) => setCalTime(e.target.value)}
-                placeholder="Time (e.g. 3:00 PM) — leave empty for untimed"
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
               />
               <textarea
                 value={calDesc}
