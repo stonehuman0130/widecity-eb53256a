@@ -199,14 +199,19 @@ const WorkoutCard = ({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onToggle(workout.id)}
-            className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+            onClick={() => {
+              if (!workout.done) {
+                toast.success("🎉 Congrats!", { description: "You're becoming healthier every day!" });
+              }
+              onToggle(workout.id);
+            }}
+            className={`w-11 h-11 rounded-full border-2 flex items-center justify-center transition-colors ${
               workout.done
-                ? "bg-habit-green text-primary-foreground"
-                : "bg-primary text-primary-foreground"
+                ? "bg-habit-green border-habit-green text-primary-foreground"
+                : "border-muted bg-transparent text-muted-foreground"
             }`}
           >
-            <Check size={18} />
+            {workout.done && <Check size={18} />}
           </button>
 
           <div className="relative">

@@ -15,6 +15,7 @@ serve(async (req) => {
 
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
+    const dayOfWeek = today.toLocaleDateString("en-US", { weekday: "long" });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -27,7 +28,23 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a scheduling assistant. Today is ${todayStr}. Parse the user's natural language input into a structured calendar event. Extract: title, date, time, and description. If no date mentioned, assume today. Return using the provided tool.`,
+            content: `You are a scheduling and habit assistant. Today is ${todayStr} (${dayOfWeek}). 
+
+Determine if the user wants to:
+1. ADD A HABIT - keywords like "add ... to my habits", "morning habit", "daily habit", "routine"
+2. SCHEDULE AN EVENT/TASK - anything with a date, time, or deadline
+
+For habits: extract the habit name and category (morning or other).
+For events: extract title, date (YYYY-MM-DD), time (like "2:00 PM"), and description.
+
+IMPORTANT date rules:
+- "today" = ${todayStr}
+- "tomorrow" = the next day after today
+- Day names like "Tuesday" = the next upcoming occurrence of that day
+- If a specific time is mentioned (e.g. "2 pm", "3:00"), ALWAYS include it in the time field
+- If no date is mentioned, assume today
+
+Use the appropriate tool based on what the user wants.`,
           },
           { role: "user", content: text },
         ],
@@ -36,13 +53,13 @@ serve(async (req) => {
             type: "function",
             function: {
               name: "create_event",
-              description: "Create a calendar event from parsed natural language",
+              description: "Create a calendar event or scheduled task",
               parameters: {
                 type: "object",
                 properties: {
                   title: { type: "string", description: "Event title" },
                   date: { type: "string", description: "Date in YYYY-MM-DD format" },
-                  time: { type: "string", description: "Time like '2:00 PM' or empty for all-day" },
+                  time: { type: "string", description: "Time like '2:00 PM'. Must be set if user mentions a specific time." },
                   description: { type: "string", description: "Brief description if any" },
                 },
                 required: ["title", "date"],
@@ -50,8 +67,23 @@ serve(async (req) => {
               },
             },
           },
+          {
+            type: "function",
+            function: {
+              name: "add_habit",
+              description: "Add a new daily habit to the user's habit list",
+              parameters: {
+                type: "object",
+                properties: {
+                  label: { type: "string", description: "The habit name/label" },
+                  category: { type: "string", enum: ["morning", "other"], description: "Whether this is a morning habit or other habit" },
+                },
+                required: ["label", "category"],
+                additionalProperties: false,
+              },
+            },
+          },
         ],
-        tool_choice: { type: "function", function: { name: "create_event" } },
       }),
     });
 
@@ -69,8 +101,9 @@ serve(async (req) => {
     if (!toolCall) throw new Error("No tool call in response");
 
     const parsed = JSON.parse(toolCall.function.arguments);
+    const functionName = toolCall.function.name;
 
-    return new Response(JSON.stringify(parsed), {
+    return new Response(JSON.stringify({ type: functionName, ...parsed }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

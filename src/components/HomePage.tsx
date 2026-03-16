@@ -16,7 +16,7 @@ const HomePage = () => {
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const { habits, toggleHabit, events, tasks, toggleTask, addTask, addEvent } = useAppContext();
+  const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent } = useAppContext();
 
   const morningHabits = habits.filter((h) => h.category === "morning");
 
@@ -45,38 +45,41 @@ const HomePage = () => {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      const parsed = data;
-      const date = parsed.date ? new Date(parsed.date + "T00:00:00") : new Date();
-      const day = date.getDate();
-      const month = date.getMonth();
-      const year = date.getFullYear();
+      if (data.type === "add_habit") {
+        addHabit(data.label, data.category);
+        toast.success(`Habit added: ${data.label}`, {
+          description: `Added to ${data.category} habits`,
+        });
+      } else {
+        const date = data.date ? new Date(data.date + "T00:00:00") : new Date();
+        const day = date.getDate();
+        const month = date.getMonth();
+        const year = date.getFullYear();
 
-      addEvent({
-        title: parsed.title,
-        time: parsed.time || "All day",
-        description: parsed.description || "",
-        day,
-        month,
-        year,
-        user: "me",
-      });
+        addEvent({
+          title: data.title,
+          time: data.time || "All day",
+          description: data.description || "",
+          day,
+          month,
+          year,
+          user: "me",
+        });
 
-      const today = new Date();
-      if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
         addTask({
-          title: parsed.title,
-          time: parsed.time || "",
+          title: data.title,
+          time: data.time || "",
           tag: "Personal",
           assignee: "me",
           scheduledDay: day,
           scheduledMonth: month,
           scheduledYear: year,
         });
-      }
 
-      toast.success(`Scheduled: ${parsed.title}`, {
-        description: `${parsed.date} ${parsed.time || "All day"}`,
-      });
+        toast.success(`Scheduled: ${data.title}`, {
+          description: `${data.date} ${data.time || "All day"}`,
+        });
+      }
       setInput("");
     } catch (e: any) {
       console.error(e);
@@ -110,8 +113,8 @@ const HomePage = () => {
     (e) => e.day === today.getDate() && e.month === today.getMonth() && e.year === today.getFullYear()
   );
 
-  const scheduledTasks = filteredTasks.filter((t) => t.time && !t.done);
-  const justDoIt = filteredTasks.filter((t) => !t.time && !t.done);
+  const scheduledTasks = filteredTasks.filter((t) => t.time);
+  const justDoIt = filteredTasks.filter((t) => !t.time);
 
   const todayFormatted = today.toLocaleDateString("en-US", {
     weekday: "short",
@@ -257,36 +260,45 @@ const HomePage = () => {
   );
 };
 
-const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) => (
-  <motion.div
-    layout
-    className="bg-card rounded-xl p-4 shadow-card border border-border active:scale-[0.99] transition-transform"
-  >
-    {task.time && (
-      <div className="flex items-center gap-1.5 mb-2">
-        <Clock size={13} className="text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) => {
+  const handleToggle = () => {
+    if (!task.done) {
+      toast.success("🎉 Task complete!", { description: "Great job, keep it up!" });
+    }
+    onToggle(task.id);
+  };
+
+  return (
+    <motion.div
+      layout
+      className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${task.done ? "border-habit-green/50" : "border-border"}`}
+    >
+      {task.time && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <Clock size={13} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleToggle}
+          className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+            task.done ? "bg-habit-green border-habit-green" : "border-muted"
+          }`}
+        >
+          {task.done && <Check size={14} className="text-primary-foreground" />}
+        </button>
+        <span className={`flex-1 text-[15px] font-medium tracking-body ${task.done ? "line-through opacity-40" : ""}`}>
+          {task.title}
+        </span>
+        <UserBadge user={task.assignee} />
+        <TaskActionMenu taskId={task.id} />
       </div>
-    )}
-    <div className="flex items-center gap-3">
-      <button
-        onClick={() => onToggle(task.id)}
-        className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-          task.done ? "bg-foreground border-foreground" : "border-muted"
-        }`}
-      >
-        {task.done && <Check size={14} className="text-background" />}
-      </button>
-      <span className={`flex-1 text-[15px] font-medium tracking-body ${task.done ? "line-through opacity-40" : ""}`}>
-        {task.title}
-      </span>
-      <UserBadge user={task.assignee} />
-      <TaskActionMenu taskId={task.id} />
-    </div>
-    <div className="mt-2 ml-9">
-      <TaskTag tag={task.tag} />
-    </div>
-  </motion.div>
-);
+      <div className="mt-2 ml-9">
+        <TaskTag tag={task.tag} />
+      </div>
+    </motion.div>
+  );
+};
 
 export default HomePage;
