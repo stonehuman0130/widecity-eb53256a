@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Sparkles, Mic, Clock, Check, Loader2 } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2 } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
@@ -35,6 +35,47 @@ const HomePage = () => {
     setInput("");
   };
 
+  const processAction = (action: any) => {
+    if (action.action_type === "add_habit" || action.type === "add_habit") {
+      addHabit(action.label, action.category);
+      toast.success(`Habit added: ${action.label}`, {
+        description: `Added to ${action.category} habits`,
+      });
+    } else {
+      const date = action.date ? new Date(action.date + "T00:00:00") : new Date();
+      const day = date.getDate();
+      const month = date.getMonth();
+      const year = date.getFullYear();
+      const assignee = action.assignee || "me";
+      const tag = action.tag || "Personal";
+
+      addEvent({
+        title: action.title,
+        time: action.time || "All day",
+        description: action.description || "",
+        day,
+        month,
+        year,
+        user: assignee,
+      });
+
+      addTask({
+        title: action.title,
+        time: action.time || "",
+        tag: tag as "Work" | "Personal" | "Household",
+        assignee,
+        scheduledDay: day,
+        scheduledMonth: month,
+        scheduledYear: year,
+      });
+
+      // If household/both, the task already has assignee "both" which shows in all filters
+      toast.success(`Scheduled: ${action.title}`, {
+        description: `${action.date} ${action.time || "All day"}${assignee !== "me" ? ` · ${assignee === "partner" ? "Evelyn" : "Both"}` : ""}`,
+      });
+    }
+  };
+
   const handleAiSchedule = async () => {
     if (!input.trim()) return;
     setAiLoading(true);
@@ -45,40 +86,13 @@ const HomePage = () => {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      if (data.type === "add_habit") {
-        addHabit(data.label, data.category);
-        toast.success(`Habit added: ${data.label}`, {
-          description: `Added to ${data.category} habits`,
-        });
+      if (data.type === "multi" && data.actions) {
+        for (const action of data.actions) {
+          processAction(action);
+        }
+        toast.success(`✨ ${data.actions.length} actions completed!`);
       } else {
-        const date = data.date ? new Date(data.date + "T00:00:00") : new Date();
-        const day = date.getDate();
-        const month = date.getMonth();
-        const year = date.getFullYear();
-
-        addEvent({
-          title: data.title,
-          time: data.time || "All day",
-          description: data.description || "",
-          day,
-          month,
-          year,
-          user: "me",
-        });
-
-        addTask({
-          title: data.title,
-          time: data.time || "",
-          tag: "Personal",
-          assignee: "me",
-          scheduledDay: day,
-          scheduledMonth: month,
-          scheduledYear: year,
-        });
-
-        toast.success(`Scheduled: ${data.title}`, {
-          description: `${data.date} ${data.time || "All day"}`,
-        });
+        processAction(data);
       }
       setInput("");
     } catch (e: any) {
@@ -104,9 +118,9 @@ const HomePage = () => {
   );
 
   const filteredTasks = todayTasks.filter((t) => {
-    if (filter === "mine") return t.assignee === "me";
-    if (filter === "partner") return t.assignee === "partner";
-    return t.tag === "Household";
+    if (filter === "mine") return t.assignee === "me" || t.assignee === "both";
+    if (filter === "partner") return t.assignee === "partner" || t.assignee === "both";
+    return t.tag === "Household" || t.assignee === "both";
   });
 
   const todayEvents = events.filter(
@@ -166,7 +180,7 @@ const HomePage = () => {
               handleQuickAdd();
             }
           }}
-          placeholder="Type 'dentist at 2pm Tuesday' then ✨ or Enter..."
+          placeholder="Try: 'call at 2pm tomorrow & add stretch to mornings'"
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
         <button

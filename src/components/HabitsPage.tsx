@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Plus, Flame, Check, Droplets, Minus } from "lucide-react";
+import { Plus, Flame, Check, Droplets } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
+import WaterSlider from "@/components/WaterSlider";
+import HabitDateViewer from "@/components/HabitDateViewer";
 
 const HabitsPage = () => {
-  const { habits, toggleHabit, addHabit, waterIntake, waterGoal, addWater, setWaterGoal, resetWater } = useAppContext();
+  const { habits, toggleHabit, addHabit, getHabitStreak } = useAppContext();
   const [newHabitLabel, setNewHabitLabel] = useState("");
   const [addingTo, setAddingTo] = useState<"morning" | "other" | null>(null);
-  const [editingGoal, setEditingGoal] = useState(false);
 
   const morningHabits = habits.filter((h) => h.category === "morning");
   const otherHabits = habits.filter((h) => h.category === "other");
@@ -14,8 +15,6 @@ const HabitsPage = () => {
   const totalCompleted = habits.filter((h) => h.done).length;
   const total = habits.length;
   const morningCompleted = morningHabits.filter((h) => h.done).length;
-
-  const waterPercent = waterGoal > 0 ? Math.min((waterIntake / waterGoal) * 100, 100) : 0;
 
   const handleAdd = () => {
     if (!newHabitLabel.trim() || !addingTo) return;
@@ -53,83 +52,11 @@ const HabitsPage = () => {
         </p>
       </div>
 
-      {/* Water Consumption */}
-      <section className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold tracking-display flex items-center gap-2">
-            <Droplets size={20} className="text-primary" /> Water Intake
-          </h2>
-          <button
-            onClick={() => setEditingGoal(!editingGoal)}
-            className="text-xs text-muted-foreground font-medium px-2 py-1 rounded-lg bg-secondary"
-          >
-            Goal: {waterGoal}L
-          </button>
-        </div>
+      {/* Water Slider */}
+      <WaterSlider />
 
-        {editingGoal && (
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-sm text-muted-foreground">Set goal (L):</span>
-            {[1.5, 2, 2.5, 3, 3.5, 4].map((g) => (
-              <button
-                key={g}
-                onClick={() => { setWaterGoal(g); setEditingGoal(false); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  waterGoal === g ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-                }`}
-              >
-                {g}L
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="bg-card rounded-xl p-5 border border-border shadow-card">
-          {/* Gauge */}
-          <div className="flex items-center gap-4">
-            <div className="relative w-20 h-20">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                <circle cx="50" cy="50" r="42" fill="none" strokeWidth="8" className="stroke-secondary" />
-                <circle
-                  cx="50" cy="50" r="42" fill="none" strokeWidth="8"
-                  strokeLinecap="round"
-                  className="stroke-primary transition-all duration-500"
-                  strokeDasharray={`${waterPercent * 2.64} ${264 - waterPercent * 2.64}`}
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-bold">{waterIntake.toFixed(1)}L</span>
-              </div>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">{waterIntake.toFixed(1)} / {waterGoal}L</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {waterPercent >= 100 ? "🎉 Goal reached!" : `${(waterGoal - waterIntake).toFixed(1)}L remaining`}
-              </p>
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => addWater(0.25)}
-                  className="flex-1 py-2 bg-primary/10 text-primary rounded-lg text-xs font-bold active:scale-[0.97] transition-transform"
-                >
-                  +250ml
-                </button>
-                <button
-                  onClick={() => addWater(0.5)}
-                  className="flex-1 py-2 bg-primary/10 text-primary rounded-lg text-xs font-bold active:scale-[0.97] transition-transform"
-                >
-                  +500ml
-                </button>
-                <button
-                  onClick={resetWater}
-                  className="py-2 px-3 bg-secondary text-muted-foreground rounded-lg text-xs font-medium active:scale-[0.97] transition-transform"
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Past Date Viewer */}
+      <HabitDateViewer />
 
       {/* Morning Habits */}
       <section className="mb-6">
@@ -159,7 +86,7 @@ const HabitsPage = () => {
         )}
         <div className="space-y-2">
           {morningHabits.map((habit) => (
-            <HabitRow key={habit.id} habit={habit} onToggle={toggleHabit} />
+            <HabitRow key={habit.id} habit={habit} onToggle={toggleHabit} streak={getHabitStreak(habit.id)} />
           ))}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
@@ -212,7 +139,7 @@ const HabitsPage = () => {
               <p className="text-sm font-semibold text-center">{habit.label}</p>
               <div className="flex items-center gap-1 text-accent">
                 <Flame size={14} />
-                <span className="text-xs font-bold">0 days</span>
+                <span className="text-xs font-bold">{getHabitStreak(habit.id)} days</span>
               </div>
             </button>
           ))}
@@ -222,7 +149,7 @@ const HabitsPage = () => {
   );
 };
 
-const HabitRow = ({ habit, onToggle }: { habit: { id: string; label: string; done: boolean }; onToggle: (id: string) => void }) => (
+const HabitRow = ({ habit, onToggle, streak }: { habit: { id: string; label: string; done: boolean }; onToggle: (id: string) => void; streak: number }) => (
   <button
     onClick={() => onToggle(habit.id)}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all active:scale-[0.98] ${
@@ -238,7 +165,11 @@ const HabitRow = ({ habit, onToggle }: { habit: { id: string; label: string; don
     ) : (
       <span className="w-6 h-6 rounded-full border-2 border-muted flex-shrink-0" />
     )}
-    <span className={`text-sm font-medium ${habit.done ? "line-through opacity-50" : ""}`}>{habit.label}</span>
+    <span className={`flex-1 text-left text-sm font-medium ${habit.done ? "line-through opacity-50" : ""}`}>{habit.label}</span>
+    <div className="flex items-center gap-1 text-accent">
+      <Flame size={12} />
+      <span className="text-xs font-bold">{streak}d</span>
+    </div>
   </button>
 );
 
