@@ -80,10 +80,15 @@ const HomePage = () => {
     if (!input.trim()) return;
     setAiLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("ai-schedule", {
+      const { data: rawData, error } = await supabase.functions.invoke("ai-schedule", {
         body: { text: input },
       });
       if (error) throw error;
+      
+      // Handle both string and object responses
+      const data = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
+      console.log("AI response:", JSON.stringify(data));
+      
       if (data.error) throw new Error(data.error);
 
       if (data.type === "multi" && data.actions) {
@@ -96,7 +101,7 @@ const HomePage = () => {
       }
       setInput("");
     } catch (e: any) {
-      console.error(e);
+      console.error("AI schedule error:", e);
       toast.error("AI couldn't parse that", { description: e.message });
     } finally {
       setAiLoading(false);
