@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X } from "lucide-react";
+import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppContext, Workout } from "@/context/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,10 +15,11 @@ interface AIPlan {
 }
 
 const WorkoutsPage = () => {
-  const { workouts, toggleWorkout, removeWorkout, setWorkouts } = useAppContext();
+  const { workouts, toggleWorkout, removeWorkout, setWorkouts, getWorkoutsForDate } = useAppContext();
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
+  const [viewingDate, setViewingDate] = useState<string | null>(null);
 
   const completedCount = workouts.filter((w) => w.done).length;
   const totalCal = workouts.reduce((sum, w) => sum + w.cal, 0);
@@ -59,6 +60,15 @@ const WorkoutsPage = () => {
     toast.success(`Added: ${plan.title}`);
   };
 
+  const shiftDate = (days: number) => {
+    if (!viewingDate) return;
+    const d = new Date(viewingDate + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    setViewingDate(d.toISOString().split("T")[0]);
+  };
+
+  const pastWorkouts = viewingDate ? getWorkoutsForDate(viewingDate) : [];
+
   return (
     <div className="px-5">
       <header className="pt-12 pb-4">
@@ -94,12 +104,7 @@ const WorkoutsPage = () => {
       {/* AI Plan Selection */}
       <AnimatePresence>
         {aiPlans && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mb-6"
-          >
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">Choose a plan</h3>
               <button onClick={() => setAiPlans(null)} className="text-muted-foreground"><X size={16} /></button>
@@ -152,6 +157,45 @@ const WorkoutsPage = () => {
         ))}
       </div>
 
+      {/* Past Date Viewer */}
+      {!viewingDate ? (
+        <button
+          onClick={() => {
+            const d = new Date();
+            d.setDate(d.getDate() - 1);
+            setViewingDate(d.toISOString().split("T")[0]);
+          }}
+          className="flex items-center gap-2 text-sm text-primary font-medium mb-4"
+        >
+          <CalendarDays size={16} />
+          View past workouts
+        </button>
+      ) : (
+        <div className="bg-card rounded-xl p-4 border border-border shadow-card mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => shiftDate(-1)} className="p-1 rounded-lg bg-secondary"><ChevronLeft size={16} /></button>
+            <p className="text-sm font-semibold">
+              {new Date(viewingDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+            </p>
+            <button onClick={() => shiftDate(1)} className="p-1 rounded-lg bg-secondary"><ChevronRight size={16} /></button>
+          </div>
+          {pastWorkouts.length > 0 ? (
+            <div className="space-y-2">
+              {pastWorkouts.map((w) => (
+                <div key={w.id} className="flex items-center gap-3 text-sm">
+                  <span className="text-lg">{w.emoji}</span>
+                  <span className="flex-1 font-medium">{w.title}</span>
+                  <span className="text-xs text-muted-foreground">{w.duration} · {w.cal}cal</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-2">No workouts on this date</p>
+          )}
+          <button onClick={() => setViewingDate(null)} className="mt-3 text-xs text-muted-foreground font-medium w-full text-center">Close</button>
+        </div>
+      )}
+
       {/* Today's Plan */}
       <h2 className="text-lg font-semibold tracking-display mb-3">Today's Plan</h2>
       <div className="space-y-3">
@@ -183,7 +227,7 @@ const WorkoutCard = ({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className={`bg-card rounded-xl border shadow-card transition-all ${workout.done ? "border-habit-green/50 opacity-75" : "border-border"}`}>
+    <div className={`bg-card rounded-xl border shadow-card transition-all ${workout.done ? "border-habit-green/50" : "border-border"}`}>
       <div className="p-4 flex items-center gap-4">
         <span className="text-3xl">{workout.emoji}</span>
         <div className="flex-1">
@@ -215,10 +259,7 @@ const WorkoutCard = ({
           </button>
 
           <div className="relative">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="text-muted-foreground p-1"
-            >
+            <button onClick={() => setMenuOpen(!menuOpen)} className="text-muted-foreground p-1">
               <MoreVertical size={16} />
             </button>
             {menuOpen && (

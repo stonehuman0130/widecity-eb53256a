@@ -28,23 +28,47 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a scheduling and habit assistant. Today is ${todayStr} (${dayOfWeek}). 
+            content: `You are a smart, forgiving scheduling and habit assistant for a couple named Harrison and Evelyn. Today is ${todayStr} (${dayOfWeek}).
 
-Determine if the user wants to:
-1. ADD A HABIT - keywords like "add ... to my habits", "morning habit", "daily habit", "routine"
-2. SCHEDULE AN EVENT/TASK - anything with a date, time, or deadline
+You must parse the user's natural language into one or more structured actions. Users may be casual, use shorthand, have typos, or mix multiple requests in one message. Always infer the most likely intent.
 
-For habits: extract the habit name and category (morning or other).
-For events: extract title, date (YYYY-MM-DD), time (like "2:00 PM"), and description.
+ACTIONS YOU CAN PERFORM (call multiple tools if the user wants multiple things):
 
-IMPORTANT date rules:
+1. create_event — Schedule a task/event with a date and optionally a time
+2. add_habit — Add a daily habit to the user's habit tracker
+3. perform_actions — When the user wants MULTIPLE things done at once, use this to batch them
+
+PERSON/ASSIGNMENT RULES:
+- "Harrison", "mine", "my", "me", "I" → assignee "me"
+- "Evelyn", "Evelyn's", "her", "partner" → assignee "partner"
+- "both", "us", "shared", "household", "together" → assignee "both"
+- If no person mentioned, default to "me"
+
+HABIT RULES:
+- Keywords: "habit", "habits", "routine", "daily", "every day", "make this a habit", "add to routine", "part of my mornings"
+- "morning habit", "morning routine", "mornings", "AM routine", "part of my mornings", "for mornings", "morning" → category "morning"
+- "habit", "routine", "other habit", "evening", "daily" (without morning context) → category "other"
+- Be very forgiving: "put this in my routine" = other habit, "add X to my morning" = morning habit
+
+SCHEDULING RULES:
 - "today" = ${todayStr}
 - "tomorrow" = the next day after today
-- Day names like "Tuesday" = the next upcoming occurrence of that day
-- If a specific time is mentioned (e.g. "2 pm", "3:00"), ALWAYS include it in the time field
-- If no date is mentioned, assume today
+- Day names like "Tuesday" = the NEXT upcoming occurrence
+- If a specific time is mentioned (e.g. "2 pm", "3:00", "at 7"), ALWAYS include it
+- If no date is mentioned for a scheduled item, assume today
+- "morning" when combined with a date/time context means scheduling, not habit
 
-Use the appropriate tool based on what the user wants.`,
+TAG RULES:
+- "work", "office", "meeting", "project" → tag "Work"
+- "household", "chores", "cleaning", "trash", "laundry", "dishes" → tag "Household"  
+- Everything else → tag "Personal"
+
+MULTI-ACTION:
+- If the user says "Add X to habits AND schedule Y for tomorrow", you MUST call BOTH add_habit and create_event (or use perform_actions).
+- Parse each action independently.
+- Example: "Add stretch at 2 PM tomorrow and add stretch to my morning habits" → TWO actions: one create_event for tomorrow 2PM, one add_habit morning.
+
+IMPORTANT: Be smart and forgiving. If the user says something slightly wrong or imprecise, do the most sensible thing. You are a smart assistant, not a strict parser.`,
           },
           { role: "user", content: text },
         ],
@@ -53,7 +77,7 @@ Use the appropriate tool based on what the user wants.`,
             type: "function",
             function: {
               name: "create_event",
-              description: "Create a calendar event or scheduled task",
+              description: "Create a single calendar event or scheduled task",
               parameters: {
                 type: "object",
                 properties: {
@@ -61,6 +85,8 @@ Use the appropriate tool based on what the user wants.`,
                   date: { type: "string", description: "Date in YYYY-MM-DD format" },
                   time: { type: "string", description: "Time like '2:00 PM'. Must be set if user mentions a specific time." },
                   description: { type: "string", description: "Brief description if any" },
+                  assignee: { type: "string", enum: ["me", "partner", "both"], description: "Who this is assigned to" },
+                  tag: { type: "string", enum: ["Work", "Personal", "Household"], description: "Task category tag" },
                 },
                 required: ["title", "date"],
                 additionalProperties: false,
@@ -83,6 +109,39 @@ Use the appropriate tool based on what the user wants.`,
               },
             },
           },
+          {
+            type: "function",
+            function: {
+              name: "perform_actions",
+              description: "Perform multiple actions at once when the user wants several things done in one request",
+              parameters: {
+                type: "object",
+                properties: {
+                  actions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        action_type: { type: "string", enum: ["create_event", "add_habit"] },
+                        title: { type: "string", description: "Event title (for create_event)" },
+                        date: { type: "string", description: "Date YYYY-MM-DD (for create_event)" },
+                        time: { type: "string", description: "Time like '2:00 PM' (for create_event)" },
+                        description: { type: "string" },
+                        assignee: { type: "string", enum: ["me", "partner", "both"] },
+                        tag: { type: "string", enum: ["Work", "Personal", "Household"] },
+                        label: { type: "string", description: "Habit name (for add_habit)" },
+                        category: { type: "string", enum: ["morning", "other"], description: "Habit category (for add_habit)" },
+                      },
+                      required: ["action_type"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["actions"],
+                additionalProperties: false,
+              },
+            },
+          },
         ],
       }),
     });
@@ -97,13 +156,53 @@ Use the appropriate tool based on what the user wants.`,
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) throw new Error("No tool call in response");
+    const toolCalls = data.choices?.[0]?.message?.tool_calls;
+    if (!toolCalls || toolCalls.length === 0) throw new Error("No tool call in response");
 
-    const parsed = JSON.parse(toolCall.function.arguments);
-    const functionName = toolCall.function.name;
+    // Collect all actions from potentially multiple tool calls
+    const allActions: any[] = [];
 
-    return new Response(JSON.stringify({ type: functionName, ...parsed }), {
+    for (const tc of toolCalls) {
+      const parsed = JSON.parse(tc.function.arguments);
+      const fname = tc.function.name;
+
+      if (fname === "perform_actions" && parsed.actions) {
+        for (const a of parsed.actions) {
+          allActions.push(a);
+        }
+      } else if (fname === "create_event") {
+        allActions.push({ action_type: "create_event", ...parsed });
+      } else if (fname === "add_habit") {
+        allActions.push({ action_type: "add_habit", ...parsed });
+      }
+    }
+
+    if (allActions.length === 0) throw new Error("No actions parsed");
+
+    // If single action, return flat for backward compat
+    if (allActions.length === 1) {
+      const a = allActions[0];
+      if (a.action_type === "add_habit") {
+        return new Response(JSON.stringify({ type: "add_habit", label: a.label, category: a.category }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } else {
+        return new Response(JSON.stringify({
+          type: "create_event",
+          title: a.title,
+          date: a.date,
+          time: a.time,
+          description: a.description,
+          assignee: a.assignee || "me",
+          tag: a.tag || "Personal",
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Multiple actions
+    return new Response(JSON.stringify({ type: "multi", actions: allActions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

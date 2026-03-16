@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback } from "react";
 
 export interface Habit {
   id: string;
   label: string;
   done: boolean;
   category: "morning" | "other";
+  completionDates: string[]; // ISO date strings "YYYY-MM-DD"
 }
 
 export interface ScheduledEvent {
@@ -23,7 +24,7 @@ export interface Task {
   title: string;
   time: string;
   tag: "Work" | "Personal" | "Household";
-  assignee: "me" | "partner";
+  assignee: "me" | "partner" | "both";
   done: boolean;
   scheduledDay?: number;
   scheduledMonth?: number;
@@ -38,7 +39,8 @@ export interface Workout {
   tag: string;
   emoji: string;
   done: boolean;
-  exercises?: { name: string; sets: number; reps: string; }[];
+  completedDate?: string; // ISO date "YYYY-MM-DD"
+  exercises?: { name: string; sets: number; reps: string }[];
 }
 
 interface AppContextType {
@@ -55,26 +57,30 @@ interface AppContextType {
   updateTask: (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time">>) => void;
   waterIntake: number;
   waterGoal: number;
-  addWater: (amount: number) => void;
+  setWaterIntake: (amount: number) => void;
   setWaterGoal: (goal: number) => void;
   resetWater: () => void;
   workouts: Workout[];
   toggleWorkout: (id: string) => void;
   removeWorkout: (id: string) => void;
   setWorkouts: (workouts: Workout[]) => void;
+  getHabitStreak: (id: string) => number;
+  getHabitsForDate: (date: string) => Habit[];
+  getWorkoutsForDate: (date: string) => Workout[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const todayStr = () => new Date().toISOString().split("T")[0];
 const today = new Date();
 
 const initialHabits: Habit[] = [
-  { id: "1", label: "Drink Olive Oil", done: false, category: "morning" },
-  { id: "2", label: "Take Vitamins", done: false, category: "morning" },
-  { id: "3", label: "Stretch", done: false, category: "morning" },
-  { id: "4", label: "Meditation", done: false, category: "other" },
-  { id: "5", label: "Read 10 Pages", done: false, category: "other" },
-  { id: "6", label: "Gratitude Journal", done: false, category: "other" },
+  { id: "1", label: "Drink Olive Oil", done: false, category: "morning", completionDates: [] },
+  { id: "2", label: "Take Vitamins", done: false, category: "morning", completionDates: [] },
+  { id: "3", label: "Stretch", done: false, category: "morning", completionDates: [] },
+  { id: "4", label: "Meditation", done: false, category: "other", completionDates: [] },
+  { id: "5", label: "Read 10 Pages", done: false, category: "other", completionDates: [] },
+  { id: "6", label: "Gratitude Journal", done: false, category: "other", completionDates: [] },
 ];
 
 const initialEvents: ScheduledEvent[] = [
@@ -104,16 +110,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [habits, setHabits] = useState<Habit[]>(initialHabits);
   const [events, setEvents] = useState<ScheduledEvent[]>(initialEvents);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [waterIntake, setWaterIntake] = useState(0);
+  const [waterIntake, setWaterIntakeState] = useState(0);
   const [waterGoal, setWaterGoalState] = useState(3);
   const [workouts, setWorkoutsState] = useState<Workout[]>(initialWorkouts);
 
   const toggleHabit = (id: string) => {
-    setHabits((h) => h.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
+    const dateKey = todayStr();
+    setHabits((h) =>
+      h.map((item) => {
+        if (item.id !== id) return item;
+        const wasDone = item.completionDates.includes(dateKey);
+        return {
+          ...item,
+          done: !item.done,
+          completionDates: wasDone
+            ? item.completionDates.filter((d) => d !== dateKey)
+            : [...item.completionDates, dateKey],
+        };
+      })
+    );
   };
 
   const addHabit = (label: string, category: "morning" | "other") => {
-    setHabits((h) => [...h, { id: Date.now().toString(), label, done: false, category }]);
+    setHabits((h) => [...h, { id: Date.now().toString(), label, done: false, category, completionDates: [] }]);
   };
 
   const addEvent = (event: Omit<ScheduledEvent, "id">) => {
@@ -140,15 +159,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setTasks((t) => t.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   };
 
-  const addWater = (amount: number) => {
-    setWaterIntake((w) => Math.min(w + amount, waterGoal));
+  const setWaterIntake = (amount: number) => {
+    setWaterIntakeState(Math.max(0, Math.min(amount, waterGoal)));
   };
 
-  const resetWater = () => setWaterIntake(0);
+  const resetWater = () => setWaterIntakeState(0);
   const setWaterGoal = (goal: number) => setWaterGoalState(goal);
 
   const toggleWorkout = (id: string) => {
-    setWorkoutsState((w) => w.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
+    const dateKey = todayStr();
+    setWorkoutsState((w) =>
+      w.map((item) =>
+        item.id === id
+          ? { ...item, done: !item.done, completedDate: !item.done ? dateKey : undefined }
+          : item
+      )
+    );
   };
 
   const removeWorkout = (id: string) => {
@@ -159,13 +185,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setWorkoutsState(newWorkouts);
   };
 
+  const getHabitStreak = useCallback((id: string) => {
+    const habit = habits.find((h) => h.id === id);
+    if (!habit) return 0;
+    const sorted = [...habit.completionDates].sort().reverse();
+    if (sorted.length === 0) return 0;
+
+    let streak = 0;
+    const d = new Date();
+    // Check today and backwards
+    for (let i = 0; i < 365; i++) {
+      const key = d.toISOString().split("T")[0];
+      if (sorted.includes(key)) {
+        streak++;
+      } else if (i > 0) {
+        // Allow missing today (haven't done it yet), but break on past misses
+        break;
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }, [habits]);
+
+  const getHabitsForDate = useCallback((date: string) => {
+    return habits.map((h) => ({
+      ...h,
+      done: h.completionDates.includes(date),
+    }));
+  }, [habits]);
+
+  const getWorkoutsForDate = useCallback((date: string) => {
+    return workouts.filter((w) => w.completedDate === date);
+  }, [workouts]);
+
   return (
     <AppContext.Provider value={{
       habits, toggleHabit, addHabit,
       events, addEvent, removeEvent,
       tasks, toggleTask, addTask, removeTask, updateTask,
-      waterIntake, waterGoal, addWater, setWaterGoal, resetWater,
+      waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, toggleWorkout, removeWorkout, setWorkouts,
+      getHabitStreak, getHabitsForDate, getWorkoutsForDate,
     }}>
       {children}
     </AppContext.Provider>
