@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
-import { useAppContext } from "@/context/AppContext";
+import { ChevronLeft, ChevronRight, Plus, X, Check, MoreVertical, Trash2, Clock } from "lucide-react";
+import { useAppContext, Task } from "@/context/AppContext";
+import UserBadge from "@/components/UserBadge";
+import TaskTag from "@/components/TaskTag";
+import { toast } from "sonner";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const { events, addEvent } = useAppContext();
+  const { events, addEvent, removeEvent, tasks, toggleTask, removeTask } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [showAddForm, setShowAddForm] = useState(false);
@@ -24,6 +27,17 @@ const CalendarPage = () => {
 
   const monthEvents = events.filter((e) => e.month === month && e.year === year);
   const dayEvents = monthEvents.filter((e) => e.day === selectedDay);
+
+  // Tasks scheduled for the selected day
+  const dayTasks = tasks.filter(
+    (t) => t.scheduledDay === selectedDay && t.scheduledMonth === month && t.scheduledYear === year
+  );
+
+  // Check if a day has any items (events or tasks)
+  const dayHasItems = (day: number) => {
+    return monthEvents.some((e) => e.day === day) ||
+      tasks.some((t) => t.scheduledDay === day && t.scheduledMonth === month && t.scheduledYear === year);
+  };
 
   const prevMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1));
@@ -83,7 +97,7 @@ const CalendarPage = () => {
             const day = i + 1;
             const isToday = isCurrentMonth && day === today.getDate();
             const isSelected = day === selectedDay;
-            const hasEvent = monthEvents.some((e) => e.day === day);
+            const hasItem = dayHasItems(day);
             return (
               <button
                 key={day}
@@ -97,7 +111,7 @@ const CalendarPage = () => {
                 }`}
               >
                 {day}
-                {hasEvent && !isSelected && (
+                {hasItem && !isSelected && (
                   <span className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
                 )}
               </button>
@@ -106,7 +120,7 @@ const CalendarPage = () => {
         </div>
       </div>
 
-      {/* Events for selected day */}
+      {/* Events & Tasks for selected day */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold tracking-display">
           {monthName} {selectedDay}
@@ -159,21 +173,100 @@ const CalendarPage = () => {
         </div>
       )}
 
-      {dayEvents.length === 0 && !showAddForm ? (
-        <p className="text-sm text-muted-foreground text-center py-8">No events scheduled</p>
+      {dayEvents.length === 0 && dayTasks.length === 0 && !showAddForm ? (
+        <p className="text-sm text-muted-foreground text-center py-8">No items scheduled</p>
       ) : (
         <div className="space-y-3">
+          {/* Calendar events */}
           {dayEvents.map((event) => (
-            <div key={event.id} className="bg-card rounded-xl p-4 border border-border shadow-card flex items-center gap-3">
-              <div className={`w-1 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
-              <div className="flex-1">
-                <p className="text-[15px] font-medium">{event.title}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{event.time}</p>
-              </div>
-            </div>
+            <CalendarEventCard key={`ev-${event.id}`} event={event} onRemove={removeEvent} />
+          ))}
+          {/* Tasks */}
+          {dayTasks.map((task) => (
+            <CalendarTaskCard key={`tk-${task.id}`} task={task} onToggle={toggleTask} onRemove={removeTask} />
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+const CalendarEventCard = ({ event, onRemove }: { event: any; onRemove: (id: string) => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <div className="bg-card rounded-xl p-4 border border-border shadow-card flex items-center gap-3">
+      <div className={`w-1 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
+      <div className="flex-1">
+        <p className="text-[15px] font-medium">{event.title}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{event.time}</p>
+      </div>
+      <div className="relative">
+        <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+          <MoreVertical size={16} />
+        </button>
+        {menuOpen && (
+          <>
+            <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+            <div className="absolute right-0 top-8 z-50 min-w-[140px] rounded-xl border border-border bg-card shadow-card">
+              <button
+                onClick={() => { onRemove(event.id); setMenuOpen(false); toast.success("Event deleted"); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const CalendarTaskCard = ({ task, onToggle, onRemove }: { task: Task; onToggle: (id: string) => void; onRemove: (id: string) => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <div className={`bg-card rounded-xl p-4 shadow-card border transition-all ${task.done ? "border-habit-green/50" : "border-border"}`}>
+      {task.time && (
+        <div className="flex items-center gap-2 mb-2">
+          <Clock size={13} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => onToggle(task.id)}
+          className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+            task.done ? "bg-habit-green border-habit-green" : "border-muted"
+          }`}
+        >
+          {task.done && <Check size={14} className="text-primary-foreground" />}
+        </button>
+        <span className={`flex-1 text-[15px] font-medium ${task.done ? "line-through opacity-40" : ""}`}>
+          {task.title}
+        </span>
+        <UserBadge user={task.assignee} />
+        <div className="relative">
+          <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+            <MoreVertical size={16} />
+          </button>
+          {menuOpen && (
+            <>
+              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+              <div className="absolute right-0 top-8 z-50 min-w-[140px] rounded-xl border border-border bg-card shadow-card">
+                <button
+                  onClick={() => { onRemove(task.id); setMenuOpen(false); toast.success("Task deleted"); }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="mt-2 ml-9">
+        <TaskTag tag={task.tag} />
+      </div>
     </div>
   );
 };
