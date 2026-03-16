@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Sparkles, Clock, Check, Loader2 } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2 } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
 import AddItemModal from "@/components/AddItemModal";
-import { useAppContext, Task } from "@/context/AppContext";
+import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -16,7 +16,7 @@ const HomePage = () => {
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent } = useAppContext();
+  const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent } = useAppContext();
 
   const morningHabits = habits.filter((h) => h.category === "morning");
 
@@ -35,45 +35,60 @@ const HomePage = () => {
     setInput("");
   };
 
+  const isToday = (day?: number, month?: number, year?: number) => {
+    if (day === undefined || month === undefined || year === undefined) return true;
+    const now = new Date();
+    return day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+  };
+
+  const toDateParts = (dateStr?: string) => {
+    const d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+    return { day: d.getDate(), month: d.getMonth(), year: d.getFullYear() };
+  };
+
   const processAction = (action: any) => {
-    if (action.action_type === "add_habit" || action.type === "add_habit") {
-      addHabit(action.label, action.category);
-      toast.success(`Habit added: ${action.label}`, {
-        description: `Added to ${action.category} habits`,
-      });
-    } else {
-      const date = action.date ? new Date(action.date + "T00:00:00") : new Date();
-      const day = date.getDate();
-      const month = date.getMonth();
-      const year = date.getFullYear();
-      const assignee = action.assignee || "me";
-      const tag = action.tag || "Personal";
+    const actionType = action.action_type || action.type || (action.label ? "add_habit" : "create_event");
 
-      addEvent({
-        title: action.title,
-        time: action.time || "All day",
-        description: action.description || "",
-        day,
-        month,
-        year,
-        user: assignee,
-      });
+    if (actionType === "add_habit") {
+      const inferredCategory = /morning|mornings|am routine/i.test(input) ? "morning" : "other";
+      const label = action.label || action.title;
+      const category = action.category || inferredCategory;
+      if (!label) return;
 
-      addTask({
-        title: action.title,
-        time: action.time || "",
-        tag: tag as "Work" | "Personal" | "Household",
-        assignee,
-        scheduledDay: day,
-        scheduledMonth: month,
-        scheduledYear: year,
+      addHabit(label, category);
+      toast.success(`Habit added: ${label}`, {
+        description: `Added to ${category} habits`,
       });
-
-      // If household/both, the task already has assignee "both" which shows in all filters
-      toast.success(`Scheduled: ${action.title}`, {
-        description: `${action.date} ${action.time || "All day"}${assignee !== "me" ? ` · ${assignee === "partner" ? "Evelyn" : "Both"}` : ""}`,
-      });
+      return;
     }
+
+    const { day, month, year } = toDateParts(action.date);
+    const assignee = action.assignee || "me";
+    const tag = action.tag || "Personal";
+
+    addEvent({
+      title: action.title,
+      time: action.time || "All day",
+      description: action.description || "",
+      day,
+      month,
+      year,
+      user: assignee,
+    });
+
+    addTask({
+      title: action.title,
+      time: action.time || "",
+      tag: tag as "Work" | "Personal" | "Household",
+      assignee,
+      scheduledDay: day,
+      scheduledMonth: month,
+      scheduledYear: year,
+    });
+
+    toast.success(`Scheduled: ${action.title}`, {
+      description: `${action.date || "today"} ${action.time || "All day"}${assignee !== "me" ? ` · ${assignee === "partner" ? "Evelyn" : "Both"}` : ""}`,
+    });
   };
 
   const handleAiSchedule = async () => {
@@ -84,17 +99,12 @@ const HomePage = () => {
         body: { text: input },
       });
       if (error) throw error;
-      
-      // Handle both string and object responses
+
       const data = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
-      console.log("AI response:", JSON.stringify(data));
-      
       if (data.error) throw new Error(data.error);
 
-      if (data.type === "multi" && data.actions) {
-        for (const action of data.actions) {
-          processAction(action);
-        }
+      if (data.type === "multi" && Array.isArray(data.actions)) {
+        data.actions.forEach((action: any) => processAction(action));
         toast.success(`✨ ${data.actions.length} actions completed!`);
       } else {
         processAction(data);
@@ -114,26 +124,24 @@ const HomePage = () => {
     { id: "household", label: "Household" },
   ];
 
+  const matchesFilter = (assignee: "me" | "partner" | "both", tag?: string) => {
+    if (filter === "mine") return assignee === "me" || assignee === "both";
+    if (filter === "partner") return assignee === "partner" || assignee === "both";
+    return tag === "Household" || assignee === "both";
+  };
+
   const today = new Date();
-  const todayTasks = tasks.filter(
-    (t) =>
-      t.scheduledDay === today.getDate() &&
-      t.scheduledMonth === today.getMonth() &&
-      t.scheduledYear === today.getFullYear()
-  );
 
-  const filteredTasks = todayTasks.filter((t) => {
-    if (filter === "mine") return t.assignee === "me" || t.assignee === "both";
-    if (filter === "partner") return t.assignee === "partner" || t.assignee === "both";
-    return t.tag === "Household" || t.assignee === "both";
-  });
+  const filteredTasks = tasks.filter((t) => matchesFilter(t.assignee, t.tag));
+  const visibleEvents = events.filter((e) => matchesFilter(e.user));
 
-  const todayEvents = events.filter(
-    (e) => e.day === today.getDate() && e.month === today.getMonth() && e.year === today.getFullYear()
-  );
+  const isTaskScheduled = (t: Task) => {
+    const hasNonTodayDate = !isToday(t.scheduledDay, t.scheduledMonth, t.scheduledYear);
+    return Boolean(t.time) || hasNonTodayDate;
+  };
 
-  const scheduledTasks = filteredTasks.filter((t) => t.time);
-  const justDoIt = filteredTasks.filter((t) => !t.time);
+  const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
+  const justDoIt = filteredTasks.filter((t) => !isTaskScheduled(t));
 
   const todayFormatted = today.toLocaleDateString("en-US", {
     weekday: "short",
@@ -178,11 +186,13 @@ const HomePage = () => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && e.shiftKey) {
+            if (e.key === "Enter") {
               e.preventDefault();
-              handleAiSchedule();
-            } else if (e.key === "Enter") {
-              handleQuickAdd();
+              if (e.shiftKey) {
+                handleQuickAdd();
+              } else {
+                handleAiSchedule();
+              }
             }
           }}
           placeholder="Try: 'call at 2pm tomorrow & add stretch to mornings'"
@@ -236,24 +246,17 @@ const HomePage = () => {
           <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
           <span className="text-sm text-muted-foreground">· {todayFormatted}</span>
         </div>
-        {scheduledTasks.length > 0 || todayEvents.length > 0 ? (
+        {scheduledTasks.length > 0 || visibleEvents.length > 0 ? (
           <div className="space-y-3">
             {scheduledTasks.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={toggleTask} />
             ))}
-            {todayEvents.map((event) => (
-              <div key={event.id} className="bg-card rounded-xl p-4 shadow-card border border-border flex items-center gap-3">
-                <div className={`w-1.5 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
-                <div className="flex-1">
-                  <p className="text-[15px] font-medium">{event.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{event.time}</p>
-                </div>
-                <span className="text-[10px] font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-md">Calendar</span>
-              </div>
+            {visibleEvents.map((event) => (
+              <EventCard key={event.id} event={event} onRemove={removeEvent} />
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">No scheduled tasks for today</p>
+          <p className="text-sm text-muted-foreground text-center py-4">No scheduled items yet</p>
         )}
       </section>
 
@@ -287,15 +290,24 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
     onToggle(task.id);
   };
 
+  const hasDate = task.scheduledDay !== undefined && task.scheduledMonth !== undefined && task.scheduledYear !== undefined;
+  const dateLabel = hasDate
+    ? new Date(task.scheduledYear!, task.scheduledMonth!, task.scheduledDay!).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      })
+    : null;
+
   return (
     <motion.div
       layout
       className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${task.done ? "border-habit-green/50" : "border-border"}`}
     >
-      {task.time && (
-        <div className="flex items-center gap-1.5 mb-2">
+      {(task.time || dateLabel) && (
+        <div className="flex items-center gap-2 mb-2">
           <Clock size={13} className="text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+          {task.time ? <span className="text-xs font-medium text-muted-foreground">{task.time}</span> : null}
+          {dateLabel ? <span className="text-xs text-muted-foreground">· {dateLabel}</span> : null}
         </div>
       )}
       <div className="flex items-center gap-3">
@@ -317,6 +329,46 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
         <TaskTag tag={task.tag} />
       </div>
     </motion.div>
+  );
+};
+
+const EventCard = ({ event, onRemove }: { event: ScheduledEvent; onRemove: (id: string) => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const dateLabel = new Date(event.year, event.month, event.day).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <div className="bg-card rounded-xl p-4 shadow-card border border-border flex items-center gap-3">
+      <div className={`w-1.5 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
+      <div className="flex-1">
+        <p className="text-[15px] font-medium">{event.title}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{event.time} · {dateLabel}</p>
+      </div>
+      <div className="relative">
+        <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+          <MoreVertical size={16} />
+        </button>
+        {menuOpen ? (
+          <>
+            <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+            <div className="absolute right-0 top-8 z-50 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
+              <button
+                onClick={() => {
+                  onRemove(event.id);
+                  setMenuOpen(false);
+                  toast.success("Event deleted");
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 };
 
