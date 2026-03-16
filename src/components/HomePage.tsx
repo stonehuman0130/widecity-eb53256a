@@ -3,44 +3,31 @@ import { motion } from "framer-motion";
 import { Plus, Sparkles, Mic, Clock, MoreVertical, Check } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
-import { useAppContext } from "@/context/AppContext";
+import AddItemModal from "@/components/AddItemModal";
+import { useAppContext, Task } from "@/context/AppContext";
 
 type Filter = "mine" | "partner" | "household";
 
-interface Task {
-  id: string;
-  title: string;
-  time: string;
-  tag: "Work" | "Personal" | "Household";
-  assignee: "me" | "partner";
-  done: boolean;
-}
-
-const initialTasks: Task[] = [
-  { id: "1", title: "Review design mockups", time: "10:30 AM", tag: "Work", assignee: "me", done: false },
-  { id: "2", title: "Call mom about weekend", time: "2:00 PM", tag: "Personal", assignee: "me", done: false },
-  { id: "3", title: "Walk Cookie at 4 PM", time: "4:00 PM", tag: "Household", assignee: "partner", done: false },
-  { id: "4", title: "Pick up dry cleaning", time: "5:30 PM", tag: "Personal", assignee: "me", done: false },
-];
-
 const HomePage = () => {
   const [filter, setFilter] = useState<Filter>("mine");
-  const [tasks, setTasks] = useState(initialTasks);
   const [input, setInput] = useState("");
-  const { habits, toggleHabit, events } = useAppContext();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const { habits, toggleHabit, events, tasks, toggleTask, addTask } = useAppContext();
 
   const morningHabits = habits.filter((h) => h.category === "morning");
 
-  const toggleTask = (id: string) => {
-    setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
-  };
-
-  const addTask = () => {
+  const handleQuickAdd = () => {
     if (!input.trim()) return;
-    setTasks((t) => [
-      ...t,
-      { id: Date.now().toString(), title: input, time: "", tag: "Personal", assignee: "me", done: false },
-    ]);
+    const today = new Date();
+    addTask({
+      title: input,
+      time: "",
+      tag: "Personal",
+      assignee: "me",
+      scheduledDay: today.getDate(),
+      scheduledMonth: today.getMonth(),
+      scheduledYear: today.getFullYear(),
+    });
     setInput("");
   };
 
@@ -50,20 +37,28 @@ const HomePage = () => {
     { id: "household", label: "Household" },
   ];
 
-  const filteredTasks = tasks.filter((t) => {
+  const today = new Date();
+  const todayTasks = tasks.filter(
+    (t) =>
+      t.scheduledDay === today.getDate() &&
+      t.scheduledMonth === today.getMonth() &&
+      t.scheduledYear === today.getFullYear()
+  );
+
+  const filteredTasks = todayTasks.filter((t) => {
     if (filter === "mine") return t.assignee === "me";
     if (filter === "partner") return t.assignee === "partner";
     return t.tag === "Household";
   });
 
   // Today's events from shared context
-  const today = new Date();
   const todayEvents = events.filter(
     (e) => e.day === today.getDate() && e.month === today.getMonth() && e.year === today.getFullYear()
   );
 
-  // Merge scheduled: tasks with time + today's calendar events
+  // Scheduled = tasks with time + calendar events
   const scheduledTasks = filteredTasks.filter((t) => t.time && !t.done);
+  // Just Do It Today = tasks without a specific time, not done
   const justDoIt = filteredTasks.filter((t) => !t.time && !t.done);
 
   const todayFormatted = today.toLocaleDateString("en-US", {
@@ -80,7 +75,10 @@ const HomePage = () => {
           <h1 className="text-[1.75rem] font-bold tracking-display">Good morning 👋</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, Harrison</p>
         </div>
-        <button className="w-11 h-11 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card mt-1">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="w-11 h-11 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card mt-1"
+        >
           <Plus size={22} />
         </button>
       </header>
@@ -107,7 +105,7 @@ const HomePage = () => {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addTask()}
+          onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
           placeholder="Brain dump a task..."
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
@@ -175,20 +173,24 @@ const HomePage = () => {
       </section>
 
       {/* Just Do It Today */}
-      {justDoIt.length > 0 && (
-        <section className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-2 h-2 rounded-full bg-foreground" />
-            <h2 className="text-lg font-semibold tracking-display">Just Do it Today</h2>
-            <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
-          </div>
+      <section className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-2 h-2 rounded-full bg-foreground" />
+          <h2 className="text-lg font-semibold tracking-display">Just Do it Today</h2>
+          <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
+        </div>
+        {justDoIt.length > 0 ? (
           <div className="space-y-3">
             {justDoIt.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={toggleTask} />
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
+        )}
+      </section>
+
+      <AddItemModal open={showAddModal} onClose={() => setShowAddModal(false)} />
     </div>
   );
 };
