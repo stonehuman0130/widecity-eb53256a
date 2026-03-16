@@ -30,6 +30,17 @@ export interface Task {
   scheduledYear?: number;
 }
 
+export interface Workout {
+  id: string;
+  title: string;
+  duration: string;
+  cal: number;
+  tag: string;
+  emoji: string;
+  done: boolean;
+  exercises?: { name: string; sets: number; reps: string; }[];
+}
+
 interface AppContextType {
   habits: Habit[];
   toggleHabit: (id: string) => void;
@@ -40,11 +51,17 @@ interface AppContextType {
   tasks: Task[];
   toggleTask: (id: string) => void;
   addTask: (task: Omit<Task, "id" | "done">) => void;
+  removeTask: (id: string) => void;
+  updateTask: (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time">>) => void;
   waterIntake: number;
   waterGoal: number;
   addWater: (amount: number) => void;
   setWaterGoal: (goal: number) => void;
   resetWater: () => void;
+  workouts: Workout[];
+  toggleWorkout: (id: string) => void;
+  removeWorkout: (id: string) => void;
+  setWorkouts: (workouts: Workout[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -76,12 +93,20 @@ const initialTasks: Task[] = [
   { id: "t6", title: "Organize pantry", time: "", tag: "Household", assignee: "partner", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
 ];
 
+const initialWorkouts: Workout[] = [
+  { id: "w1", title: "Morning Run", duration: "30 min", cal: 250, tag: "Cardio", emoji: "🏃", done: false },
+  { id: "w2", title: "Strength Training", duration: "45 min", cal: 320, tag: "Strength", emoji: "💪", done: false },
+  { id: "w3", title: "Yoga Session", duration: "20 min", cal: 100, tag: "Flexibility", emoji: "🧘", done: false },
+  { id: "w4", title: "Evening Walk", duration: "25 min", cal: 80, tag: "Cardio", emoji: "🚶", done: false },
+];
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [habits, setHabits] = useState<Habit[]>(initialHabits);
   const [events, setEvents] = useState<ScheduledEvent[]>(initialEvents);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [waterIntake, setWaterIntake] = useState(0);
-  const [waterGoal, setWaterGoalState] = useState(3); // 3 liters default
+  const [waterGoal, setWaterGoalState] = useState(3);
+  const [workouts, setWorkoutsState] = useState<Workout[]>(initialWorkouts);
 
   const toggleHabit = (id: string) => {
     setHabits((h) => h.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
@@ -107,16 +132,41 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setTasks((t) => [...t, { ...task, id: Date.now().toString(), done: false }]);
   };
 
+  const removeTask = (id: string) => {
+    setTasks((t) => t.filter((item) => item.id !== id));
+  };
+
+  const updateTask = (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time">>) => {
+    setTasks((t) => t.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+  };
+
   const addWater = (amount: number) => {
     setWaterIntake((w) => Math.min(w + amount, waterGoal));
   };
 
   const resetWater = () => setWaterIntake(0);
-
   const setWaterGoal = (goal: number) => setWaterGoalState(goal);
 
+  const toggleWorkout = (id: string) => {
+    setWorkoutsState((w) => w.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
+  };
+
+  const removeWorkout = (id: string) => {
+    setWorkoutsState((w) => w.filter((item) => item.id !== id));
+  };
+
+  const setWorkouts = (newWorkouts: Workout[]) => {
+    setWorkoutsState(newWorkouts);
+  };
+
   return (
-    <AppContext.Provider value={{ habits, toggleHabit, addHabit, events, addEvent, removeEvent, tasks, toggleTask, addTask, waterIntake, waterGoal, addWater, setWaterGoal, resetWater }}>
+    <AppContext.Provider value={{
+      habits, toggleHabit, addHabit,
+      events, addEvent, removeEvent,
+      tasks, toggleTask, addTask, removeTask, updateTask,
+      waterIntake, waterGoal, addWater, setWaterGoal, resetWater,
+      workouts, toggleWorkout, removeWorkout, setWorkouts,
+    }}>
       {children}
     </AppContext.Provider>
   );
