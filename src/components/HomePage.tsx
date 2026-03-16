@@ -35,45 +35,60 @@ const HomePage = () => {
     setInput("");
   };
 
+  const isToday = (day?: number, month?: number, year?: number) => {
+    if (day === undefined || month === undefined || year === undefined) return true;
+    const now = new Date();
+    return day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+  };
+
+  const toDateParts = (dateStr?: string) => {
+    const d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+    return { day: d.getDate(), month: d.getMonth(), year: d.getFullYear() };
+  };
+
   const processAction = (action: any) => {
-    if (action.action_type === "add_habit" || action.type === "add_habit") {
-      addHabit(action.label, action.category);
-      toast.success(`Habit added: ${action.label}`, {
-        description: `Added to ${action.category} habits`,
-      });
-    } else {
-      const date = action.date ? new Date(action.date + "T00:00:00") : new Date();
-      const day = date.getDate();
-      const month = date.getMonth();
-      const year = date.getFullYear();
-      const assignee = action.assignee || "me";
-      const tag = action.tag || "Personal";
+    const actionType = action.action_type || action.type || (action.label ? "add_habit" : "create_event");
 
-      addEvent({
-        title: action.title,
-        time: action.time || "All day",
-        description: action.description || "",
-        day,
-        month,
-        year,
-        user: assignee,
-      });
+    if (actionType === "add_habit") {
+      const inferredCategory = /morning|mornings|am routine/i.test(input) ? "morning" : "other";
+      const label = action.label || action.title;
+      const category = action.category || inferredCategory;
+      if (!label) return;
 
-      addTask({
-        title: action.title,
-        time: action.time || "",
-        tag: tag as "Work" | "Personal" | "Household",
-        assignee,
-        scheduledDay: day,
-        scheduledMonth: month,
-        scheduledYear: year,
+      addHabit(label, category);
+      toast.success(`Habit added: ${label}`, {
+        description: `Added to ${category} habits`,
       });
-
-      // If household/both, the task already has assignee "both" which shows in all filters
-      toast.success(`Scheduled: ${action.title}`, {
-        description: `${action.date} ${action.time || "All day"}${assignee !== "me" ? ` · ${assignee === "partner" ? "Evelyn" : "Both"}` : ""}`,
-      });
+      return;
     }
+
+    const { day, month, year } = toDateParts(action.date);
+    const assignee = action.assignee || "me";
+    const tag = action.tag || "Personal";
+
+    addEvent({
+      title: action.title,
+      time: action.time || "All day",
+      description: action.description || "",
+      day,
+      month,
+      year,
+      user: assignee,
+    });
+
+    addTask({
+      title: action.title,
+      time: action.time || "",
+      tag: tag as "Work" | "Personal" | "Household",
+      assignee,
+      scheduledDay: day,
+      scheduledMonth: month,
+      scheduledYear: year,
+    });
+
+    toast.success(`Scheduled: ${action.title}`, {
+      description: `${action.date || "today"} ${action.time || "All day"}${assignee !== "me" ? ` · ${assignee === "partner" ? "Evelyn" : "Both"}` : ""}`,
+    });
   };
 
   const handleAiSchedule = async () => {
@@ -84,17 +99,12 @@ const HomePage = () => {
         body: { text: input },
       });
       if (error) throw error;
-      
-      // Handle both string and object responses
+
       const data = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
-      console.log("AI response:", JSON.stringify(data));
-      
       if (data.error) throw new Error(data.error);
 
-      if (data.type === "multi" && data.actions) {
-        for (const action of data.actions) {
-          processAction(action);
-        }
+      if (data.type === "multi" && Array.isArray(data.actions)) {
+        data.actions.forEach((action: any) => processAction(action));
         toast.success(`✨ ${data.actions.length} actions completed!`);
       } else {
         processAction(data);
@@ -114,19 +124,13 @@ const HomePage = () => {
     { id: "household", label: "Household" },
   ];
 
-  const today = new Date();
-  const todayTasks = tasks.filter(
-    (t) =>
-      t.scheduledDay === today.getDate() &&
-      t.scheduledMonth === today.getMonth() &&
-      t.scheduledYear === today.getFullYear()
-  );
+  const matchesFilter = (assignee: "me" | "partner" | "both", tag?: string) => {
+    if (filter === "mine") return assignee === "me" || assignee === "both";
+    if (filter === "partner") return assignee === "partner" || assignee === "both";
+    return tag === "Household" || assignee === "both";
+  };
 
-  const filteredTasks = todayTasks.filter((t) => {
-    if (filter === "mine") return t.assignee === "me" || t.assignee === "both";
-    if (filter === "partner") return t.assignee === "partner" || t.assignee === "both";
-    return t.tag === "Household" || t.assignee === "both";
-  });
+  const filteredTasks = tasks.filter((t) => matchesFilter(t.assignee, t.tag));
 
   const todayEvents = events.filter(
     (e) => e.day === today.getDate() && e.month === today.getMonth() && e.year === today.getFullYear()
