@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Sparkles, Mic, Clock, MoreVertical, Check } from "lucide-react";
+import { Plus, Sparkles, Mic, Clock, Check } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
+import TaskActionMenu from "@/components/TaskActionMenu";
 import AddItemModal from "@/components/AddItemModal";
 import { useAppContext, Task } from "@/context/AppContext";
 
@@ -51,14 +52,11 @@ const HomePage = () => {
     return t.tag === "Household";
   });
 
-  // Today's events from shared context
   const todayEvents = events.filter(
     (e) => e.day === today.getDate() && e.month === today.getMonth() && e.year === today.getFullYear()
   );
 
-  // Scheduled = tasks with time + calendar events
   const scheduledTasks = filteredTasks.filter((t) => t.time && !t.done);
-  // Just Do It Today = tasks without a specific time, not done
   const justDoIt = filteredTasks.filter((t) => !t.time && !t.done);
 
   const todayFormatted = today.toLocaleDateString("en-US", {
@@ -69,7 +67,6 @@ const HomePage = () => {
 
   return (
     <div className="px-5">
-      {/* Header */}
       <header className="pt-12 pb-4 flex items-start justify-between">
         <div>
           <h1 className="text-[1.75rem] font-bold tracking-display">Good morning 👋</h1>
@@ -83,7 +80,6 @@ const HomePage = () => {
         </button>
       </header>
 
-      {/* Filter Tabs */}
       <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
         {filters.map((f) => (
           <button
@@ -100,7 +96,6 @@ const HomePage = () => {
         ))}
       </div>
 
-      {/* Quick Add */}
       <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 mb-6 shadow-card border border-border">
         <input
           value={input}
@@ -117,7 +112,6 @@ const HomePage = () => {
         </button>
       </div>
 
-      {/* Morning Habits */}
       <section className="mb-6">
         <h2 className="text-lg font-semibold tracking-display mb-3">Morning Habits</h2>
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
@@ -144,7 +138,6 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Scheduled Tasks */}
       <section className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <Clock size={18} className="text-muted-foreground" />
@@ -172,7 +165,6 @@ const HomePage = () => {
         )}
       </section>
 
-      {/* Just Do It Today */}
       <section className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="w-2 h-2 rounded-full bg-foreground" />
@@ -219,9 +211,7 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
         {task.title}
       </span>
       <UserBadge user={task.assignee} />
-      <button className="text-muted-foreground p-1">
-        <MoreVertical size={16} />
-      </button>
+      <TaskActionMenu taskId={task.id} />
     </div>
     <div className="mt-2 ml-9">
       <TaskTag tag={task.tag} />
