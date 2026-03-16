@@ -1,0 +1,7 @@
+project_id = "hppgtglvmdsybvafllws"
+
+[functions.ai-schedule]
+verify_jwt = false
+
+[functions.ai-workout]
+verify_jwt = false

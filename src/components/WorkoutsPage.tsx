@@ -1,25 +1,141 @@
 import { useState } from "react";
-import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X } from "lucide-react";
 import { useAppContext, Workout } from "@/context/AppContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface AIPlan {
+  title: string;
+  emoji: string;
+  duration: string;
+  cal: number;
+  tag: string;
+  exercises: { name: string; sets: number; reps: string }[];
+}
 
 const WorkoutsPage = () => {
-  const { workouts, toggleWorkout, removeWorkout } = useAppContext();
+  const { workouts, toggleWorkout, removeWorkout, setWorkouts } = useAppContext();
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
 
   const completedCount = workouts.filter((w) => w.done).length;
   const totalCal = workouts.reduce((sum, w) => sum + w.cal, 0);
   const todayCal = workouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
 
+  const handleAiPlan = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-workout", {
+        body: { prompt: aiPrompt },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      setAiPlans(data.plans);
+    } catch (e: any) {
+      console.error(e);
+      toast.error("AI workout error", { description: e.message });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const selectPlan = (plan: AIPlan) => {
+    const newWorkout: Workout = {
+      id: Date.now().toString(),
+      title: plan.title,
+      duration: plan.duration,
+      cal: plan.cal,
+      tag: plan.tag,
+      emoji: plan.emoji,
+      done: false,
+      exercises: plan.exercises,
+    };
+    setWorkouts([...workouts, newWorkout]);
+    setAiPlans(null);
+    setAiPrompt("");
+    toast.success(`Added: ${plan.title}`);
+  };
+
   return (
     <div className="px-5">
-      <header className="pt-12 pb-4 flex items-start justify-between">
-        <div>
-          <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Stay active and healthy together</p>
-        </div>
-        <button className="px-4 py-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-sm font-semibold text-primary-foreground flex items-center gap-1.5">
-          <Sparkles size={14} /> AI Plan
-        </button>
+      <header className="pt-12 pb-4">
+        <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Stay active and healthy together</p>
       </header>
+
+      {/* AI Workout Planner */}
+      <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4 mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles size={16} className="text-purple-500" />
+          <span className="text-sm font-semibold">AI Workout Planner</span>
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAiPlan()}
+            placeholder="e.g. Plan me a chest workout today..."
+            className="flex-1 bg-card rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground border border-border"
+          />
+          <button
+            onClick={handleAiPlan}
+            disabled={aiLoading || !aiPrompt.trim()}
+            className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-primary-foreground text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {aiLoading ? "Thinking..." : "Generate"}
+          </button>
+        </div>
+      </div>
+
+      {/* AI Plan Selection */}
+      <AnimatePresence>
+        {aiPlans && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-6"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Choose a plan</h3>
+              <button onClick={() => setAiPlans(null)} className="text-muted-foreground"><X size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              {aiPlans.map((plan, i) => (
+                <button
+                  key={i}
+                  onClick={() => selectPlan(plan)}
+                  className="w-full bg-card rounded-xl border border-border p-4 text-left hover:border-primary/50 transition-all active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl">{plan.emoji}</span>
+                    <div className="flex-1">
+                      <p className="text-[15px] font-semibold">{plan.title}</p>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                        <span>{plan.duration}</span>
+                        <span>~{plan.cal} cal</span>
+                        <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{plan.tag}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-9 space-y-1">
+                    {plan.exercises.slice(0, 3).map((ex, j) => (
+                      <p key={j} className="text-xs text-muted-foreground">• {ex.name} — {ex.sets}×{ex.reps}</p>
+                    ))}
+                    {plan.exercises.length > 3 && (
+                      <p className="text-xs text-muted-foreground">+{plan.exercises.length - 3} more</p>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
@@ -46,7 +162,7 @@ const WorkoutsPage = () => {
         ) : (
           <div className="text-center py-8">
             <p className="text-muted-foreground text-sm">No workouts planned</p>
-            <p className="text-xs text-muted-foreground mt-1">Tap "AI Plan" to generate a workout</p>
+            <p className="text-xs text-muted-foreground mt-1">Use the AI Planner above to generate a workout</p>
           </div>
         )}
       </div>
@@ -82,7 +198,6 @@ const WorkoutCard = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Check button */}
           <button
             onClick={() => onToggle(workout.id)}
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
@@ -94,7 +209,6 @@ const WorkoutCard = ({
             <Check size={18} />
           </button>
 
-          {/* Three dots menu */}
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
@@ -120,7 +234,6 @@ const WorkoutCard = ({
         </div>
       </div>
 
-      {/* Expandable exercises */}
       {workout.exercises && workout.exercises.length > 0 && (
         <>
           <button
