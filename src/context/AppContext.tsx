@@ -11,10 +11,23 @@ export interface ScheduledEvent {
   id: string;
   title: string;
   time: string;
+  description?: string;
   day: number;
   month: number;
   year: number;
   user: "me" | "partner" | "both";
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  time: string;
+  tag: "Work" | "Personal" | "Household";
+  assignee: "me" | "partner";
+  done: boolean;
+  scheduledDay?: number;
+  scheduledMonth?: number;
+  scheduledYear?: number;
 }
 
 interface AppContextType {
@@ -24,9 +37,19 @@ interface AppContextType {
   events: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
   removeEvent: (id: string) => void;
+  tasks: Task[];
+  toggleTask: (id: string) => void;
+  addTask: (task: Omit<Task, "id" | "done">) => void;
+  waterIntake: number;
+  waterGoal: number;
+  addWater: (amount: number) => void;
+  setWaterGoal: (goal: number) => void;
+  resetWater: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const today = new Date();
 
 const initialHabits: Habit[] = [
   { id: "1", label: "Drink Olive Oil", done: false, category: "morning" },
@@ -37,17 +60,28 @@ const initialHabits: Habit[] = [
   { id: "6", label: "Gratitude Journal", done: false, category: "other" },
 ];
 
-const today = new Date();
 const initialEvents: ScheduledEvent[] = [
-  { id: "e1", title: "Date night", time: "7:00 PM", day: 16, month: today.getMonth(), year: today.getFullYear(), user: "both" },
+  { id: "e1", title: "Date night", time: "7:00 PM", day: today.getDate(), month: today.getMonth(), year: today.getFullYear(), user: "both" },
   { id: "e2", title: "Dentist appointment", time: "10:00 AM", day: 18, month: today.getMonth(), year: today.getFullYear(), user: "me" },
   { id: "e3", title: "Dinner with parents", time: "6:30 PM", day: 20, month: today.getMonth(), year: today.getFullYear(), user: "partner" },
   { id: "e4", title: "Grocery run", time: "11:00 AM", day: 22, month: today.getMonth(), year: today.getFullYear(), user: "both" },
 ];
 
+const initialTasks: Task[] = [
+  { id: "t1", title: "Review design mockups", time: "10:30 AM", tag: "Work", assignee: "me", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
+  { id: "t2", title: "Call mom about weekend", time: "2:00 PM", tag: "Personal", assignee: "me", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
+  { id: "t3", title: "Walk Cookie at 4 PM", time: "4:00 PM", tag: "Household", assignee: "partner", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
+  { id: "t4", title: "Pay taxes", time: "", tag: "Personal", assignee: "me", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
+  { id: "t5", title: "Buy birthday gift for Sarah", time: "", tag: "Personal", assignee: "me", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
+  { id: "t6", title: "Organize pantry", time: "", tag: "Household", assignee: "partner", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
+];
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [habits, setHabits] = useState<Habit[]>(initialHabits);
   const [events, setEvents] = useState<ScheduledEvent[]>(initialEvents);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [waterIntake, setWaterIntake] = useState(0);
+  const [waterGoal, setWaterGoalState] = useState(3); // 3 liters default
 
   const toggleHabit = (id: string) => {
     setHabits((h) => h.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
@@ -65,8 +99,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setEvents((e) => e.filter((item) => item.id !== id));
   };
 
+  const toggleTask = (id: string) => {
+    setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
+  };
+
+  const addTask = (task: Omit<Task, "id" | "done">) => {
+    setTasks((t) => [...t, { ...task, id: Date.now().toString(), done: false }]);
+  };
+
+  const addWater = (amount: number) => {
+    setWaterIntake((w) => Math.min(w + amount, waterGoal));
+  };
+
+  const resetWater = () => setWaterIntake(0);
+
+  const setWaterGoal = (goal: number) => setWaterGoalState(goal);
+
   return (
-    <AppContext.Provider value={{ habits, toggleHabit, addHabit, events, addEvent, removeEvent }}>
+    <AppContext.Provider value={{ habits, toggleHabit, addHabit, events, addEvent, removeEvent, tasks, toggleTask, addTask, waterIntake, waterGoal, addWater, setWaterGoal, resetWater }}>
       {children}
     </AppContext.Provider>
   );
