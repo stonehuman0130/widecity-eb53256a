@@ -186,11 +186,13 @@ const HomePage = () => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && e.shiftKey) {
+            if (e.key === "Enter") {
               e.preventDefault();
-              handleAiSchedule();
-            } else if (e.key === "Enter") {
-              handleQuickAdd();
+              if (e.shiftKey) {
+                handleQuickAdd();
+              } else {
+                handleAiSchedule();
+              }
             }
           }}
           placeholder="Try: 'call at 2pm tomorrow & add stretch to mornings'"
