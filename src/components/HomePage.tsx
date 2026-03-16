@@ -338,41 +338,83 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
 
 const EventCard = ({ event, onRemove }: { event: ScheduledEvent; onRemove: (id: string) => void }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [done, setDone] = useState(false);
   const dateLabel = new Date(event.year, event.month, event.day).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
 
+  const formatTime = (time: string) => {
+    // Convert 24h "HH:MM" to 12h format if needed
+    const match = time.match(/^(\d{1,2}):(\d{2})$/);
+    if (match) {
+      let h = parseInt(match[1]);
+      const m = match[2];
+      const ampm = h >= 12 ? "PM" : "AM";
+      if (h > 12) h -= 12;
+      if (h === 0) h = 12;
+      return `${h}:${m} ${ampm}`;
+    }
+    return time;
+  };
+
   return (
-    <div className="bg-card rounded-xl p-4 shadow-card border border-border flex items-center gap-3">
-      <div className={`w-1.5 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
-      <div className="flex-1">
-        <p className="text-[15px] font-medium">{event.title}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{event.time} · {dateLabel}</p>
-      </div>
-      <div className="relative">
-        <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
-          <MoreVertical size={16} />
+    <motion.div
+      layout
+      className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${done ? "border-habit-green/50" : "border-border"}`}
+    >
+      {(event.time && event.time !== "All day") && (
+        <div className="flex items-center gap-2 mb-2">
+          <Clock size={13} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">{formatTime(event.time)}</span>
+          <span className="text-xs text-muted-foreground">· {dateLabel}</span>
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => {
+            if (!done) toast.success("🎉 Done!", { description: "Great job!" });
+            setDone(!done);
+          }}
+          className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+            done ? "bg-habit-green border-habit-green" : "border-muted"
+          }`}
+        >
+          {done && <Check size={14} className="text-primary-foreground" />}
         </button>
-        {menuOpen ? (
-          <>
-            <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-            <div className="absolute right-0 top-8 z-50 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
-              <button
-                onClick={() => {
-                  onRemove(event.id);
-                  setMenuOpen(false);
-                  toast.success("Event deleted");
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 size={14} /> Delete
-              </button>
-            </div>
-          </>
-        ) : null}
+        <span className={`flex-1 text-[15px] font-medium tracking-body ${done ? "line-through opacity-40" : ""}`}>
+          {event.title}
+        </span>
+        <UserBadge user={event.user} />
+        <div className="relative">
+          <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+            <MoreVertical size={16} />
+          </button>
+          {menuOpen && (
+            <>
+              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+              <div className="absolute right-0 top-8 z-50 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
+                <button
+                  onClick={() => {
+                    onRemove(event.id);
+                    setMenuOpen(false);
+                    toast.success("Event deleted");
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+      {(!event.time || event.time === "All day") && (
+        <div className="mt-2 ml-9">
+          <span className="text-xs text-muted-foreground">{dateLabel} · All day</span>
+        </div>
+      )}
+    </motion.div>
   );
 };
 

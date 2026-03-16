@@ -171,10 +171,10 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                 className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
               />
               <input
+                type="time"
                 value={calTime}
                 onChange={(e) => setCalTime(e.target.value)}
-                placeholder="Time (e.g. 3:00 PM) — leave empty for untimed"
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
               />
               <textarea
                 value={calDesc}

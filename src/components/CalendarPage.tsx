@@ -144,10 +144,10 @@ const CalendarPage = () => {
             autoFocus
           />
           <input
+            type="time"
             value={newTime}
             onChange={(e) => setNewTime(e.target.value)}
-            placeholder="Time (e.g. 3:00 PM)"
-            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground"
           />
           <div className="flex gap-2">
             {(["me", "partner", "both"] as const).map((u) => (
