@@ -213,8 +213,21 @@ const WorkoutsPage = () => {
       <div className="space-y-3">
         {workouts.length > 0 ? (
           workouts.map((w) => (
-            <WorkoutCard key={w.id} workout={w} onToggle={toggleWorkout} onRemove={removeWorkout} />
+            <WorkoutCard key={w.id} workout={w} onToggle={toggleWorkout} onRemove={removeWorkout} onExerciseTap={setSelectedExercise} />
           ))
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground text-sm">No workouts planned</p>
+            <p className="text-xs text-muted-foreground mt-1">Use the AI Planner above to generate a workout</p>
+          </div>
+        )}
+      </div>
+
+      <ExerciseDetailDialog
+        exerciseName={selectedExercise}
+        open={!!selectedExercise}
+        onClose={() => setSelectedExercise(null)}
+      />
         ) : (
           <div className="text-center py-8">
             <p className="text-muted-foreground text-sm">No workouts planned</p>
