@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 
 export interface Habit {
   id: string;
@@ -39,8 +41,8 @@ export interface Workout {
   tag: string;
   emoji: string;
   done: boolean;
-  scheduledDate?: string; // "YYYY-MM-DD"
-  completedDate?: string; // "YYYY-MM-DD"
+  scheduledDate?: string;
+  completedDate?: string;
   exercises?: { name: string; sets: number; reps: string }[];
 }
 
@@ -70,6 +72,7 @@ interface AppContextType {
   getHabitStreak: (id: string) => number;
   getHabitsForDate: (date: string) => Habit[];
   getWorkoutsForDate: (date: string) => Workout[];
+  loading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -78,55 +81,161 @@ const todayStr = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
-const today = new Date();
-
-const initialHabits: Habit[] = [
-  { id: "1", label: "Drink Olive Oil", done: false, category: "morning", completionDates: [] },
-  { id: "2", label: "Take Vitamins", done: false, category: "morning", completionDates: [] },
-  { id: "3", label: "Stretch", done: false, category: "morning", completionDates: [] },
-  { id: "4", label: "Meditation", done: false, category: "other", completionDates: [] },
-  { id: "5", label: "Read 10 Pages", done: false, category: "other", completionDates: [] },
-  { id: "6", label: "Gratitude Journal", done: false, category: "other", completionDates: [] },
-];
-
-const initialEvents: ScheduledEvent[] = [
-  { id: "e1", title: "Date night", time: "7:00 PM", day: today.getDate(), month: today.getMonth(), year: today.getFullYear(), user: "both" },
-  { id: "e2", title: "Dentist appointment", time: "10:00 AM", day: 18, month: today.getMonth(), year: today.getFullYear(), user: "me" },
-  { id: "e3", title: "Dinner with parents", time: "6:30 PM", day: 20, month: today.getMonth(), year: today.getFullYear(), user: "partner" },
-  { id: "e4", title: "Grocery run", time: "11:00 AM", day: 22, month: today.getMonth(), year: today.getFullYear(), user: "both" },
-];
-
-const initialTasks: Task[] = [
-  { id: "t1", title: "Review design mockups", time: "10:30 AM", tag: "Work", assignee: "me", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
-  { id: "t2", title: "Call mom about weekend", time: "2:00 PM", tag: "Personal", assignee: "me", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
-  { id: "t3", title: "Walk Cookie at 4 PM", time: "4:00 PM", tag: "Household", assignee: "partner", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
-  { id: "t4", title: "Pay taxes", time: "", tag: "Personal", assignee: "me", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
-  { id: "t5", title: "Buy birthday gift for Sarah", time: "", tag: "Personal", assignee: "me", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
-  { id: "t6", title: "Organize pantry", time: "", tag: "Household", assignee: "partner", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
-];
-
-const todayKey = todayStr();
-const initialWorkouts: Workout[] = [
-  { id: "w1", title: "Morning Run", duration: "30 min", cal: 250, tag: "Cardio", emoji: "🏃", done: false, scheduledDate: todayKey },
-  { id: "w2", title: "Strength Training", duration: "45 min", cal: 320, tag: "Strength", emoji: "💪", done: false, scheduledDate: todayKey },
-  { id: "w3", title: "Yoga Session", duration: "20 min", cal: 100, tag: "Flexibility", emoji: "🧘", done: false, scheduledDate: todayKey },
-  { id: "w4", title: "Evening Walk", duration: "25 min", cal: 80, tag: "Cardio", emoji: "🚶", done: false, scheduledDate: todayKey },
-];
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [habits, setHabits] = useState<Habit[]>(initialHabits);
-  const [events, setEvents] = useState<ScheduledEvent[]>(initialEvents);
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const { user } = useAuth();
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [events, setEvents] = useState<ScheduledEvent[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [waterIntake, setWaterIntakeState] = useState(0);
   const [waterGoal, setWaterGoalState] = useState(3);
-  const [workouts, setWorkoutsState] = useState<Workout[]>(initialWorkouts);
+  const [workouts, setWorkoutsState] = useState<Workout[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const toggleHabit = (id: string) => {
+  // Load all data from database on mount
+  useEffect(() => {
+    if (!user) {
+      setHabits([]);
+      setEvents([]);
+      setTasks([]);
+      setWorkoutsState([]);
+      setWaterIntakeState(0);
+      setWaterGoalState(3);
+      setLoading(false);
+      return;
+    }
+
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // Load habits with completions
+        const { data: habitsData } = await supabase
+          .from("habits")
+          .select("*")
+          .eq("user_id", user.id);
+
+        const { data: completionsData } = await supabase
+          .from("habit_completions")
+          .select("*")
+          .eq("user_id", user.id);
+
+        if (habitsData) {
+          const completionMap = new Map<string, string[]>();
+          (completionsData || []).forEach((c: any) => {
+            const dates = completionMap.get(c.habit_id) || [];
+            dates.push(c.completed_date);
+            completionMap.set(c.habit_id, dates);
+          });
+
+          const todayDate = todayStr();
+          setHabits(habitsData.map((h: any) => {
+            const completionDates = completionMap.get(h.id) || [];
+            return {
+              id: h.id,
+              label: h.label,
+              category: h.category as "morning" | "other",
+              done: completionDates.includes(todayDate),
+              completionDates,
+            };
+          }));
+        }
+
+        // Load tasks
+        const { data: tasksData } = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("user_id", user.id);
+
+        if (tasksData) {
+          setTasks(tasksData.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            time: t.time || "",
+            tag: t.tag as "Work" | "Personal" | "Household",
+            assignee: t.assignee as "me" | "partner" | "both",
+            done: t.done,
+            scheduledDay: t.scheduled_day,
+            scheduledMonth: t.scheduled_month,
+            scheduledYear: t.scheduled_year,
+          })));
+        }
+
+        // Load events
+        const { data: eventsData } = await supabase
+          .from("events")
+          .select("*")
+          .eq("user_id", user.id);
+
+        if (eventsData) {
+          setEvents(eventsData.map((e: any) => ({
+            id: e.id,
+            title: e.title,
+            time: e.time || "",
+            description: e.description,
+            day: e.day,
+            month: e.month,
+            year: e.year,
+            user: e.assignee as "me" | "partner" | "both",
+          })));
+        }
+
+        // Load workouts
+        const { data: workoutsData } = await supabase
+          .from("workouts")
+          .select("*")
+          .eq("user_id", user.id);
+
+        if (workoutsData) {
+          setWorkoutsState(workoutsData.map((w: any) => ({
+            id: w.id,
+            title: w.title,
+            duration: w.duration,
+            cal: w.cal,
+            tag: w.tag,
+            emoji: w.emoji,
+            done: w.done,
+            scheduledDate: w.scheduled_date,
+            completedDate: w.completed_date,
+            exercises: w.exercises || [],
+          })));
+        }
+
+        // Load water tracking for today
+        const { data: waterData } = await supabase
+          .from("water_tracking")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("date", todayStr())
+          .maybeSingle();
+
+        if (waterData) {
+          setWaterIntakeState(Number(waterData.intake));
+          setWaterGoalState(Number(waterData.goal));
+        } else {
+          setWaterIntakeState(0);
+          setWaterGoalState(3);
+        }
+      } catch (err) {
+        console.error("Error loading data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user]);
+
+  const toggleHabit = async (id: string) => {
     const dateKey = todayStr();
+    const habit = habits.find((h) => h.id === id);
+    if (!habit || !user) return;
+
+    const wasDone = habit.completionDates.includes(dateKey);
+
+    // Optimistic update
     setHabits((h) =>
       h.map((item) => {
         if (item.id !== id) return item;
-        const wasDone = item.completionDates.includes(dateKey);
         return {
           ...item,
           done: !item.done,
@@ -136,72 +245,206 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         };
       })
     );
+
+    if (wasDone) {
+      await supabase
+        .from("habit_completions")
+        .delete()
+        .eq("habit_id", id)
+        .eq("completed_date", dateKey);
+    } else {
+      await supabase
+        .from("habit_completions")
+        .insert({ habit_id: id, user_id: user.id, completed_date: dateKey });
+    }
   };
 
-  const addHabit = (label: string, category: "morning" | "other") => {
-    setHabits((h) => [...h, { id: Date.now().toString(), label, done: false, category, completionDates: [] }]);
+  const addHabit = async (label: string, category: "morning" | "other") => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("habits")
+      .insert({ user_id: user.id, label, category })
+      .select()
+      .single();
+
+    if (data && !error) {
+      setHabits((h) => [...h, { id: data.id, label, done: false, category, completionDates: [] }]);
+    }
   };
 
-  const addEvent = (event: Omit<ScheduledEvent, "id">) => {
-    setEvents((e) => [...e, { ...event, id: Date.now().toString() }]);
+  const addEvent = async (event: Omit<ScheduledEvent, "id">) => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("events")
+      .insert({
+        user_id: user.id,
+        title: event.title,
+        time: event.time,
+        description: event.description,
+        day: event.day,
+        month: event.month,
+        year: event.year,
+        assignee: event.user,
+      })
+      .select()
+      .single();
+
+    if (data && !error) {
+      setEvents((e) => [...e, { ...event, id: data.id }]);
+    }
   };
 
-  const removeEvent = (id: string) => {
+  const removeEvent = async (id: string) => {
     setEvents((e) => e.filter((item) => item.id !== id));
+    await supabase.from("events").delete().eq("id", id);
   };
 
-  const toggleTask = (id: string) => {
+  const toggleTask = async (id: string) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+
     setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
+    await supabase.from("tasks").update({ done: !task.done }).eq("id", id);
   };
 
-  const addTask = (task: Omit<Task, "id" | "done">) => {
-    setTasks((t) => [...t, { ...task, id: Date.now().toString(), done: false }]);
+  const addTask = async (task: Omit<Task, "id" | "done">) => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({
+        user_id: user.id,
+        title: task.title,
+        time: task.time,
+        tag: task.tag,
+        assignee: task.assignee,
+        done: false,
+        scheduled_day: task.scheduledDay,
+        scheduled_month: task.scheduledMonth,
+        scheduled_year: task.scheduledYear,
+      })
+      .select()
+      .single();
+
+    if (data && !error) {
+      setTasks((t) => [...t, { ...task, id: data.id, done: false }]);
+    }
   };
 
-  const removeTask = (id: string) => {
+  const removeTask = async (id: string) => {
     setTasks((t) => t.filter((item) => item.id !== id));
+    await supabase.from("tasks").delete().eq("id", id);
   };
 
-  const updateTask = (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time">>) => {
+  const updateTask = async (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time">>) => {
     setTasks((t) => t.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+    const dbUpdates: any = {};
+    if (updates.scheduledDay !== undefined) dbUpdates.scheduled_day = updates.scheduledDay;
+    if (updates.scheduledMonth !== undefined) dbUpdates.scheduled_month = updates.scheduledMonth;
+    if (updates.scheduledYear !== undefined) dbUpdates.scheduled_year = updates.scheduledYear;
+    if (updates.time !== undefined) dbUpdates.time = updates.time;
+    await supabase.from("tasks").update(dbUpdates).eq("id", id);
+  };
+
+  const upsertWater = async (intake: number, goal: number) => {
+    if (!user) return;
+    await supabase
+      .from("water_tracking")
+      .upsert({
+        user_id: user.id,
+        date: todayStr(),
+        intake,
+        goal,
+      }, { onConflict: "user_id,date" });
   };
 
   const setWaterIntake = (amount: number) => {
-    setWaterIntakeState(Math.max(0, Math.min(amount, waterGoal)));
+    const clamped = Math.max(0, Math.min(amount, waterGoal));
+    setWaterIntakeState(clamped);
+    upsertWater(clamped, waterGoal);
   };
 
-  const resetWater = () => setWaterIntakeState(0);
-  const setWaterGoal = (goal: number) => setWaterGoalState(goal);
+  const resetWater = () => {
+    setWaterIntakeState(0);
+    upsertWater(0, waterGoal);
+  };
 
-  const toggleWorkout = (id: string) => {
+  const setWaterGoal = (goal: number) => {
+    setWaterGoalState(goal);
+    upsertWater(waterIntake, goal);
+  };
+
+  const toggleWorkout = async (id: string) => {
     const dateKey = todayStr();
+    const workout = workouts.find((w) => w.id === id);
+    if (!workout) return;
+
+    const newDone = !workout.done;
     setWorkoutsState((w) =>
       w.map((item) =>
         item.id === id
-          ? { ...item, done: !item.done, completedDate: !item.done ? dateKey : undefined }
+          ? { ...item, done: newDone, completedDate: newDone ? dateKey : undefined }
           : item
       )
     );
+    await supabase.from("workouts").update({
+      done: newDone,
+      completed_date: newDone ? dateKey : null,
+    }).eq("id", id);
   };
 
-  const removeWorkout = (id: string) => {
+  const removeWorkout = async (id: string) => {
     setWorkoutsState((w) => w.filter((item) => item.id !== id));
+    await supabase.from("workouts").delete().eq("id", id);
   };
 
   const setWorkouts = (newWorkouts: Workout[]) => {
     setWorkoutsState(newWorkouts);
   };
 
-  const addWorkouts = (newWorkouts: Workout[]) => {
-    setWorkoutsState((w) => [...w, ...newWorkouts]);
+  const addWorkouts = async (newWorkouts: Workout[]) => {
+    if (!user) return;
+    const rows = newWorkouts.map((w) => ({
+      user_id: user.id,
+      title: w.title,
+      duration: w.duration,
+      cal: w.cal,
+      tag: w.tag,
+      emoji: w.emoji,
+      done: w.done,
+      scheduled_date: w.scheduledDate || null,
+      completed_date: w.completedDate || null,
+      exercises: w.exercises || [],
+    }));
+
+    const { data, error } = await supabase
+      .from("workouts")
+      .insert(rows)
+      .select();
+
+    if (data && !error) {
+      const mapped: Workout[] = data.map((w: any) => ({
+        id: w.id,
+        title: w.title,
+        duration: w.duration,
+        cal: w.cal,
+        tag: w.tag,
+        emoji: w.emoji,
+        done: w.done,
+        scheduledDate: w.scheduled_date,
+        completedDate: w.completed_date,
+        exercises: w.exercises || [],
+      }));
+      setWorkoutsState((prev) => [...prev, ...mapped]);
+    }
   };
 
-  const rescheduleWorkout = (id: string, newDate: string) => {
+  const rescheduleWorkout = async (id: string, newDate: string) => {
     setWorkoutsState((w) =>
       w.map((item) =>
         item.id === id ? { ...item, scheduledDate: newDate } : item
       )
     );
+    await supabase.from("workouts").update({ scheduled_date: newDate }).eq("id", id);
   };
 
   const getHabitStreak = useCallback((id: string) => {
@@ -243,6 +486,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
+      loading,
     }}>
       {children}
     </AppContext.Provider>
