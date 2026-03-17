@@ -5,7 +5,7 @@ export interface Habit {
   label: string;
   done: boolean;
   category: "morning" | "other";
-  completionDates: string[]; // ISO date strings "YYYY-MM-DD"
+  completionDates: string[];
 }
 
 export interface ScheduledEvent {
@@ -39,7 +39,8 @@ export interface Workout {
   tag: string;
   emoji: string;
   done: boolean;
-  completedDate?: string; // ISO date "YYYY-MM-DD"
+  scheduledDate?: string; // "YYYY-MM-DD"
+  completedDate?: string; // "YYYY-MM-DD"
   exercises?: { name: string; sets: number; reps: string }[];
 }
 
@@ -64,6 +65,8 @@ interface AppContextType {
   toggleWorkout: (id: string) => void;
   removeWorkout: (id: string) => void;
   setWorkouts: (workouts: Workout[]) => void;
+  addWorkouts: (workouts: Workout[]) => void;
+  rescheduleWorkout: (id: string, newDate: string) => void;
   getHabitStreak: (id: string) => number;
   getHabitsForDate: (date: string) => Habit[];
   getWorkoutsForDate: (date: string) => Workout[];
@@ -102,11 +105,12 @@ const initialTasks: Task[] = [
   { id: "t6", title: "Organize pantry", time: "", tag: "Household", assignee: "partner", done: false, scheduledDay: today.getDate(), scheduledMonth: today.getMonth(), scheduledYear: today.getFullYear() },
 ];
 
+const todayKey = todayStr();
 const initialWorkouts: Workout[] = [
-  { id: "w1", title: "Morning Run", duration: "30 min", cal: 250, tag: "Cardio", emoji: "🏃", done: false },
-  { id: "w2", title: "Strength Training", duration: "45 min", cal: 320, tag: "Strength", emoji: "💪", done: false },
-  { id: "w3", title: "Yoga Session", duration: "20 min", cal: 100, tag: "Flexibility", emoji: "🧘", done: false },
-  { id: "w4", title: "Evening Walk", duration: "25 min", cal: 80, tag: "Cardio", emoji: "🚶", done: false },
+  { id: "w1", title: "Morning Run", duration: "30 min", cal: 250, tag: "Cardio", emoji: "🏃", done: false, scheduledDate: todayKey },
+  { id: "w2", title: "Strength Training", duration: "45 min", cal: 320, tag: "Strength", emoji: "💪", done: false, scheduledDate: todayKey },
+  { id: "w3", title: "Yoga Session", duration: "20 min", cal: 100, tag: "Flexibility", emoji: "🧘", done: false, scheduledDate: todayKey },
+  { id: "w4", title: "Evening Walk", duration: "25 min", cal: 80, tag: "Cardio", emoji: "🚶", done: false, scheduledDate: todayKey },
 ];
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
@@ -188,6 +192,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setWorkoutsState(newWorkouts);
   };
 
+  const addWorkouts = (newWorkouts: Workout[]) => {
+    setWorkoutsState((w) => [...w, ...newWorkouts]);
+  };
+
+  const rescheduleWorkout = (id: string, newDate: string) => {
+    setWorkoutsState((w) =>
+      w.map((item) =>
+        item.id === id ? { ...item, scheduledDate: newDate } : item
+      )
+    );
+  };
+
   const getHabitStreak = useCallback((id: string) => {
     const habit = habits.find((h) => h.id === id);
     if (!habit) return 0;
@@ -196,13 +212,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     let streak = 0;
     const d = new Date();
-    // Check today and backwards
     for (let i = 0; i < 365; i++) {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       if (sorted.includes(key)) {
         streak++;
       } else if (i > 0) {
-        // Allow missing today (haven't done it yet), but break on past misses
         break;
       }
       d.setDate(d.getDate() - 1);
@@ -218,7 +232,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [habits]);
 
   const getWorkoutsForDate = useCallback((date: string) => {
-    return workouts.filter((w) => w.completedDate === date);
+    return workouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
   }, [workouts]);
 
   return (
@@ -227,7 +241,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       events, addEvent, removeEvent,
       tasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
-      workouts, toggleWorkout, removeWorkout, setWorkouts,
+      workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
     }}>
       {children}

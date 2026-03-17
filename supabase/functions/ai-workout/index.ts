@@ -9,26 +9,73 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt } = await req.json();
+    const { prompt, planType, startDate } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
+    const isMultiDay = planType === "week" || planType === "month";
+    const daysCount = planType === "month" ? 28 : planType === "week" ? 7 : 1;
+
+    const systemPrompt = isMultiDay
+      ? `You are a fitness coach. Generate a ${planType}ly workout plan starting from ${startDate || "today"}. The plan should cover ${daysCount} days. Include rest days where appropriate. For each day that has a workout, provide: the date (YYYY-MM-DD format), a workout with title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body, Rest), and a list of exercises with sets and reps. Rest days should have tag "Rest" with no exercises. Return using the provided tool.`
+      : "You are a fitness coach. Generate 2-3 workout plan options based on the user's request. Each plan should have a title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. Return using the provided tool.";
+
+    const tools = isMultiDay
+      ? [
           {
-            role: "system",
-            content: "You are a fitness coach. Generate 2-3 workout plan options based on the user's request. Each plan should have a title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. Return using the provided tool.",
+            type: "function",
+            function: {
+              name: "suggest_weekly_plan",
+              description: `Return a ${planType}ly workout plan organized by date`,
+              parameters: {
+                type: "object",
+                properties: {
+                  days: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        date: { type: "string", description: "YYYY-MM-DD" },
+                        dayLabel: { type: "string", description: "e.g. Monday, Tuesday" },
+                        isRest: { type: "boolean" },
+                        workout: {
+                          type: "object",
+                          properties: {
+                            title: { type: "string" },
+                            emoji: { type: "string" },
+                            duration: { type: "string" },
+                            cal: { type: "number" },
+                            tag: { type: "string" },
+                            exercises: {
+                              type: "array",
+                              items: {
+                                type: "object",
+                                properties: {
+                                  name: { type: "string" },
+                                  sets: { type: "number" },
+                                  reps: { type: "string" },
+                                },
+                                required: ["name", "sets", "reps"],
+                                additionalProperties: false,
+                              },
+                            },
+                          },
+                          required: ["title", "emoji", "duration", "cal", "tag", "exercises"],
+                          additionalProperties: false,
+                        },
+                      },
+                      required: ["date", "dayLabel", "isRest"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["days"],
+                additionalProperties: false,
+              },
+            },
           },
-          { role: "user", content: prompt },
-        ],
-        tools: [
+        ]
+      : [
           {
             type: "function",
             function: {
@@ -71,8 +118,26 @@ serve(async (req) => {
               },
             },
           },
+        ];
+
+    const toolChoice = isMultiDay
+      ? { type: "function", function: { name: "suggest_weekly_plan" } }
+      : { type: "function", function: { name: "suggest_workouts" } };
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
         ],
-        tool_choice: { type: "function", function: { name: "suggest_workouts" } },
+        tools,
+        tool_choice: toolChoice,
       }),
     });
 
