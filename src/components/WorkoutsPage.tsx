@@ -419,6 +419,16 @@ const ExerciseDetailDialog = ({
 
             {detail && (
               <>
+                {/* Exercise Illustration */}
+                {detail.imageUrl && (
+                  <div className="rounded-xl overflow-hidden border border-border bg-secondary/30">
+                    <img
+                      src={detail.imageUrl}
+                      alt={`${exerciseName} form illustration`}
+                      className="w-full h-auto max-h-56 object-contain"
+                    />
+                  </div>
+                )}
                 {/* Steps */}
                 <section>
                   <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
