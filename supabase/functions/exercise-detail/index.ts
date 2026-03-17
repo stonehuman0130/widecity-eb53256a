@@ -15,81 +15,115 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are a certified personal trainer. Given an exercise name, provide detailed guidance for performing it safely and effectively. Return data using the provided tool.",
-          },
-          { role: "user", content: `Tell me how to do: ${exerciseName}` },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "exercise_detail",
-              description: "Return detailed exercise guidance",
-              parameters: {
-                type: "object",
-                properties: {
-                  steps: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Step-by-step instructions (4-6 steps)",
+    const headers = {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    };
+
+    // Run text details and image generation in parallel
+    const [textResponse, imageResponse] = await Promise.all([
+      // Text details call
+      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content: "You are a certified personal trainer. Given an exercise name, provide detailed guidance for performing it safely and effectively. Return data using the provided tool.",
+            },
+            { role: "user", content: `Tell me how to do: ${exerciseName}` },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "exercise_detail",
+                description: "Return detailed exercise guidance",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    steps: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "Step-by-step instructions (4-6 steps)",
+                    },
+                    formCues: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "3-4 key form cues to remember",
+                    },
+                    commonMistakes: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "3-4 common mistakes to avoid",
+                    },
+                    musclesWorked: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "Primary and secondary muscles worked",
+                    },
+                    videoSearchQuery: {
+                      type: "string",
+                      description: "A YouTube search query to find a good demo video for this exercise",
+                    },
                   },
-                  formCues: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "3-4 key form cues to remember",
-                  },
-                  commonMistakes: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "3-4 common mistakes to avoid",
-                  },
-                  musclesWorked: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Primary and secondary muscles worked",
-                  },
-                  videoSearchQuery: {
-                    type: "string",
-                    description: "A YouTube search query to find a good demo video for this exercise, e.g. 'barbell bench press form tutorial'",
-                  },
+                  required: ["steps", "formCues", "commonMistakes", "musclesWorked", "videoSearchQuery"],
+                  additionalProperties: false,
                 },
-                required: ["steps", "formCues", "commonMistakes", "musclesWorked", "videoSearchQuery"],
-                additionalProperties: false,
               },
             },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "exercise_detail" } },
+          ],
+          tool_choice: { type: "function", function: { name: "exercise_detail" } },
+        }),
       }),
-    });
+      // Image generation call
+      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [
+            {
+              role: "user",
+              content: `Create a clean, simple fitness illustration showing the proper form for the exercise "${exerciseName}". Show a person in the key position of the movement with clean lines, minimal background, anatomical muscle highlights in a soft color. Style: modern fitness app illustration, not photorealistic.`,
+            },
+          ],
+          modalities: ["image", "text"],
+        }),
+      }),
+    ]);
 
-    if (!response.ok) {
-      const status = response.status;
+    // Process text response
+    if (!textResponse.ok) {
+      const status = textResponse.status;
       if (status === 429) return new Response(JSON.stringify({ error: "Rate limited, try again shortly." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      const t = await response.text();
-      console.error("AI error:", status, t);
+      const t = await textResponse.text();
+      console.error("AI text error:", status, t);
       throw new Error("AI gateway error");
     }
 
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const textData = await textResponse.json();
+    const toolCall = textData.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) throw new Error("No tool call in response");
-
     const parsed = JSON.parse(toolCall.function.arguments);
 
-    return new Response(JSON.stringify(parsed), {
+    // Process image response (non-blocking — if it fails we still return text)
+    let imageUrl: string | null = null;
+    try {
+      if (imageResponse.ok) {
+        const imageData = await imageResponse.json();
+        imageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+      } else {
+        console.error("Image generation failed:", imageResponse.status);
+      }
+    } catch (imgErr) {
+      console.error("Image processing error:", imgErr);
+    }
+
+    return new Response(JSON.stringify({ ...parsed, imageUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
