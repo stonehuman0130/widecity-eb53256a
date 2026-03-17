@@ -156,12 +156,12 @@ const HomePage = () => {
     month: "short",
     day: "numeric",
   });
+  const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
 
   return (
     <div className="px-5">
       <header className="pt-12 pb-4 flex items-start justify-between">
         <div>
-          const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
           <h1 className="text-[1.75rem] font-bold tracking-display">{greeting} 👋</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, {profile?.display_name || "there"}</p>
         </div>
