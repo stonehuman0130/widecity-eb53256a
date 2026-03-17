@@ -20,82 +20,66 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Run text details and image generation in parallel
-    const [textResponse, imageResponse] = await Promise.all([
-      // Text details call
-      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            {
-              role: "system",
-              content: "You are a certified personal trainer. Given an exercise name, provide detailed guidance for performing it safely and effectively. Return data using the provided tool.",
-            },
-            { role: "user", content: `Tell me how to do: ${exerciseName}` },
-          ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "exercise_detail",
-                description: "Return detailed exercise guidance",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    steps: {
-                      type: "array",
-                      items: { type: "string" },
-                      description: "Step-by-step instructions (4-6 steps)",
-                    },
-                    formCues: {
-                      type: "array",
-                      items: { type: "string" },
-                      description: "3-4 key form cues to remember",
-                    },
-                    commonMistakes: {
-                      type: "array",
-                      items: { type: "string" },
-                      description: "3-4 common mistakes to avoid",
-                    },
-                    musclesWorked: {
-                      type: "array",
-                      items: { type: "string" },
-                      description: "Primary and secondary muscles worked",
-                    },
-                    videoSearchQuery: {
-                      type: "string",
-                      description: "A YouTube search query to find a good demo video for this exercise",
-                    },
+    const textResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "system",
+            content: "You are a certified personal trainer. Given an exercise name, provide detailed guidance for performing it safely and effectively. Return data using the provided tool.",
+          },
+          { role: "user", content: `Tell me how to do: ${exerciseName}` },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "exercise_detail",
+              description: "Return detailed exercise guidance",
+              parameters: {
+                type: "object",
+                properties: {
+                  steps: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Step-by-step instructions (4-6 steps)",
                   },
-                  required: ["steps", "formCues", "commonMistakes", "musclesWorked", "videoSearchQuery"],
-                  additionalProperties: false,
+                  formCues: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "3-4 key form cues to remember",
+                  },
+                  commonMistakes: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "3-4 common mistakes to avoid",
+                  },
+                  musclesWorked: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Primary and secondary muscles worked",
+                  },
+                  youtubeVideoId: {
+                    type: "string",
+                    description: "The YouTube video ID (the 11-character code, e.g. 'dQw4w9WgXcQ') of a well-known, high-quality exercise tutorial video for this exercise. Pick from reputable fitness channels like Jeff Nippard, Athlean-X, Renaissance Periodization, Squat University, or similar. Only return the video ID, not a full URL.",
+                  },
+                  videoSearchQuery: {
+                    type: "string",
+                    description: "A YouTube search query to find a good demo video for this exercise (as fallback)",
+                  },
                 },
+                required: ["steps", "formCues", "commonMistakes", "musclesWorked", "youtubeVideoId", "videoSearchQuery"],
+                additionalProperties: false,
               },
             },
-          ],
-          tool_choice: { type: "function", function: { name: "exercise_detail" } },
-        }),
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "exercise_detail" } },
       }),
-      // Image generation call
-      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image",
-          messages: [
-            {
-              role: "user",
-              content: `Create a clean, step-by-step fitness illustration for the exercise "${exerciseName}". Show 3-4 sequential frames side by side (left to right) depicting the movement from starting position to ending position, like a comic strip. Each frame should show the same person progressing through the key phases of the movement. Use clean lines, minimal background, subtle muscle group highlights. Style: modern fitness app instructional diagram, not photorealistic. Label each frame (1, 2, 3...).`,
-            },
-          ],
-          modalities: ["image", "text"],
-        }),
-      }),
-    ]);
+    });
 
-    // Process text response
     if (!textResponse.ok) {
       const status = textResponse.status;
       if (status === 429) return new Response(JSON.stringify({ error: "Rate limited, try again shortly." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -110,20 +94,7 @@ serve(async (req) => {
     if (!toolCall) throw new Error("No tool call in response");
     const parsed = JSON.parse(toolCall.function.arguments);
 
-    // Process image response (non-blocking — if it fails we still return text)
-    let imageUrl: string | null = null;
-    try {
-      if (imageResponse.ok) {
-        const imageData = await imageResponse.json();
-        imageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
-      } else {
-        console.error("Image generation failed:", imageResponse.status);
-      }
-    } catch (imgErr) {
-      console.error("Image processing error:", imgErr);
-    }
-
-    return new Response(JSON.stringify({ ...parsed, imageUrl }), {
+    return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
