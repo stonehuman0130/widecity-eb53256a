@@ -14,6 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
+      events: {
+        Row: {
+          assignee: string
+          created_at: string
+          day: number
+          description: string | null
+          id: string
+          month: number
+          time: string
+          title: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          assignee?: string
+          created_at?: string
+          day: number
+          description?: string | null
+          id?: string
+          month: number
+          time?: string
+          title: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          assignee?: string
+          created_at?: string
+          day?: number
+          description?: string | null
+          id?: string
+          month?: number
+          time?: string
+          title?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      habit_completions: {
+        Row: {
+          completed_date: string
+          created_at: string
+          habit_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          completed_date: string
+          created_at?: string
+          habit_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          completed_date?: string
+          created_at?: string
+          habit_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habit_completions_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      habits: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          label: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          label: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          label?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -58,6 +153,117 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          assignee: string
+          created_at: string
+          done: boolean
+          id: string
+          scheduled_day: number | null
+          scheduled_month: number | null
+          scheduled_year: number | null
+          tag: string
+          time: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          assignee?: string
+          created_at?: string
+          done?: boolean
+          id?: string
+          scheduled_day?: number | null
+          scheduled_month?: number | null
+          scheduled_year?: number | null
+          tag?: string
+          time?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          assignee?: string
+          created_at?: string
+          done?: boolean
+          id?: string
+          scheduled_day?: number | null
+          scheduled_month?: number | null
+          scheduled_year?: number | null
+          tag?: string
+          time?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      water_tracking: {
+        Row: {
+          date: string
+          goal: number
+          id: string
+          intake: number
+          user_id: string
+        }
+        Insert: {
+          date?: string
+          goal?: number
+          id?: string
+          intake?: number
+          user_id: string
+        }
+        Update: {
+          date?: string
+          goal?: number
+          id?: string
+          intake?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      workouts: {
+        Row: {
+          cal: number
+          completed_date: string | null
+          created_at: string
+          done: boolean
+          duration: string
+          emoji: string
+          exercises: Json | null
+          id: string
+          scheduled_date: string | null
+          tag: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          cal?: number
+          completed_date?: string | null
+          created_at?: string
+          done?: boolean
+          duration?: string
+          emoji?: string
+          exercises?: Json | null
+          id?: string
+          scheduled_date?: string | null
+          tag?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          cal?: number
+          completed_date?: string | null
+          created_at?: string
+          done?: boolean
+          duration?: string
+          emoji?: string
+          exercises?: Json | null
+          id?: string
+          scheduled_date?: string | null
+          tag?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -65,6 +271,7 @@ export type Database = {
     Functions: {
       connect_partner: { Args: { code: string }; Returns: Json }
       disconnect_partner: { Args: never; Returns: Json }
+      get_partner_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
