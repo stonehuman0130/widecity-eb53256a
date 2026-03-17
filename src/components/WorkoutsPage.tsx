@@ -53,6 +53,9 @@ const WorkoutsPage = () => {
   const { workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate } = useAppContext();
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const { listening: wListen, start: wStart, stop: wStop, isSupported: wSpeech } = useSpeechToText({
+    onResult: (t) => setAiPrompt((p) => (p ? p + " " + t : t)),
+  });
   const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
   const [aiWeeklyPlan, setAiWeeklyPlan] = useState<AIDayPlan[] | null>(null);
   const [planType, setPlanType] = useState<"today" | "week" | "month">("today");
