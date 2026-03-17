@@ -9,41 +9,51 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { text, conversationHistory } = await req.json();
+    const { text, conversationHistory, timezone } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
-    const dayOfWeek = today.toLocaleDateString("en-US", { weekday: "long" });
+    const userTz = timezone || "America/New_York";
 
-    const systemPrompt = `You are a smart, forgiving scheduling and habit assistant for a couple named Harrison and Evelyn. Today is ${todayStr} (${dayOfWeek}).
+    // Get current date/time in user's timezone
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: userTz,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    const get = (type: string) => parts.find(p => p.type === type)?.value || "";
+    const todayStr = `${get("year")}-${get("month")}-${get("day")}`;
+    const currentTime = `${get("hour")}:${get("minute")}`;
 
-You must parse the user's natural language into structured actions OR ask clarifying questions when critical info is missing.
+    const dayFormatter = new Intl.DateTimeFormat("en-US", { timeZone: userTz, weekday: "long" });
+    const dayOfWeek = dayFormatter.format(now);
+
+    const systemPrompt = `You are a smart, proactive scheduling and habit assistant for a couple named Harrison and Evelyn. Today is ${todayStr} (${dayOfWeek}). Current time is ${currentTime}. User timezone: ${userTz}.
+
+You must parse the user's natural language into structured actions. Be PROACTIVE about asking clarifying questions when important details are missing.
+
+CRITICAL RULE — ALWAYS ASK CLARIFICATION WHEN:
+- A time is mentioned but NO specific date (ask what day — suggest "Today", "Tomorrow", next few days)
+- A category/tag is unclear (ask: "Is this work, personal, or household?")
+- The assignee is unclear and the task could be for either partner (ask who it's for)
+- The request is vague with multiple interpretations
 
 CRITICAL RULE — TIME DETECTION:
-- If the user mentions ANY time (e.g. "2 PM", "at 3", "10:30", "noon", "morning meeting"), this is ALWAYS a scheduled calendar event (create_event), NEVER a generic task.
-- "2 PM call" = create_event with time "2:00 PM" and title "Call", NOT a generic task.
-- Even short inputs like "2pm call" or "meeting 3pm" should be treated as scheduled events.
+- If the user mentions ANY time (e.g. "2 PM", "at 3", "10:30", "noon"), this is ALWAYS a scheduled calendar event (create_event), NEVER a generic task.
+- Even short inputs like "2pm call" or "meeting 3pm" MUST trigger ask_clarification to confirm the date and category.
+
+WHEN TO CREATE WITHOUT ASKING:
+- ALL details are present: title, date, time, and clear category. Example: "Work meeting tomorrow at 3pm" → create directly.
+- Habit requests: "add stretch to mornings" → add directly.
+- Simple undated tasks with no time: "buy groceries" → create_event with today's date, no time, Personal.
 
 ACTIONS YOU CAN PERFORM:
-1. create_event — Schedule a task/event with a date and optionally a time
-2. add_habit — Add a daily habit to the user's habit tracker
+1. create_event — Schedule an event with date and optionally time
+2. add_habit — Add a daily habit
 3. perform_actions — Batch multiple actions
-4. ask_clarification — Ask the user follow-up questions when key information is missing
-
-WHEN TO ASK CLARIFICATION (use ask_clarification):
-- If a time is mentioned but NO date → ask what day (suggest "today" as default)
-- If the request is very vague (e.g. just "call" with no time or context) → ask for details
-- If you're unsure about category/assignee AND it matters → ask
-- Do NOT ask if you can reasonably infer. "2pm call" → infer today, Personal, me. Just create it.
-- Only ask when genuinely ambiguous or when multiple interpretations are equally likely.
-
-WHEN TO JUST CREATE (don't ask):
-- "2pm call" → create_event: title "Call", time "2:00 PM", date today, tag Personal, assignee me
-- "meeting tomorrow 3pm" → create_event: title "Meeting", time "3:00 PM", date tomorrow
-- "buy groceries" → create_event: title "Buy groceries", date today, no time (All day)
-- "add stretch to morning habits" → add_habit: label "Stretch", category "morning"
+4. ask_clarification — Ask the user follow-up questions
 
 PERSON/ASSIGNMENT RULES:
 - "Harrison", "mine", "my", "me", "I" → assignee "me"
@@ -65,19 +75,15 @@ SCHEDULING RULES:
 - "today" = ${todayStr}
 - "tomorrow" = the next day
 - Day names like "Tuesday" = the NEXT upcoming occurrence
-- If no date mentioned for a scheduled item with a time → assume today
-- "morning" in date/time context = scheduling, not habit
+- If no date and no time → simple task for today
+- If time mentioned but no date → ASK for the date
 
 VOICE RESPONSE:
-- Always include a "spokenResponse" field in your tool call with a natural, friendly confirmation of what you did or what you're asking.
-- Keep it concise and conversational, like: "Got it — I've scheduled a call for 2 PM today. Anything else?"
-- For clarification: "I'd love to help with that! What day should I schedule the call for?"`;
+- Always include a "spokenResponse" field with a natural, friendly confirmation or question.
+- Keep it concise and conversational.`;
 
-    const messages: any[] = [
-      { role: "system", content: systemPrompt },
-    ];
+    const messages: any[] = [{ role: "system", content: systemPrompt }];
 
-    // Add conversation history if provided (for follow-up answers)
     if (conversationHistory && Array.isArray(conversationHistory)) {
       for (const msg of conversationHistory) {
         messages.push(msg);
@@ -100,7 +106,7 @@ VOICE RESPONSE:
             type: "function",
             function: {
               name: "create_event",
-              description: "Create a single calendar event or scheduled task. Use this when time/date info is present or can be reasonably inferred.",
+              description: "Create a single calendar event. Only use when ALL required info is available (title + date). If date or category is missing, use ask_clarification instead.",
               parameters: {
                 type: "object",
                 properties: {
@@ -110,7 +116,7 @@ VOICE RESPONSE:
                   description: { type: "string", description: "Brief description if any" },
                   assignee: { type: "string", enum: ["me", "partner", "both"] },
                   tag: { type: "string", enum: ["Work", "Personal", "Household"] },
-                  spokenResponse: { type: "string", description: "Natural spoken confirmation of the action taken, e.g. 'Done! I scheduled your call for 2 PM today.'" },
+                  spokenResponse: { type: "string", description: "Natural spoken confirmation" },
                 },
                 required: ["title", "date", "spokenResponse"],
                 additionalProperties: false,
@@ -138,18 +144,18 @@ VOICE RESPONSE:
             type: "function",
             function: {
               name: "ask_clarification",
-              description: "Ask the user follow-up questions when critical information is missing or ambiguous. Use this sparingly — only when you truly cannot infer the intent.",
+              description: "Ask the user follow-up questions when critical information is missing. Use this proactively when date, category, or assignee cannot be confidently inferred.",
               parameters: {
                 type: "object",
                 properties: {
-                  question: { type: "string", description: "The follow-up question to ask the user" },
+                  question: { type: "string", description: "The follow-up question" },
                   suggestions: {
                     type: "array",
                     items: { type: "string" },
-                    description: "2-4 quick-reply suggestions the user can tap, e.g. ['Today', 'Tomorrow', 'This Friday']",
+                    description: "2-4 quick-reply suggestions",
                   },
                   spokenResponse: { type: "string", description: "Natural spoken version of the question" },
-                  context: { type: "string", description: "What the AI understood so far, to preserve context for the follow-up" },
+                  context: { type: "string", description: "What the AI understood so far" },
                 },
                 required: ["question", "suggestions", "spokenResponse", "context"],
                 additionalProperties: false,
@@ -183,7 +189,7 @@ VOICE RESPONSE:
                       additionalProperties: false,
                     },
                   },
-                  spokenResponse: { type: "string", description: "Natural spoken confirmation of all actions" },
+                  spokenResponse: { type: "string", description: "Natural spoken confirmation" },
                 },
                 required: ["actions", "spokenResponse"],
                 additionalProperties: false,
@@ -197,7 +203,7 @@ VOICE RESPONSE:
     if (!response.ok) {
       const status = response.status;
       if (status === 429) return new Response(JSON.stringify({ error: "Rate limited, try again shortly." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in Settings." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const t = await response.text();
       console.error("AI error:", status, t);
       throw new Error("AI gateway error");
@@ -207,64 +213,55 @@ VOICE RESPONSE:
     const toolCalls = data.choices?.[0]?.message?.tool_calls;
     if (!toolCalls || toolCalls.length === 0) throw new Error("No tool call in response");
 
-    const allActions: any[] = [];
-    let spokenResponse = "";
+    // Only process the FIRST tool call to prevent duplicates
+    const tc = toolCalls[0];
+    const parsed = JSON.parse(tc.function.arguments);
+    const fname = tc.function.name;
 
-    for (const tc of toolCalls) {
-      const parsed = JSON.parse(tc.function.arguments);
-      const fname = tc.function.name;
-
-      if (fname === "ask_clarification") {
-        return new Response(JSON.stringify({
-          type: "clarification",
-          question: parsed.question,
-          suggestions: parsed.suggestions || [],
-          spokenResponse: parsed.spokenResponse || parsed.question,
-          context: parsed.context || "",
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      if (fname === "perform_actions" && parsed.actions) {
-        spokenResponse = parsed.spokenResponse || "";
-        for (const a of parsed.actions) {
-          allActions.push(a);
-        }
-      } else if (fname === "create_event") {
-        spokenResponse = parsed.spokenResponse || "";
-        allActions.push({ action_type: "create_event", ...parsed });
-      } else if (fname === "add_habit") {
-        spokenResponse = parsed.spokenResponse || "";
-        allActions.push({ action_type: "add_habit", ...parsed });
-      }
+    if (fname === "ask_clarification") {
+      return new Response(JSON.stringify({
+        type: "clarification",
+        question: parsed.question,
+        suggestions: parsed.suggestions || [],
+        spokenResponse: parsed.spokenResponse || parsed.question,
+        context: parsed.context || "",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    if (allActions.length === 0) throw new Error("No actions parsed");
-
-    if (allActions.length === 1) {
-      const a = allActions[0];
-      if (a.action_type === "add_habit") {
-        return new Response(JSON.stringify({ type: "add_habit", label: a.label, category: a.category, spokenResponse }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } else {
-        return new Response(JSON.stringify({
-          type: "create_event",
-          title: a.title,
-          date: a.date,
-          time: a.time,
-          description: a.description,
-          assignee: a.assignee || "me",
-          tag: a.tag || "Personal",
-          spokenResponse,
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (fname === "perform_actions" && parsed.actions) {
+      return new Response(JSON.stringify({
+        type: "multi",
+        actions: parsed.actions,
+        spokenResponse: parsed.spokenResponse || "",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify({ type: "multi", actions: allActions, spokenResponse }), {
+    if (fname === "add_habit") {
+      return new Response(JSON.stringify({
+        type: "add_habit",
+        label: parsed.label,
+        category: parsed.category,
+        spokenResponse: parsed.spokenResponse || "",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // create_event
+    return new Response(JSON.stringify({
+      type: "create_event",
+      title: parsed.title,
+      date: parsed.date,
+      time: parsed.time,
+      description: parsed.description,
+      assignee: parsed.assignee || "me",
+      tag: parsed.tag || "Personal",
+      spokenResponse: parsed.spokenResponse || "",
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
