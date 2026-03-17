@@ -87,7 +87,7 @@ serve(async (req) => {
           messages: [
             {
               role: "user",
-              content: `Create a clean, simple fitness illustration showing the proper form for the exercise "${exerciseName}". Show a person in the key position of the movement with clean lines, minimal background, anatomical muscle highlights in a soft color. Style: modern fitness app illustration, not photorealistic.`,
+              content: `Create a clean, step-by-step fitness illustration for the exercise "${exerciseName}". Show 3-4 sequential frames side by side (left to right) depicting the movement from starting position to ending position, like a comic strip. Each frame should show the same person progressing through the key phases of the movement. Use clean lines, minimal background, subtle muscle group highlights. Style: modern fitness app instructional diagram, not photorealistic. Label each frame (1, 2, 3...).`,
             },
           ],
           modalities: ["image", "text"],
