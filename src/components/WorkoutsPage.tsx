@@ -301,18 +301,196 @@ const WorkoutCard = ({
             {expanded ? "Hide details" : `${workout.exercises.length} exercises`}
           </button>
           {expanded && (
-            <div className="px-4 pb-4 space-y-2">
+            <div className="px-4 pb-4 space-y-1">
               {workout.exercises.map((ex, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <span className="text-sm font-medium">{ex.name}</span>
-                  <span className="text-xs text-muted-foreground">{ex.sets} × {ex.reps}</span>
-                </div>
+                <button
+                  key={i}
+                  onClick={() => onExerciseTap(ex.name)}
+                  className="w-full flex items-center justify-between py-2.5 px-2 border-b border-border last:border-0 rounded-lg hover:bg-secondary/50 transition-colors text-left group"
+                >
+                  <span className="text-sm font-medium group-hover:text-primary transition-colors">{ex.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{ex.sets} × {ex.reps}</span>
+                    <Dumbbell size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
               ))}
             </div>
           )}
         </>
       )}
     </div>
+  );
+};
+
+/* ─── Exercise Detail Dialog ─── */
+const ExerciseDetailDialog = ({
+  exerciseName,
+  open,
+  onClose,
+}: {
+  exerciseName: string | null;
+  open: boolean;
+  onClose: () => void;
+}) => {
+  const [detail, setDetail] = useState<ExerciseDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDetail = async (name: string) => {
+    setLoading(true);
+    setError(null);
+    setDetail(null);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("exercise-detail", {
+        body: { exerciseName: name },
+      });
+      if (fnError) throw fnError;
+      if (data.error) throw new Error(data.error);
+      setDetail(data);
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message || "Failed to load exercise details");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch when dialog opens with a new exercise
+  const prevName = useState<string | null>(null);
+  if (open && exerciseName && exerciseName !== prevName[0]) {
+    prevName[1](exerciseName);
+    fetchDetail(exerciseName);
+  }
+  if (!open && prevName[0]) {
+    prevName[1](null);
+  }
+
+  const youtubeUrl = detail?.videoSearchQuery
+    ? `https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`
+    : null;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-5 pb-3 border-b border-border">
+          <DialogTitle className="text-lg flex items-center gap-2">
+            <Dumbbell size={18} className="text-primary" />
+            {exerciseName}
+          </DialogTitle>
+        </DialogHeader>
+
+        <ScrollArea className="max-h-[calc(85vh-80px)]">
+          <div className="p-5 space-y-5">
+            {loading && (
+              <div className="space-y-4">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+            )}
+
+            {error && (
+              <div className="text-center py-6">
+                <p className="text-sm text-destructive mb-2">{error}</p>
+                <button
+                  onClick={() => exerciseName && fetchDetail(exerciseName)}
+                  className="text-sm text-primary font-medium"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+
+            {detail && (
+              <>
+                {/* Steps */}
+                <section>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    📋 How to Perform
+                  </h3>
+                  <ol className="space-y-2">
+                    {detail.steps.map((step, i) => (
+                      <li key={i} className="flex gap-2.5 text-sm">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">
+                          {i + 1}
+                        </span>
+                        <span className="text-muted-foreground leading-relaxed">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+
+                {/* Form Cues */}
+                <section>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <Target size={14} className="text-primary" />
+                    Form Cues
+                  </h3>
+                  <div className="space-y-1.5">
+                    {detail.formCues.map((cue, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <span className="text-primary mt-0.5">✓</span>
+                        <span>{cue}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Common Mistakes */}
+                <section>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <AlertTriangle size={14} className="text-destructive" />
+                    Common Mistakes
+                  </h3>
+                  <div className="space-y-1.5">
+                    {detail.commonMistakes.map((mistake, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <span className="text-destructive mt-0.5">✗</span>
+                        <span>{mistake}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Muscles Worked */}
+                <section>
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    💪 Muscles Worked
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detail.musclesWorked.map((muscle, i) => (
+                      <span
+                        key={i}
+                        className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary"
+                      >
+                        {muscle}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Video Link */}
+                {youtubeUrl && (
+                  <a
+                    href={youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-secondary text-sm font-semibold hover:bg-secondary/80 transition-colors"
+                  >
+                    <ExternalLink size={14} />
+                    Watch Demo on YouTube
+                  </a>
+                )}
+              </>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 };
 
