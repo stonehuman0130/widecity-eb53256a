@@ -497,18 +497,6 @@ const ExerciseDetailDialog = ({
                   </div>
                 </section>
 
-                {/* Video Link Fallback */}
-                {youtubeSearchUrl && (
-                  <a
-                    href={youtubeSearchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-secondary text-sm font-semibold hover:bg-secondary/80 transition-colors"
-                  >
-                    <ExternalLink size={14} />
-                    {youtubeEmbedUrl ? "Browse More Videos" : "Watch Demo on YouTube"}
-                  </a>
-                )}
               </>
             )}
           </div>
