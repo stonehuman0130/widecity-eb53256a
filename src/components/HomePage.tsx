@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2 } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
@@ -11,8 +11,16 @@ import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
+import { speak, stopSpeaking } from "@/lib/speak";
 
 type Filter = "mine" | "partner" | "household";
+
+interface ClarificationState {
+  question: string;
+  suggestions: string[];
+  context: string;
+  conversationHistory: { role: string; content: string }[];
+}
 
 const HomePage = () => {
   const { profile, partner } = useAuth();
@@ -21,15 +29,38 @@ const HomePage = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [clarification, setClarification] = useState<ClarificationState | null>(null);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent } = useAppContext();
+
+  const voiceModeRef = useRef(voiceMode);
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
 
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
     onResult: (transcript) => {
-      setInput((prev) => (prev ? prev + " " + transcript : transcript));
+      if (voiceModeRef.current) {
+        // In voice mode, immediately send to AI
+        setInput(transcript);
+        handleAiSchedule(transcript);
+      } else {
+        setInput((prev) => (prev ? prev + " " + transcript : transcript));
+      }
     },
   });
 
   const morningHabits = habits.filter((h) => h.category === "morning");
+
+  const speakResponse = (text: string, thenListen?: boolean) => {
+    setIsSpeaking(true);
+    speak(text, () => {
+      setIsSpeaking(false);
+      if (thenListen && voiceModeRef.current && speechSupported) {
+        // After speaking, listen for more
+        setTimeout(() => startListening(), 300);
+      }
+    });
+  };
 
   const handleQuickAdd = () => {
     if (!input.trim()) return;
@@ -57,15 +88,11 @@ const HomePage = () => {
     const actionType = action.action_type || action.type || (action.label ? "add_habit" : "create_event");
 
     if (actionType === "add_habit") {
-      const inferredCategory = /morning|mornings|am routine/i.test(input) ? "morning" : "other";
       const label = action.label || action.title;
-      const category = action.category || inferredCategory;
+      const category = action.category || "other";
       if (!label) return;
-
       addHabit(label, category);
-      toast.success(`Habit added: ${label}`, {
-        description: `Added to ${category} habits`,
-      });
+      toast.success(`Habit added: ${label}`, { description: `Added to ${category} habits` });
       return;
     }
 
@@ -98,30 +125,88 @@ const HomePage = () => {
     });
   };
 
-  const handleAiSchedule = async () => {
-    if (!input.trim()) return;
+  const handleAiSchedule = async (overrideText?: string, history?: { role: string; content: string }[]) => {
+    const textToSend = overrideText || input;
+    if (!textToSend.trim()) return;
     setAiLoading(true);
     try {
-      const { data: rawData, error } = await supabase.functions.invoke("ai-schedule", {
-        body: { text: input },
-      });
+      const body: any = { text: textToSend };
+      if (history && history.length > 0) {
+        body.conversationHistory = history;
+      }
+
+      const { data: rawData, error } = await supabase.functions.invoke("ai-schedule", { body });
       if (error) throw error;
 
       const data = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
       if (data.error) throw new Error(data.error);
 
+      // Handle clarification requests
+      if (data.type === "clarification") {
+        const newHistory = history || [];
+        newHistory.push({ role: "user", content: textToSend });
+        newHistory.push({ role: "assistant", content: data.question });
+
+        setClarification({
+          question: data.question,
+          suggestions: data.suggestions || [],
+          context: data.context || "",
+          conversationHistory: newHistory,
+        });
+
+        if (voiceMode) {
+          speakResponse(data.spokenResponse || data.question, true);
+        }
+
+        setInput("");
+        return;
+      }
+
+      // Handle actions
       if (data.type === "multi" && Array.isArray(data.actions)) {
         data.actions.forEach((action: any) => processAction(action));
         toast.success(`✨ ${data.actions.length} actions completed!`);
       } else {
         processAction(data);
       }
+
+      // Speak confirmation in voice mode
+      if (voiceMode && data.spokenResponse) {
+        speakResponse(data.spokenResponse, true);
+      }
+
       setInput("");
+      setClarification(null);
     } catch (e: any) {
       console.error("AI schedule error:", e);
       toast.error("AI couldn't parse that", { description: e.message });
+      if (voiceMode) {
+        speakResponse("Sorry, I couldn't understand that. Could you try again?", true);
+      }
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleClarificationReply = (reply: string) => {
+    if (!clarification) return;
+    const history = [...clarification.conversationHistory];
+    setClarification(null);
+    setInput("");
+    handleAiSchedule(reply, history);
+  };
+
+  const toggleVoiceMode = () => {
+    if (voiceMode) {
+      setVoiceMode(false);
+      stopListening();
+      stopSpeaking();
+      setIsSpeaking(false);
+    } else {
+      setVoiceMode(true);
+      if (speechSupported) {
+        startListening();
+      }
     }
   };
 
@@ -138,7 +223,6 @@ const HomePage = () => {
     return tag === "Household" || assignee === "both";
   };
 
-  // Date-based filtering
   const sd = selectedDate;
   const selDay = sd.getDate();
   const selMonth = sd.getMonth();
@@ -156,12 +240,7 @@ const HomePage = () => {
   const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
   const justDoIt = filteredTasks.filter((t) => !isTaskScheduled(t));
 
-  const dateFormatted = sd.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-
+  const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
 
   const shiftDate = (days: number) => {
@@ -209,9 +288,7 @@ const HomePage = () => {
             key={f.id}
             onClick={() => setFilter(f.id)}
             className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-              filter === f.id
-                ? "bg-card text-foreground shadow-card"
-                : "text-muted-foreground"
+              filter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
             }`}
           >
             {f.label}
@@ -219,51 +296,151 @@ const HomePage = () => {
         ))}
       </div>
 
-      {/* AI-powered input bar */}
-      <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 mb-6 shadow-card border border-border">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              if (e.shiftKey) {
-                handleQuickAdd();
-              } else {
-                handleAiSchedule();
-              }
-            }
-          }}
-          placeholder="Try: 'call at 2pm tomorrow & add stretch to mornings'"
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
-        />
-        {speechSupported && (
-          <button
-            onClick={listening ? stopListening : startListening}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 ${
-              listening
-                ? "bg-destructive text-destructive-foreground animate-pulse"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
+      {/* Voice Mode Overlay */}
+      <AnimatePresence>
+        {voiceMode && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-6 mb-5 text-center"
           >
-            <Mic size={16} />
-          </button>
+            <div className="flex flex-col items-center gap-4">
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
+                listening
+                  ? "bg-destructive/20 animate-pulse"
+                  : isSpeaking
+                  ? "bg-primary/20 animate-pulse"
+                  : "bg-secondary"
+              }`}>
+                {listening ? (
+                  <Mic size={32} className="text-destructive" />
+                ) : isSpeaking ? (
+                  <Volume2 size={32} className="text-primary" />
+                ) : (
+                  <Mic size={32} className="text-muted-foreground" />
+                )}
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                {listening
+                  ? "Listening..."
+                  : isSpeaking
+                  ? "Speaking..."
+                  : aiLoading
+                  ? "Thinking..."
+                  : "Tap to speak"}
+              </p>
+              {!listening && !isSpeaking && !aiLoading && (
+                <button
+                  onClick={startListening}
+                  className="px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-semibold"
+                >
+                  Tap to Speak
+                </button>
+              )}
+              <button
+                onClick={toggleVoiceMode}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Exit Voice Mode
+              </button>
+            </div>
+          </motion.div>
         )}
-        <button
-          onClick={handleAiSchedule}
-          disabled={aiLoading || !input.trim()}
-          className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-primary-foreground disabled:opacity-50 flex-shrink-0"
-        >
-          {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-        </button>
-        <button
-          onClick={handleQuickAdd}
-          disabled={!input.trim()}
-          className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-50 flex-shrink-0"
-        >
-          <Plus size={16} />
-        </button>
-      </div>
+      </AnimatePresence>
+
+      {/* Clarification Card */}
+      <AnimatePresence>
+        {clarification && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4 mb-5"
+          >
+            <div className="flex items-start gap-2 mb-3">
+              <Sparkles size={16} className="text-purple-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm font-medium text-foreground">{clarification.question}</p>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {clarification.suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleClarificationReply(s)}
+                  className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && input.trim()) {
+                    e.preventDefault();
+                    handleClarificationReply(input);
+                  }
+                }}
+                placeholder="Or type your answer..."
+                className="flex-1 bg-card rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground border border-border min-w-0"
+              />
+              <button
+                onClick={() => { setClarification(null); setInput(""); }}
+                className="px-3 py-2 rounded-lg text-xs text-muted-foreground hover:text-foreground bg-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* AI-powered input bar */}
+      {!voiceMode && !clarification && (
+        <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 mb-6 shadow-card border border-border">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (e.shiftKey) {
+                  handleQuickAdd();
+                } else {
+                  handleAiSchedule();
+                }
+              }
+            }}
+            placeholder="Try: 'call at 2pm tomorrow & add stretch to mornings'"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
+          />
+          {speechSupported && (
+            <button
+              onClick={toggleVoiceMode}
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-purple-500 hover:from-purple-500/30 hover:to-pink-500/30"
+              title="Voice assistant"
+            >
+              <Mic size={16} />
+            </button>
+          )}
+          <button
+            onClick={() => handleAiSchedule()}
+            disabled={aiLoading || !input.trim()}
+            className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-primary-foreground disabled:opacity-50 flex-shrink-0"
+          >
+            {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+          </button>
+          <button
+            onClick={handleQuickAdd}
+            disabled={!input.trim()}
+            className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-50 flex-shrink-0"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+      )}
 
       <section className="mb-6">
         <h2 className="text-lg font-semibold tracking-display mb-3">Morning Habits</h2>
@@ -342,10 +519,7 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
 
   const hasDate = task.scheduledDay !== undefined && task.scheduledMonth !== undefined && task.scheduledYear !== undefined;
   const dateLabel = hasDate
-    ? new Date(task.scheduledYear!, task.scheduledMonth!, task.scheduledDay!).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      })
+    ? new Date(task.scheduledYear!, task.scheduledMonth!, task.scheduledDay!).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : null;
 
   return (
@@ -385,10 +559,7 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
 const EventCard = ({ event, onRemove }: { event: ScheduledEvent; onRemove: (id: string) => void }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [done, setDone] = useState(false);
-  const dateLabel = new Date(event.year, event.month, event.day).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+  const dateLabel = new Date(event.year, event.month, event.day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   return (
     <motion.div

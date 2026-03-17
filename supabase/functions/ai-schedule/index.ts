@@ -9,13 +9,82 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { text } = await req.json();
+    const { text, conversationHistory } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
     const dayOfWeek = today.toLocaleDateString("en-US", { weekday: "long" });
+
+    const systemPrompt = `You are a smart, forgiving scheduling and habit assistant for a couple named Harrison and Evelyn. Today is ${todayStr} (${dayOfWeek}).
+
+You must parse the user's natural language into structured actions OR ask clarifying questions when critical info is missing.
+
+CRITICAL RULE — TIME DETECTION:
+- If the user mentions ANY time (e.g. "2 PM", "at 3", "10:30", "noon", "morning meeting"), this is ALWAYS a scheduled calendar event (create_event), NEVER a generic task.
+- "2 PM call" = create_event with time "2:00 PM" and title "Call", NOT a generic task.
+- Even short inputs like "2pm call" or "meeting 3pm" should be treated as scheduled events.
+
+ACTIONS YOU CAN PERFORM:
+1. create_event — Schedule a task/event with a date and optionally a time
+2. add_habit — Add a daily habit to the user's habit tracker
+3. perform_actions — Batch multiple actions
+4. ask_clarification — Ask the user follow-up questions when key information is missing
+
+WHEN TO ASK CLARIFICATION (use ask_clarification):
+- If a time is mentioned but NO date → ask what day (suggest "today" as default)
+- If the request is very vague (e.g. just "call" with no time or context) → ask for details
+- If you're unsure about category/assignee AND it matters → ask
+- Do NOT ask if you can reasonably infer. "2pm call" → infer today, Personal, me. Just create it.
+- Only ask when genuinely ambiguous or when multiple interpretations are equally likely.
+
+WHEN TO JUST CREATE (don't ask):
+- "2pm call" → create_event: title "Call", time "2:00 PM", date today, tag Personal, assignee me
+- "meeting tomorrow 3pm" → create_event: title "Meeting", time "3:00 PM", date tomorrow
+- "buy groceries" → create_event: title "Buy groceries", date today, no time (All day)
+- "add stretch to morning habits" → add_habit: label "Stretch", category "morning"
+
+PERSON/ASSIGNMENT RULES:
+- "Harrison", "mine", "my", "me", "I" → assignee "me"
+- "Evelyn", "her", "partner" → assignee "partner"
+- "both", "us", "shared", "household", "together" → assignee "both"
+- Default: "me"
+
+HABIT RULES:
+- Keywords: "habit", "routine", "daily", "every day", "add to routine", "mornings"
+- "morning habit/routine/mornings" → category "morning"
+- Other habits → category "other"
+
+TAG RULES:
+- "work", "office", "meeting", "project", "work call" → tag "Work"
+- "household", "chores", "cleaning", "trash", "laundry" → tag "Household"
+- Everything else → tag "Personal"
+
+SCHEDULING RULES:
+- "today" = ${todayStr}
+- "tomorrow" = the next day
+- Day names like "Tuesday" = the NEXT upcoming occurrence
+- If no date mentioned for a scheduled item with a time → assume today
+- "morning" in date/time context = scheduling, not habit
+
+VOICE RESPONSE:
+- Always include a "spokenResponse" field in your tool call with a natural, friendly confirmation of what you did or what you're asking.
+- Keep it concise and conversational, like: "Got it — I've scheduled a call for 2 PM today. Anything else?"
+- For clarification: "I'd love to help with that! What day should I schedule the call for?"`;
+
+    const messages: any[] = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    // Add conversation history if provided (for follow-up answers)
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      for (const msg of conversationHistory) {
+        messages.push(msg);
+      }
+    }
+
+    messages.push({ role: "user", content: text });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -25,70 +94,25 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are a smart, forgiving scheduling and habit assistant for a couple named Harrison and Evelyn. Today is ${todayStr} (${dayOfWeek}).
-
-You must parse the user's natural language into one or more structured actions. Users may be casual, use shorthand, have typos, or mix multiple requests in one message. Always infer the most likely intent.
-
-ACTIONS YOU CAN PERFORM (call multiple tools if the user wants multiple things):
-
-1. create_event — Schedule a task/event with a date and optionally a time
-2. add_habit — Add a daily habit to the user's habit tracker
-3. perform_actions — When the user wants MULTIPLE things done at once, use this to batch them
-
-PERSON/ASSIGNMENT RULES:
-- "Harrison", "mine", "my", "me", "I" → assignee "me"
-- "Evelyn", "Evelyn's", "her", "partner" → assignee "partner"
-- "both", "us", "shared", "household", "together" → assignee "both"
-- If no person mentioned, default to "me"
-
-HABIT RULES:
-- Keywords: "habit", "habits", "routine", "daily", "every day", "make this a habit", "add to routine", "part of my mornings"
-- "morning habit", "morning routine", "mornings", "AM routine", "part of my mornings", "for mornings", "morning" → category "morning"
-- "habit", "routine", "other habit", "evening", "daily" (without morning context) → category "other"
-- Be very forgiving: "put this in my routine" = other habit, "add X to my morning" = morning habit
-
-SCHEDULING RULES:
-- "today" = ${todayStr}
-- "tomorrow" = the next day after today
-- Day names like "Tuesday" = the NEXT upcoming occurrence
-- If a specific time is mentioned (e.g. "2 pm", "3:00", "at 7"), ALWAYS include it
-- If no date is mentioned for a scheduled item, assume today
-- "morning" when combined with a date/time context means scheduling, not habit
-
-TAG RULES:
-- "work", "office", "meeting", "project" → tag "Work"
-- "household", "chores", "cleaning", "trash", "laundry", "dishes" → tag "Household"  
-- Everything else → tag "Personal"
-
-MULTI-ACTION:
-- If the user says "Add X to habits AND schedule Y for tomorrow", you MUST call BOTH add_habit and create_event (or use perform_actions).
-- Parse each action independently.
-- Example: "Add stretch at 2 PM tomorrow and add stretch to my morning habits" → TWO actions: one create_event for tomorrow 2PM, one add_habit morning.
-
-IMPORTANT: Be smart and forgiving. If the user says something slightly wrong or imprecise, do the most sensible thing. You are a smart assistant, not a strict parser.`,
-          },
-          { role: "user", content: text },
-        ],
+        messages,
         tools: [
           {
             type: "function",
             function: {
               name: "create_event",
-              description: "Create a single calendar event or scheduled task",
+              description: "Create a single calendar event or scheduled task. Use this when time/date info is present or can be reasonably inferred.",
               parameters: {
                 type: "object",
                 properties: {
                   title: { type: "string", description: "Event title" },
                   date: { type: "string", description: "Date in YYYY-MM-DD format" },
-                  time: { type: "string", description: "Time like '2:00 PM'. Must be set if user mentions a specific time." },
+                  time: { type: "string", description: "Time like '2:00 PM'. MUST be set if user mentions any specific time." },
                   description: { type: "string", description: "Brief description if any" },
-                  assignee: { type: "string", enum: ["me", "partner", "both"], description: "Who this is assigned to" },
-                  tag: { type: "string", enum: ["Work", "Personal", "Household"], description: "Task category tag" },
+                  assignee: { type: "string", enum: ["me", "partner", "both"] },
+                  tag: { type: "string", enum: ["Work", "Personal", "Household"] },
+                  spokenResponse: { type: "string", description: "Natural spoken confirmation of the action taken, e.g. 'Done! I scheduled your call for 2 PM today.'" },
                 },
-                required: ["title", "date"],
+                required: ["title", "date", "spokenResponse"],
                 additionalProperties: false,
               },
             },
@@ -101,10 +125,33 @@ IMPORTANT: Be smart and forgiving. If the user says something slightly wrong or 
               parameters: {
                 type: "object",
                 properties: {
-                  label: { type: "string", description: "The habit name/label" },
-                  category: { type: "string", enum: ["morning", "other"], description: "Whether this is a morning habit or other habit" },
+                  label: { type: "string" },
+                  category: { type: "string", enum: ["morning", "other"] },
+                  spokenResponse: { type: "string", description: "Natural spoken confirmation" },
                 },
-                required: ["label", "category"],
+                required: ["label", "category", "spokenResponse"],
+                additionalProperties: false,
+              },
+            },
+          },
+          {
+            type: "function",
+            function: {
+              name: "ask_clarification",
+              description: "Ask the user follow-up questions when critical information is missing or ambiguous. Use this sparingly — only when you truly cannot infer the intent.",
+              parameters: {
+                type: "object",
+                properties: {
+                  question: { type: "string", description: "The follow-up question to ask the user" },
+                  suggestions: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "2-4 quick-reply suggestions the user can tap, e.g. ['Today', 'Tomorrow', 'This Friday']",
+                  },
+                  spokenResponse: { type: "string", description: "Natural spoken version of the question" },
+                  context: { type: "string", description: "What the AI understood so far, to preserve context for the follow-up" },
+                },
+                required: ["question", "suggestions", "spokenResponse", "context"],
                 additionalProperties: false,
               },
             },
@@ -113,7 +160,7 @@ IMPORTANT: Be smart and forgiving. If the user says something slightly wrong or 
             type: "function",
             function: {
               name: "perform_actions",
-              description: "Perform multiple actions at once when the user wants several things done in one request",
+              description: "Perform multiple actions at once",
               parameters: {
                 type: "object",
                 properties: {
@@ -123,21 +170,22 @@ IMPORTANT: Be smart and forgiving. If the user says something slightly wrong or 
                       type: "object",
                       properties: {
                         action_type: { type: "string", enum: ["create_event", "add_habit"] },
-                        title: { type: "string", description: "Event title (for create_event)" },
-                        date: { type: "string", description: "Date YYYY-MM-DD (for create_event)" },
-                        time: { type: "string", description: "Time like '2:00 PM' (for create_event)" },
+                        title: { type: "string" },
+                        date: { type: "string" },
+                        time: { type: "string" },
                         description: { type: "string" },
                         assignee: { type: "string", enum: ["me", "partner", "both"] },
                         tag: { type: "string", enum: ["Work", "Personal", "Household"] },
-                        label: { type: "string", description: "Habit name (for add_habit)" },
-                        category: { type: "string", enum: ["morning", "other"], description: "Habit category (for add_habit)" },
+                        label: { type: "string" },
+                        category: { type: "string", enum: ["morning", "other"] },
                       },
                       required: ["action_type"],
                       additionalProperties: false,
                     },
                   },
+                  spokenResponse: { type: "string", description: "Natural spoken confirmation of all actions" },
                 },
-                required: ["actions"],
+                required: ["actions", "spokenResponse"],
                 additionalProperties: false,
               },
             },
@@ -159,31 +207,45 @@ IMPORTANT: Be smart and forgiving. If the user says something slightly wrong or 
     const toolCalls = data.choices?.[0]?.message?.tool_calls;
     if (!toolCalls || toolCalls.length === 0) throw new Error("No tool call in response");
 
-    // Collect all actions from potentially multiple tool calls
     const allActions: any[] = [];
+    let spokenResponse = "";
 
     for (const tc of toolCalls) {
       const parsed = JSON.parse(tc.function.arguments);
       const fname = tc.function.name;
 
+      if (fname === "ask_clarification") {
+        return new Response(JSON.stringify({
+          type: "clarification",
+          question: parsed.question,
+          suggestions: parsed.suggestions || [],
+          spokenResponse: parsed.spokenResponse || parsed.question,
+          context: parsed.context || "",
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       if (fname === "perform_actions" && parsed.actions) {
+        spokenResponse = parsed.spokenResponse || "";
         for (const a of parsed.actions) {
           allActions.push(a);
         }
       } else if (fname === "create_event") {
+        spokenResponse = parsed.spokenResponse || "";
         allActions.push({ action_type: "create_event", ...parsed });
       } else if (fname === "add_habit") {
+        spokenResponse = parsed.spokenResponse || "";
         allActions.push({ action_type: "add_habit", ...parsed });
       }
     }
 
     if (allActions.length === 0) throw new Error("No actions parsed");
 
-    // If single action, return flat for backward compat
     if (allActions.length === 1) {
       const a = allActions[0];
       if (a.action_type === "add_habit") {
-        return new Response(JSON.stringify({ type: "add_habit", label: a.label, category: a.category }), {
+        return new Response(JSON.stringify({ type: "add_habit", label: a.label, category: a.category, spokenResponse }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } else {
@@ -195,14 +257,14 @@ IMPORTANT: Be smart and forgiving. If the user says something slightly wrong or 
           description: a.description,
           assignee: a.assignee || "me",
           tag: a.tag || "Personal",
+          spokenResponse,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
 
-    // Multiple actions
-    return new Response(JSON.stringify({ type: "multi", actions: allActions }), {
+    return new Response(JSON.stringify({ type: "multi", actions: allActions, spokenResponse }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
