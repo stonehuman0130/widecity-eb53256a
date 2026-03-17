@@ -79,11 +79,11 @@ serve(async (req) => {
         method: "POST",
         headers,
         body: JSON.stringify({
-          model: "google/gemini-3.1-flash-image-preview",
+          model: "google/gemini-3-pro-image-preview",
           messages: [
             {
               role: "user",
-              content: `Generate a clean, simple fitness illustration showing proper form for the exercise: "${exerciseName}". Show a person demonstrating the correct starting and ending positions. Use a minimal, clean style with a white background. No text or labels.`,
+              content: `Generate an image: A clean, simple fitness illustration showing proper form for the exercise "${exerciseName}". Show a person demonstrating the correct position. Use a minimal style with a white background. No text or labels.`,
             },
           ],
         }),
