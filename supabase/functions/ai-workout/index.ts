@@ -151,10 +151,36 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) throw new Error("No tool call in response");
+    let parsed;
 
-    const parsed = JSON.parse(toolCall.function.arguments);
+    // Try tool_calls first
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      try {
+        parsed = JSON.parse(toolCall.function.arguments);
+      } catch (e) {
+        console.error("Tool call parse failed:", e);
+      }
+    }
+
+    // Fallback: parse JSON from content
+    if (!parsed) {
+      const content = data.choices?.[0]?.message?.content || "";
+      let cleaned = content.trim();
+      if (cleaned.startsWith("```")) {
+        cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch (e) {
+          console.error("Content JSON parse failed:", e);
+        }
+      }
+    }
+
+    if (!parsed) throw new Error("Could not extract structured data from AI response");
 
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
