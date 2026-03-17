@@ -231,9 +231,8 @@ const WorkoutsPage = () => {
     </div>
   );
 };
-    </div>
-  );
-};
+
+
 
 const WorkoutCard = ({
   workout,
