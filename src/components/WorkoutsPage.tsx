@@ -165,7 +165,41 @@ const WorkoutsPage = () => {
     return fmtDate(d);
   };
 
-  // Stats
+  const addManualActivity = (activity: typeof MANUAL_ACTIVITIES[0]) => {
+    const newWorkout: Workout = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+      title: activity.title,
+      duration: activity.defaultDuration,
+      cal: activity.defaultCal,
+      tag: activity.tag,
+      emoji: activity.emoji,
+      done: false,
+      scheduledDate: selectedDate,
+    };
+    addWorkouts([newWorkout]);
+    toast.success(`Added ${activity.title}`);
+  };
+
+  const addCustomActivity = () => {
+    if (!customTitle.trim()) return;
+    const newWorkout: Workout = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+      title: customTitle,
+      duration: `${customDuration} min`,
+      cal: parseInt(customCal) || 0,
+      tag: "Other",
+      emoji: "🏋️",
+      done: false,
+      scheduledDate: selectedDate,
+    };
+    addWorkouts([newWorkout]);
+    setCustomTitle("");
+    setCustomDuration("30");
+    setCustomCal("200");
+    setShowManualAdd(false);
+    toast.success(`Added ${customTitle}`);
+  };
+
   const completedCount = workouts.filter((w) => w.done).length;
   const totalCal = workouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
   const todayCal = workouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
