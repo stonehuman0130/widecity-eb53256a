@@ -20,8 +20,8 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Run text detail + image generation in parallel
-    const [textResponse, imageResponse] = await Promise.all([
+    // Run text detail + SVG illustration in parallel
+    const [textResponse, svgResponse] = await Promise.all([
       // Text details
       fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -74,20 +74,29 @@ serve(async (req) => {
           tool_choice: { type: "function", function: { name: "exercise_detail" } },
         }),
       }),
-      // Image generation
+      // SVG illustration
       fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers,
         body: JSON.stringify({
-          model: "google/gemini-3-pro-image-preview",
+          model: "google/gemini-2.5-flash",
           messages: [
             {
-              role: "user",
-              content: `Generate an image: A clean, simple fitness illustration showing proper form for the exercise "${exerciseName}". Show a person demonstrating the correct position. Use a minimal style with a white background. No text or labels.`,
+              role: "system",
+              content: `You are an SVG illustrator specializing in fitness diagrams. Generate a clean, minimal SVG illustration showing proper form for exercises. Rules:
+- Output ONLY the raw SVG markup, nothing else - no markdown, no code blocks, no explanation
+- Use a 400x300 viewBox
+- Use simple stick figures or geometric shapes to show the exercise position
+- Use a clean color palette: #6366f1 for the figure, #e5e7eb for guidelines/ground, #f97316 for muscle highlight areas
+- Show 1-2 key positions of the exercise (start/end)
+- Include simple arrows showing movement direction
+- Keep it minimal and clear - no text labels
+- The SVG must be valid and self-contained`,
             },
+            { role: "user", content: `Generate an SVG illustration for: ${exerciseName}` },
           ],
         }),
-      }).catch(() => null), // Don't fail if image gen fails
+      }).catch(() => null),
     ]);
 
     // Parse text response
@@ -103,7 +112,6 @@ serve(async (req) => {
     const textData = await textResponse.json();
     let parsed;
 
-    // Try tool_calls first
     const toolCall = textData.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
       try {
@@ -113,7 +121,6 @@ serve(async (req) => {
       }
     }
 
-    // Fallback: parse from content
     if (!parsed) {
       const content = textData.choices?.[0]?.message?.content || "";
       let cleaned = content.trim();
@@ -128,45 +135,34 @@ serve(async (req) => {
 
     if (!parsed) throw new Error("Could not extract exercise details from AI response");
 
-    // Parse image response
-    let imageDataUrl: string | null = null;
-    if (imageResponse && imageResponse.ok) {
+    // Parse SVG response
+    let svgDataUrl: string | null = null;
+    if (svgResponse && svgResponse.ok) {
       try {
-        const imageData = await imageResponse.json();
-        const msg = imageData.choices?.[0]?.message;
-        console.log("Image response structure:", JSON.stringify(msg).substring(0, 500));
-
-        // Check for inline_data in parts (Gemini native format)
-        if (msg?.content && Array.isArray(msg.content)) {
-          for (const part of msg.content) {
-            if (part?.type === "image_url" && part?.image_url?.url) {
-              imageDataUrl = part.image_url.url;
-              break;
-            }
-            if (part?.inline_data?.data) {
-              const mime = part.inline_data.mime_type || "image/png";
-              imageDataUrl = `data:${mime};base64,${part.inline_data.data}`;
-              break;
-            }
-          }
+        const svgData = await svgResponse.json();
+        let svgContent = svgData.choices?.[0]?.message?.content || "";
+        
+        // Strip markdown code blocks if present
+        svgContent = svgContent.trim();
+        if (svgContent.startsWith("```")) {
+          svgContent = svgContent.replace(/^```(?:svg|xml)?\n?/, "").replace(/\n?```$/, "");
         }
-
-        // Check content as string for base64
-        if (!imageDataUrl && typeof msg?.content === "string") {
-          const b64Match = msg.content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
-          if (b64Match) {
-            imageDataUrl = b64Match[0];
-          }
+        
+        // Extract just the SVG tag
+        const svgMatch = svgContent.match(/<svg[\s\S]*<\/svg>/i);
+        if (svgMatch) {
+          const cleanSvg = svgMatch[0];
+          // Convert to data URI
+          svgDataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(cleanSvg)))}`;
         }
       } catch (e) {
-        console.error("Image parse error:", e);
+        console.error("SVG parse error:", e);
       }
-    } else if (imageResponse) {
-      // Consume body to prevent leak
-      try { await imageResponse.text(); } catch (_) {}
+    } else if (svgResponse) {
+      try { await svgResponse.text(); } catch (_) {}
     }
 
-    return new Response(JSON.stringify({ ...parsed, imageDataUrl }), {
+    return new Response(JSON.stringify({ ...parsed, imageDataUrl: svgDataUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
