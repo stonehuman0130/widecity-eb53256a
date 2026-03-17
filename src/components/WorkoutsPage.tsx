@@ -23,6 +23,7 @@ interface ExerciseDetail {
   commonMistakes: string[];
   musclesWorked: string[];
   videoSearchQuery: string;
+  imageUrl?: string | null;
 }
 
 const WorkoutsPage = () => {
