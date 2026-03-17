@@ -748,20 +748,6 @@ const ExerciseDetailDialog = ({
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`
     : null;
 
-  const handleWatchDemo = () => {
-    if (youtubeSearchUrl) {
-      // Use window.open as primary, copy to clipboard as fallback
-      const opened = window.open(youtubeSearchUrl, "_blank", "noopener,noreferrer");
-      if (!opened) {
-        navigator.clipboard.writeText(youtubeSearchUrl).then(() => {
-          toast.info("Link copied!", { description: "Paste it in your browser to watch the demo." });
-        }).catch(() => {
-          toast.error("Could not open link. Please search YouTube for: " + detail?.videoSearchQuery);
-        });
-      }
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 overflow-hidden">
@@ -799,27 +785,17 @@ const ExerciseDetailDialog = ({
 
             {detail && (
               <>
-                {/* Watch Demo - opens externally with fallback */}
+                {/* Watch Demo - uses <a> tag to bypass iframe popup blocking */}
                 {youtubeSearchUrl && (
-                  <div className="space-y-2">
-                    <button
-                      onClick={handleWatchDemo}
-                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-red-500/10 text-red-500 text-sm font-semibold hover:bg-red-500/20 transition-colors border border-red-500/20"
-                    >
-                      <ExternalLink size={14} />
-                      🎬 Watch Demo on YouTube
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(youtubeSearchUrl);
-                        toast.success("Link copied to clipboard!");
-                      }}
-                      className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs text-muted-foreground font-medium hover:bg-secondary transition-colors"
-                    >
-                      <Copy size={12} />
-                      Copy link if blocked
-                    </button>
-                  </div>
+                  <a
+                    href={youtubeSearchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-colors border border-destructive/20"
+                  >
+                    <ExternalLink size={14} />
+                    🎬 Watch Demo on YouTube
+                  </a>
                 )}
 
                 {/* Steps */}
