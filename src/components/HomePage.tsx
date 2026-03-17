@@ -6,6 +6,7 @@ import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
 import AddItemModal from "@/components/AddItemModal";
 import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
+import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -22,20 +23,20 @@ const HomePage = () => {
 
   const handleQuickAdd = () => {
     if (!input.trim()) return;
-    const today = new Date();
+    const now = new Date();
     addTask({
       title: input,
       time: "",
       tag: "Personal",
       assignee: "me",
-      scheduledDay: today.getDate(),
-      scheduledMonth: today.getMonth(),
-      scheduledYear: today.getFullYear(),
+      scheduledDay: now.getDate(),
+      scheduledMonth: now.getMonth(),
+      scheduledYear: now.getFullYear(),
     });
     setInput("");
   };
 
-  const isToday = (day?: number, month?: number, year?: number) => {
+  const isTodayDate = (day?: number, month?: number, year?: number) => {
     if (day === undefined || month === undefined || year === undefined) return true;
     const now = new Date();
     return day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
@@ -134,20 +135,20 @@ const HomePage = () => {
     return tag === "Household" || assignee === "both";
   };
 
-  const today = new Date();
+  const now = new Date();
 
   const filteredTasks = tasks.filter((t) => matchesFilter(t.assignee, t.tag));
   const visibleEvents = events.filter((e) => matchesFilter(e.user));
 
   const isTaskScheduled = (t: Task) => {
-    const hasNonTodayDate = !isToday(t.scheduledDay, t.scheduledMonth, t.scheduledYear);
+    const hasNonTodayDate = !isTodayDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear);
     return Boolean(t.time) || hasNonTodayDate;
   };
 
   const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
   const justDoIt = filteredTasks.filter((t) => !isTaskScheduled(t));
 
-  const todayFormatted = today.toLocaleDateString("en-US", {
+  const todayFormatted = now.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -310,7 +311,7 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
       {(task.time || dateLabel) && (
         <div className="flex items-center gap-2 mb-2">
           <Clock size={13} className="text-muted-foreground" />
-          {task.time ? <span className="text-xs font-medium text-muted-foreground">{task.time}</span> : null}
+          {task.time ? <span className="text-xs font-medium text-muted-foreground">{formatTime(task.time)}</span> : null}
           {dateLabel ? <span className="text-xs text-muted-foreground">· {dateLabel}</span> : null}
         </div>
       )}
@@ -343,20 +344,6 @@ const EventCard = ({ event, onRemove }: { event: ScheduledEvent; onRemove: (id: 
     month: "short",
     day: "numeric",
   });
-
-  const formatTime = (time: string) => {
-    // Convert 24h "HH:MM" to 12h format if needed
-    const match = time.match(/^(\d{1,2}):(\d{2})$/);
-    if (match) {
-      let h = parseInt(match[1]);
-      const m = match[2];
-      const ampm = h >= 12 ? "PM" : "AM";
-      if (h > 12) h -= 12;
-      if (h === 0) h = 12;
-      return `${h}:${m} ${ampm}`;
-    }
-    return time;
-  };
 
   return (
     <motion.div

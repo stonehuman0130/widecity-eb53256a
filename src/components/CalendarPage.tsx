@@ -1,20 +1,22 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Check, MoreVertical, Trash2, Clock } from "lucide-react";
-import { useAppContext, Task } from "@/context/AppContext";
+import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
 import UserBadge from "@/components/UserBadge";
 import TaskTag from "@/components/TaskTag";
+import { formatTime } from "@/lib/formatTime";
 import { toast } from "sonner";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const { events, addEvent, removeEvent, tasks, toggleTask, removeTask } = useAppContext();
+  const { events, addEvent, addTask, removeEvent, tasks, toggleTask, removeTask } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newTime, setNewTime] = useState("");
   const [newUser, setNewUser] = useState<"me" | "partner" | "both">("me");
+  const [newTag, setNewTag] = useState<"Work" | "Personal" | "Household">("Personal");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -28,12 +30,14 @@ const CalendarPage = () => {
   const monthEvents = events.filter((e) => e.month === month && e.year === year);
   const dayEvents = monthEvents.filter((e) => e.day === selectedDay);
 
-  // Tasks scheduled for the selected day
   const dayTasks = tasks.filter(
     (t) => t.scheduledDay === selectedDay && t.scheduledMonth === month && t.scheduledYear === year
   );
 
-  // Check if a day has any items (events or tasks)
+  // Split into Scheduled (has time) vs Just Do It (no time)
+  const scheduledTasks = dayTasks.filter((t) => Boolean(t.time));
+  const justDoItTasks = dayTasks.filter((t) => !t.time);
+
   const dayHasItems = (day: number) => {
     return monthEvents.some((e) => e.day === day) ||
       tasks.some((t) => t.scheduledDay === day && t.scheduledMonth === month && t.scheduledYear === year);
@@ -59,11 +63,23 @@ const CalendarPage = () => {
       year,
       user: newUser,
     });
+    addTask({
+      title: newTitle.trim(),
+      time: newTime || "",
+      tag: newTag,
+      assignee: newUser === "partner" ? "partner" : newUser === "both" ? "both" : "me",
+      scheduledDay: selectedDay,
+      scheduledMonth: month,
+      scheduledYear: year,
+    });
     setNewTitle("");
     setNewTime("");
     setNewUser("me");
+    setNewTag("Personal");
     setShowAddForm(false);
   };
+
+  const allEmpty = dayEvents.length === 0 && dayTasks.length === 0;
 
   return (
     <div className="px-5">
@@ -95,7 +111,7 @@ const CalendarPage = () => {
           ))}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const day = i + 1;
-            const isToday = isCurrentMonth && day === today.getDate();
+            const isTodayDay = isCurrentMonth && day === today.getDate();
             const isSelected = day === selectedDay;
             const hasItem = dayHasItems(day);
             return (
@@ -105,7 +121,7 @@ const CalendarPage = () => {
                 className={`relative w-full aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all ${
                   isSelected
                     ? "bg-primary text-primary-foreground"
-                    : isToday
+                    : isTodayDay
                     ? "bg-primary/10 text-primary font-bold"
                     : "hover:bg-secondary"
                 }`}
@@ -120,7 +136,7 @@ const CalendarPage = () => {
         </div>
       </div>
 
-      {/* Events & Tasks for selected day */}
+      {/* Day header */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold tracking-display">
           {monthName} {selectedDay}
@@ -149,20 +165,45 @@ const CalendarPage = () => {
             onChange={(e) => setNewTime(e.target.value)}
             className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground"
           />
-          <div className="flex gap-2">
-            {(["me", "partner", "both"] as const).map((u) => (
-              <button
-                key={u}
-                onClick={() => setNewUser(u)}
-                className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-all ${
-                  newUser === u
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground"
-                }`}
-              >
-                {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
-              </button>
-            ))}
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">Category</p>
+            <div className="flex gap-2">
+              {(["Work", "Personal", "Household"] as const).map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setNewTag(tag)}
+                  className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-all ${
+                    newTag === tag
+                      ? tag === "Work"
+                        ? "border-blue-500 bg-blue-500/10 text-blue-500"
+                        : tag === "Household"
+                        ? "border-orange-500 bg-orange-500/10 text-orange-500"
+                        : "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">Assign to</p>
+            <div className="flex gap-2">
+              {(["me", "partner", "both"] as const).map((u) => (
+                <button
+                  key={u}
+                  onClick={() => setNewUser(u)}
+                  className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-all ${
+                    newUser === u
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
+                </button>
+              ))}
+            </div>
           </div>
           <button
             onClick={handleAddEvent}
@@ -173,78 +214,112 @@ const CalendarPage = () => {
         </div>
       )}
 
-      {dayEvents.length === 0 && dayTasks.length === 0 && !showAddForm ? (
+      {allEmpty && !showAddForm ? (
         <p className="text-sm text-muted-foreground text-center py-8">No items scheduled</p>
       ) : (
-        <div className="space-y-3">
-          {/* Calendar events */}
-          {dayEvents.map((event) => (
-            <CalendarEventCard key={`ev-${event.id}`} event={event} onRemove={removeEvent} />
-          ))}
-          {/* Tasks */}
-          {dayTasks.map((task) => (
-            <CalendarTaskCard key={`tk-${task.id}`} task={task} onToggle={toggleTask} onRemove={removeTask} />
-          ))}
+        <div className="space-y-5 pb-4">
+          {/* Scheduled section (events + tasks with time) */}
+          {(dayEvents.length > 0 || scheduledTasks.length > 0) && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Clock size={16} className="text-muted-foreground" />
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Scheduled</h3>
+              </div>
+              <div className="space-y-3">
+                {dayEvents.map((event) => (
+                  <CalendarItemCard
+                    key={`ev-${event.id}`}
+                    title={event.title}
+                    time={event.time}
+                    user={event.user}
+                    onRemove={() => { removeEvent(event.id); toast.success("Event deleted"); }}
+                  />
+                ))}
+                {scheduledTasks.map((task) => (
+                  <CalendarItemCard
+                    key={`tk-${task.id}`}
+                    title={task.title}
+                    time={task.time}
+                    user={task.assignee}
+                    done={task.done}
+                    tag={task.tag}
+                    onToggle={() => {
+                      if (!task.done) toast.success("🎉 Task complete!");
+                      toggleTask(task.id);
+                    }}
+                    onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Just Do It section (tasks without time) */}
+          {justDoItTasks.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 rounded-full bg-foreground" />
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Just Do It</h3>
+              </div>
+              <div className="space-y-3">
+                {justDoItTasks.map((task) => (
+                  <CalendarItemCard
+                    key={`tk-${task.id}`}
+                    title={task.title}
+                    user={task.assignee}
+                    done={task.done}
+                    tag={task.tag}
+                    onToggle={() => {
+                      if (!task.done) toast.success("🎉 Task complete!");
+                      toggleTask(task.id);
+                    }}
+                    onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-const CalendarEventCard = ({ event, onRemove }: { event: any; onRemove: (id: string) => void }) => {
+/** Unified card for both events and tasks on the calendar page */
+const CalendarItemCard = ({
+  title, time, user, done, tag, onToggle, onRemove,
+}: {
+  title: string;
+  time?: string;
+  user: "me" | "partner" | "both";
+  done?: boolean;
+  tag?: string;
+  onToggle?: () => void;
+  onRemove: () => void;
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  return (
-    <div className="bg-card rounded-xl p-4 border border-border shadow-card flex items-center gap-3">
-      <div className={`w-1 h-10 rounded-full ${event.user === "me" ? "bg-user-a" : event.user === "partner" ? "bg-user-b" : "bg-gradient-to-b from-user-a to-user-b"}`} />
-      <div className="flex-1">
-        <p className="text-[15px] font-medium">{event.title}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{event.time}</p>
-      </div>
-      <div className="relative">
-        <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
-          <MoreVertical size={16} />
-        </button>
-        {menuOpen && (
-          <>
-            <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-            <div className="absolute right-0 top-8 z-50 min-w-[140px] rounded-xl border border-border bg-card shadow-card">
-              <button
-                onClick={() => { onRemove(event.id); setMenuOpen(false); toast.success("Event deleted"); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 size={14} /> Delete
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-};
 
-const CalendarTaskCard = ({ task, onToggle, onRemove }: { task: Task; onToggle: (id: string) => void; onRemove: (id: string) => void }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className={`bg-card rounded-xl p-4 shadow-card border transition-all ${task.done ? "border-habit-green/50" : "border-border"}`}>
-      {task.time && (
+    <div className={`bg-card rounded-xl p-4 shadow-card border transition-all ${done ? "border-habit-green/50" : "border-border"}`}>
+      {time && time !== "All day" && (
         <div className="flex items-center gap-2 mb-2">
           <Clock size={13} className="text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground">{task.time}</span>
+          <span className="text-xs font-medium text-muted-foreground">{formatTime(time)}</span>
         </div>
       )}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => onToggle(task.id)}
+          onClick={onToggle}
           className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-            task.done ? "bg-habit-green border-habit-green" : "border-muted"
+            done ? "bg-habit-green border-habit-green" : "border-muted"
           }`}
         >
-          {task.done && <Check size={14} className="text-primary-foreground" />}
+          {done && <Check size={14} className="text-primary-foreground" />}
         </button>
-        <span className={`flex-1 text-[15px] font-medium ${task.done ? "line-through opacity-40" : ""}`}>
-          {task.title}
+        <span className={`flex-1 text-[15px] font-medium ${done ? "line-through opacity-40" : ""}`}>
+          {title}
         </span>
-        <UserBadge user={task.assignee} />
+        <UserBadge user={user} />
         <div className="relative">
           <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
             <MoreVertical size={16} />
@@ -254,7 +329,7 @@ const CalendarTaskCard = ({ task, onToggle, onRemove }: { task: Task; onToggle: 
               <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
               <div className="absolute right-0 top-8 z-50 min-w-[140px] rounded-xl border border-border bg-card shadow-card">
                 <button
-                  onClick={() => { onRemove(task.id); setMenuOpen(false); toast.success("Task deleted"); }}
+                  onClick={() => { onRemove(); setMenuOpen(false); }}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 size={14} /> Delete
@@ -264,9 +339,16 @@ const CalendarTaskCard = ({ task, onToggle, onRemove }: { task: Task; onToggle: 
           )}
         </div>
       </div>
-      <div className="mt-2 ml-9">
-        <TaskTag tag={task.tag} />
-      </div>
+      {tag && (
+        <div className="mt-2 ml-9">
+          <TaskTag tag={tag as "Work" | "Personal" | "Household"} />
+        </div>
+      )}
+      {(!time || time === "All day") && (
+        <div className="mt-1 ml-9">
+          <span className="text-xs text-muted-foreground">All day</span>
+        </div>
+      )}
     </div>
   );
 };
