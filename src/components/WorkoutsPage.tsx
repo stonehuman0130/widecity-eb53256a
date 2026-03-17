@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import CongratsPopup from "@/components/CongratsPopup";
 
 interface AIPlan {
   title: string;
@@ -53,6 +54,7 @@ const WorkoutsPage = () => {
   const { workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate } = useAppContext();
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [showCongrats, setShowCongrats] = useState(false);
   const { listening: wListen, start: wStart, stop: wStop, isSupported: wSpeech } = useSpeechToText({
     onResult: (t) => setAiPrompt((p) => (p ? p + " " + t : t)),
   });
@@ -68,7 +70,6 @@ const WorkoutsPage = () => {
 
   const today = todayStr();
 
-  // Generate date range: 7 days back + 14 days forward
   const dateRange = useMemo(() => {
     const dates: string[] = [];
     const d = new Date();
@@ -82,7 +83,6 @@ const WorkoutsPage = () => {
 
   const dateWorkouts = useMemo(() => getWorkoutsForDate(selectedDate), [selectedDate, getWorkoutsForDate]);
 
-  // Find missed workouts (scheduled before today, not done)
   const missedWorkouts = useMemo(() => {
     return workouts.filter((w) => w.scheduledDate && w.scheduledDate < today && !w.done);
   }, [workouts, today]);
@@ -206,12 +206,24 @@ const WorkoutsPage = () => {
     toast.success(`Added ${customTitle}`);
   };
 
+  const handleToggleWorkout = (id: string) => {
+    const workout = workouts.find((w) => w.id === id);
+    if (workout && !workout.done) {
+      setShowCongrats(true);
+    }
+    toggleWorkout(id);
+  };
+
   const completedCount = workouts.filter((w) => w.done).length;
   const totalCal = workouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
   const todayCal = workouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
 
   return (
     <div className="px-5 pb-24">
+      {showCongrats && (
+        <CongratsPopup type="workout" show={true} onClose={() => setShowCongrats(false)} />
+      )}
+
       <header className="pt-12 pb-4">
         <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Stay active and healthy together</p>
@@ -224,7 +236,6 @@ const WorkoutsPage = () => {
           <span className="text-sm font-semibold">AI Workout Planner</span>
         </div>
 
-        {/* Plan Type Selector */}
         <div className="flex gap-1.5 mb-3">
           {(["today", "week", "month"] as const).map((type) => (
             <button
@@ -409,24 +420,15 @@ const WorkoutsPage = () => {
                 <div className="flex gap-1.5">
                   <button
                     onClick={() => handleReschedule(w.id, today)}
-                    className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
-                    title="Move to today"
+                    className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium flex items-center gap-1"
                   >
-                    Today
+                    <RotateCcw size={10} /> Today
                   </button>
                   <button
                     onClick={() => handleReschedule(w.id, getNextDay(today))}
-                    className="px-2.5 py-1.5 rounded-lg bg-secondary text-foreground text-xs font-medium"
-                    title="Move to tomorrow"
+                    className="px-2.5 py-1.5 rounded-lg bg-secondary text-foreground text-xs font-medium flex items-center gap-1"
                   >
-                    Tmrw
-                  </button>
-                  <button
-                    onClick={() => removeWorkout(w.id)}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive"
-                    title="Skip"
-                  >
-                    <X size={14} />
+                    <ArrowRight size={10} /> Tomorrow
                   </button>
                 </div>
               </div>
@@ -435,457 +437,354 @@ const WorkoutsPage = () => {
         </div>
       )}
 
-      {/* Date Strip */}
+      {/* Date selector strip */}
       <div className="mb-5">
-        <div className="flex items-center gap-2 mb-2">
-          <CalIcon size={14} className="text-muted-foreground" />
-          <span className="text-sm font-semibold">Schedule</span>
+        <ScrollArea className="w-full">
+          <div className="flex gap-2 pb-2">
+            {dateRange.map((date) => {
+              const d = new Date(date + "T00:00:00");
+              const dayNum = d.getDate();
+              const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+              const isSelected = date === selectedDate;
+              const isT = date === today;
+              const hasWorkouts = getWorkoutsForDate(date).length > 0;
+
+              return (
+                <button
+                  key={date}
+                  onClick={() => setSelectedDate(date)}
+                  className={`flex flex-col items-center min-w-[48px] py-2 px-1 rounded-xl border transition-all ${
+                    isSelected
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-transparent text-muted-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <span className="text-[10px] font-medium">{dayName}</span>
+                  <span className={`text-base font-bold ${isT && !isSelected ? "text-primary" : ""}`}>{dayNum}</span>
+                  {hasWorkouts && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" />}
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Quick Add Activities */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">Quick Add</h3>
+          <button
+            onClick={() => setShowManualAdd(!showManualAdd)}
+            className="text-xs text-primary font-semibold flex items-center gap-1"
+          >
+            <Plus size={12} /> Custom
+          </button>
         </div>
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-hide">
-          {dateRange.map((date) => {
-            const d = new Date(date + "T00:00:00");
-            const isSelected = date === selectedDate;
-            const isT = date === today;
-            const hasWorkouts = workouts.some((w) => w.scheduledDate === date || w.completedDate === date);
-            const hasMissed = workouts.some((w) => w.scheduledDate === date && date < today && !w.done);
-            return (
-              <button
-                key={date}
-                onClick={() => setSelectedDate(date)}
-                className={`flex-shrink-0 w-12 py-2 rounded-xl flex flex-col items-center gap-0.5 transition-all ${
-                  isSelected
-                    ? "bg-primary text-primary-foreground"
-                    : isT
-                    ? "bg-primary/10 text-primary"
-                    : "bg-card border border-border text-foreground"
-                }`}
-              >
-                <span className="text-[10px] font-medium uppercase">
-                  {d.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 3)}
-                </span>
-                <span className="text-sm font-bold">{d.getDate()}</span>
-                {hasWorkouts && (
-                  <span className={`w-1.5 h-1.5 rounded-full ${hasMissed ? "bg-destructive" : isSelected ? "bg-primary-foreground" : "bg-habit-green"}`} />
-                )}
-              </button>
-            );
-          })}
+
+        {showManualAdd && (
+          <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
+            <input
+              value={customTitle}
+              onChange={(e) => setCustomTitle(e.target.value)}
+              placeholder="Activity name..."
+              className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
+                <input
+                  type="number"
+                  value={customDuration}
+                  onChange={(e) => setCustomDuration(e.target.value)}
+                  className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
+                <input
+                  type="number"
+                  value={customCal}
+                  onChange={(e) => setCustomCal(e.target.value)}
+                  className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5"
+                />
+              </div>
+            </div>
+            <button
+              onClick={addCustomActivity}
+              disabled={!customTitle.trim()}
+              className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+            >
+              Add Activity
+            </button>
+          </div>
+        )}
+
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {MANUAL_ACTIVITIES.map((activity) => (
+            <button
+              key={activity.title}
+              onClick={() => addManualActivity(activity)}
+              className="flex flex-col items-center min-w-[72px] p-3 rounded-xl bg-card border border-border hover:border-primary/50 transition-all active:scale-[0.97]"
+            >
+              <span className="text-2xl mb-1">{activity.emoji}</span>
+              <span className="text-[11px] font-medium text-center">{activity.title}</span>
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Selected Date Workouts */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold tracking-display">
-            {isToday ? "Today's Plan" : isPast ? "Past Workout" : "Upcoming"}
-          </h2>
-          <span className="text-xs text-muted-foreground font-medium">
-            {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-          </span>
-        </div>
+      <section className="mb-6">
+        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+          <CalIcon size={14} className="text-muted-foreground" />
+          {isToday ? "Today's Workouts" : isFuture ? "Upcoming" : "Past Workouts"}
+          <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
+        </h3>
 
-        <div className="space-y-3">
-          {dateWorkouts.length > 0 ? (
-            dateWorkouts.map((w) => (
+        {dateWorkouts.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">
+            {isToday ? "No workouts today. Add one above!" : isFuture ? "Nothing scheduled yet." : "No workouts on this day."}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {dateWorkouts.map((w) => (
               <WorkoutCard
                 key={w.id}
                 workout={w}
-                onToggle={toggleWorkout}
+                onToggle={handleToggleWorkout}
                 onRemove={removeWorkout}
-                onExerciseTap={setSelectedExercise}
-                isPast={isPast}
-                isFuture={isFuture}
-                onReschedule={(id) => handleReschedule(id, today)}
+                onSelectExercise={setSelectedExercise}
+                isToday={isToday}
               />
-            ))
-          ) : (
-            <div className="text-center py-8 bg-card rounded-xl border border-border">
-              <p className="text-muted-foreground text-sm">
-                {isPast ? "No workouts recorded" : isFuture ? "Nothing planned yet" : "No workouts planned"}
-              </p>
-              {isToday && <p className="text-xs text-muted-foreground mt-1">Use the AI Planner above to generate a workout</p>}
-            </div>
-          )}
-        </div>
-      </div>
+            ))}
+          </div>
+        )}
+      </section>
 
-      {/* Manual Add Section */}
-      <div className="mb-4">
-        <button
-          onClick={() => setShowManualAdd(!showManualAdd)}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-        >
-          <Plus size={16} />
-          Add Activity Manually
-        </button>
-
-        <AnimatePresence>
-          {showManualAdd && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-              <div className="mt-3 space-y-3">
-                {/* Quick Add Presets */}
-                <div className="grid grid-cols-4 gap-2">
-                  {MANUAL_ACTIVITIES.map((activity) => (
-                    <button
-                      key={activity.title}
-                      onClick={() => addManualActivity(activity)}
-                      className="flex flex-col items-center gap-1 py-3 px-2 rounded-xl bg-card border border-border hover:border-primary/40 transition-colors"
-                    >
-                      <span className="text-xl">{activity.emoji}</span>
-                      <span className="text-[11px] font-medium text-center leading-tight">{activity.title}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Custom Entry */}
-                <div className="bg-card rounded-xl border border-border p-3 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground">Custom Activity</p>
-                  <input
-                    value={customTitle}
-                    onChange={(e) => setCustomTitle(e.target.value)}
-                    placeholder="Activity name..."
-                    className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground border border-border"
-                  />
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground">Duration (min)</label>
-                      <input
-                        type="number"
-                        value={customDuration}
-                        onChange={(e) => setCustomDuration(e.target.value)}
-                        className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none border border-border"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground">Calories</label>
-                      <input
-                        type="number"
-                        value={customCal}
-                        onChange={(e) => setCustomCal(e.target.value)}
-                        className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none border border-border"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={addCustomActivity}
-                    disabled={!customTitle.trim()}
-                    className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
-                  >
-                    Add Activity
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
+      {/* Exercise Detail Dialog */}
       <ExerciseDetailDialog
         exerciseName={selectedExercise}
-        open={!!selectedExercise}
         onClose={() => setSelectedExercise(null)}
       />
     </div>
   );
 };
 
-/* ─── Workout Card ─── */
 const WorkoutCard = ({
   workout,
   onToggle,
   onRemove,
-  onExerciseTap,
-  isPast,
-  isFuture,
-  onReschedule,
+  onSelectExercise,
+  isToday,
 }: {
   workout: Workout;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
-  onExerciseTap: (name: string) => void;
-  isPast?: boolean;
-  isFuture?: boolean;
-  onReschedule?: (id: string) => void;
+  onSelectExercise: (name: string) => void;
+  isToday: boolean;
 }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const isMissed = isPast && !workout.done;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className={`bg-card rounded-xl border shadow-card transition-all ${
-      workout.done ? "border-habit-green/50" : isMissed ? "border-destructive/30" : "border-border"
-    }`}>
-      <div className="p-4 flex items-center gap-4">
-        <span className="text-3xl">{workout.emoji}</span>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <p className={`text-[15px] font-semibold ${workout.done ? "line-through opacity-50" : ""}`}>{workout.title}</p>
-            {isMissed && <span className="text-[10px] font-semibold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded">MISSED</span>}
-            {workout.done && <span className="text-[10px] font-semibold text-habit-green bg-habit-green/10 px-1.5 py-0.5 rounded">DONE</span>}
+    <motion.div layout className={`bg-card rounded-xl border shadow-card overflow-hidden ${workout.done ? "border-habit-green/50" : "border-border"}`}>
+      <div className="p-4">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{workout.emoji}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-semibold truncate">{workout.title}</p>
+            <div className="flex items-center gap-3 mt-0.5">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock size={11} /> {workout.duration}
+              </span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Flame size={11} /> {workout.cal} cal
+              </span>
+              {workout.tag && (
+                <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{workout.tag}</span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><Clock size={12} /> {workout.duration}</span>
-            <span className="flex items-center gap-1"><Flame size={12} /> {workout.cal} cal</span>
-          </div>
-          <span className="inline-block mt-1.5 text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">
-            {workout.tag}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Show reschedule button for missed workouts */}
-          {isMissed && onReschedule && (
-            <button
-              onClick={() => onReschedule(workout.id)}
-              className="p-2 rounded-full bg-primary/10 text-primary"
-              title="Move to today"
-            >
-              <RotateCcw size={14} />
-            </button>
-          )}
-
-          {/* Toggle (only for today/past unfulfilled) */}
-          {!isFuture && (
-            <button
-              onClick={() => {
-                if (!workout.done) {
-                  toast.success("🎉 Congrats!", { description: "You're becoming healthier every day!" });
-                }
-                onToggle(workout.id);
-              }}
-              className={`w-11 h-11 rounded-full border-2 flex items-center justify-center transition-colors ${
-                workout.done
-                  ? "bg-habit-green border-habit-green text-primary-foreground"
-                  : "border-muted bg-transparent text-muted-foreground"
-              }`}
-            >
-              {workout.done && <Check size={18} />}
-            </button>
-          )}
-
-          <div className="relative">
-            <button onClick={() => setMenuOpen(!menuOpen)} className="text-muted-foreground p-1">
-              <MoreVertical size={16} />
-            </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-8 z-50 bg-card border border-border rounded-xl shadow-lg min-w-[150px] overflow-hidden">
-                  <button
-                    onClick={() => { onRemove(workout.id); setMenuOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-destructive/10 text-destructive transition-colors text-left"
-                  >
-                    <Trash2 size={16} />
-                    Delete
-                  </button>
-                </div>
-              </>
+          <div className="flex items-center gap-1">
+            {isToday && (
+              <button
+                onClick={() => onToggle(workout.id)}
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  workout.done ? "bg-habit-green border-habit-green" : "border-muted hover:border-primary"
+                }`}
+              >
+                {workout.done && <Check size={14} className="text-primary-foreground" />}
+              </button>
             )}
+            <div className="relative">
+              <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 text-muted-foreground">
+                <MoreVertical size={16} />
+              </button>
+              {menuOpen && (
+                <>
+                  <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-8 z-50 min-w-[120px] rounded-xl border border-border bg-card shadow-card overflow-hidden">
+                    <button
+                      onClick={() => { onRemove(workout.id); setMenuOpen(false); }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Exercises */}
       {workout.exercises && workout.exercises.length > 0 && (
         <>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full flex items-center justify-center gap-1 py-2 text-xs text-muted-foreground font-medium border-t border-border hover:bg-secondary/50 transition-colors"
+            className="w-full flex items-center justify-center gap-1 py-2 border-t border-border text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {expanded ? "Hide details" : `${workout.exercises.length} exercises`}
+            {expanded ? "Hide" : "Show"} {workout.exercises.length} exercises
           </button>
-          {expanded && (
-            <div className="px-4 pb-4 space-y-1">
-              {workout.exercises.map((ex, i) => (
-                <button
-                  key={i}
-                  onClick={() => onExerciseTap(ex.name)}
-                  className="w-full flex items-center justify-between py-2.5 px-2 border-b border-border last:border-0 rounded-lg hover:bg-secondary/50 transition-colors text-left group"
-                >
-                  <span className="text-sm font-medium group-hover:text-primary transition-colors">{ex.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{ex.sets} × {ex.reps}</span>
-                    <Dumbbell size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <AnimatePresence>
+            {expanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="px-4 pb-3 space-y-2">
+                  {workout.exercises.map((ex, i) => (
+                    <button
+                      key={i}
+                      onClick={() => onSelectExercise(ex.name)}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                    >
+                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{ex.name}</p>
+                        <p className="text-xs text-muted-foreground">{ex.sets} sets × {ex.reps}</p>
+                      </div>
+                      <Target size={14} className="text-muted-foreground flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
-    </div>
+    </motion.div>
   );
 };
 
-/* ─── Exercise Detail Dialog ─── */
-const ExerciseDetailDialog = ({
-  exerciseName,
-  open,
-  onClose,
-}: {
-  exerciseName: string | null;
-  open: boolean;
-  onClose: () => void;
-}) => {
+const ExerciseDetailDialog = ({ exerciseName, onClose }: { exerciseName: string | null; onClose: () => void }) => {
   const [detail, setDetail] = useState<ExerciseDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchDetail = async (name: string) => {
-    setLoading(true);
-    setError(null);
-    setDetail(null);
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke("exercise-detail", {
-        body: { exerciseName: name },
-      });
-      if (fnError) throw fnError;
-      if (data.error) throw new Error(data.error);
-      setDetail(data);
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message || "Failed to load exercise details");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    if (open && exerciseName) {
-      fetchDetail(exerciseName);
-    }
-    if (!open) {
-      setDetail(null);
-      setError(null);
-    }
-  }, [open, exerciseName]);
+    if (!exerciseName) { setDetail(null); return; }
+    setLoading(true);
+    supabase.functions.invoke("exercise-detail", { body: { exercise: exerciseName } })
+      .then(({ data, error }) => {
+        if (!error && data && !data.error) setDetail(data);
+        else setDetail(null);
+      })
+      .finally(() => setLoading(false));
+  }, [exerciseName]);
+
+  const searchQuery = detail?.videoSearchQuery || `how to do ${exerciseName} exercise form`;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-5 pb-3 border-b border-border">
-          <DialogTitle className="text-lg flex items-center gap-2">
-            <Dumbbell size={18} className="text-primary" />
+    <Dialog open={!!exerciseName} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-md max-h-[85vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Dumbbell size={18} />
             {exerciseName}
           </DialogTitle>
         </DialogHeader>
+        <ScrollArea className="max-h-[65vh] pr-2">
+          {loading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          ) : detail ? (
+            <div className="space-y-5">
+              {/* Watch Demo Link */}
+              <a
+                href={`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-3 rounded-xl bg-destructive/5 border border-destructive/20 hover:bg-destructive/10 transition-colors"
+              >
+                <span className="text-2xl">▶️</span>
+                <div>
+                  <p className="text-sm font-semibold">Watch Demo on YouTube</p>
+                  <p className="text-xs text-muted-foreground">Opens YouTube search for "{exerciseName}"</p>
+                </div>
+              </a>
 
-        <ScrollArea className="max-h-[calc(85vh-80px)]">
-          <div className="p-5 space-y-5">
-            {loading && (
-              <div className="space-y-4">
-                <Skeleton className="h-48 w-full rounded-xl" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
+              {/* Steps */}
+              <div>
+                <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">📋 How to Perform</h4>
+                <ol className="space-y-1.5">
+                  {detail.steps.map((step, i) => (
+                    <li key={i} className="text-sm text-muted-foreground flex gap-2">
+                      <span className="font-semibold text-foreground flex-shrink-0">{i + 1}.</span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
               </div>
-            )}
 
-            {error && (
-              <div className="text-center py-6">
-                <p className="text-sm text-destructive mb-2">{error}</p>
-                <button
-                  onClick={() => exerciseName && fetchDetail(exerciseName)}
-                  className="text-sm text-primary font-medium"
-                >
-                  Try again
-                </button>
+              {/* Muscles */}
+              <div>
+                <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">💪 Muscles Worked</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {detail.musclesWorked.map((m, i) => (
+                    <span key={i} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">{m}</span>
+                  ))}
+                </div>
               </div>
-            )}
 
-            {detail && (
-              <>
-                {/* Watch Demo — opens YouTube search externally */}
-                {detail.videoSearchQuery && (
-                  <div className="rounded-xl overflow-hidden border border-border bg-gradient-to-br from-red-500/5 to-red-500/10 p-4">
-                    <a
-                      href={`https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 group"
-                    >
-                      <div className="w-14 h-14 rounded-xl bg-red-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-red-500/20 transition-colors">
-                        <svg viewBox="0 0 24 24" className="w-7 h-7 text-red-500" fill="currentColor">
-                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Watch Demo on YouTube</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{detail.videoSearchQuery}</p>
-                      </div>
-                      <ArrowRight size={16} className="text-muted-foreground group-hover:text-primary flex-shrink-0 transition-colors" />
-                    </a>
-                  </div>
-                )}
+              {/* Form Cues */}
+              <div>
+                <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">🎯 Form Cues</h4>
+                <ul className="space-y-1">
+                  {detail.formCues.map((cue, i) => (
+                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <Check size={14} className="text-habit-green flex-shrink-0 mt-0.5" />
+                      {cue}
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-                {/* Steps */}
-                <section>
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    📋 How to Perform
-                  </h3>
-                  <ol className="space-y-2">
-                    {detail.steps.map((step, i) => (
-                      <li key={i} className="flex gap-2.5 text-sm">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">
-                          {i + 1}
-                        </span>
-                        <span className="text-muted-foreground leading-relaxed">{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-
-                {/* Form Cues */}
-                <section>
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <Target size={14} className="text-primary" />
-                    Form Cues
-                  </h3>
-                  <div className="space-y-1.5">
-                    {detail.formCues.map((cue, i) => (
-                      <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <span className="text-primary mt-0.5">✓</span>
-                        <span>{cue}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                {/* Common Mistakes */}
-                <section>
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <AlertTriangle size={14} className="text-destructive" />
-                    Common Mistakes
-                  </h3>
-                  <div className="space-y-1.5">
-                    {detail.commonMistakes.map((mistake, i) => (
-                      <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <span className="text-destructive mt-0.5">✗</span>
-                        <span>{mistake}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                {/* Muscles Worked */}
-                <section>
-                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    💪 Muscles Worked
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {detail.musclesWorked.map((muscle, i) => (
-                      <span
-                        key={i}
-                        className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary"
-                      >
-                        {muscle}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-              </>
-            )}
-          </div>
+              {/* Common Mistakes */}
+              <div>
+                <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">⚠️ Common Mistakes</h4>
+                <ul className="space-y-1">
+                  {detail.commonMistakes.map((mistake, i) => (
+                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <X size={14} className="text-destructive flex-shrink-0 mt-0.5" />
+                      {mistake}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">Could not load exercise details.</p>
+          )}
         </ScrollArea>
       </DialogContent>
     </Dialog>

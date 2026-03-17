@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2 } from "lucide-react";
@@ -6,6 +6,7 @@ import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
 import AddItemModal from "@/components/AddItemModal";
+import CongratsPopup from "@/components/CongratsPopup";
 import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +33,7 @@ const HomePage = () => {
   const [clarification, setClarification] = useState<ClarificationState | null>(null);
   const [voiceMode, setVoiceMode] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
@@ -40,7 +42,6 @@ const HomePage = () => {
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
     onResult: (transcript) => {
       if (voiceModeRef.current) {
-        // In voice mode, immediately send to AI
         setInput(transcript);
         handleAiSchedule(transcript);
       } else {
@@ -51,12 +52,13 @@ const HomePage = () => {
 
   const morningHabits = habits.filter((h) => h.category === "morning");
 
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   const speakResponse = (text: string, thenListen?: boolean) => {
     setIsSpeaking(true);
     speak(text, () => {
       setIsSpeaking(false);
       if (thenListen && voiceModeRef.current && speechSupported) {
-        // After speaking, listen for more
         setTimeout(() => startListening(), 300);
       }
     });
@@ -96,9 +98,9 @@ const HomePage = () => {
       return;
     }
 
+    // For create_event: only create an event, NOT also a task (fixes duplicates)
     const { day, month, year } = toDateParts(action.date);
     const assignee = action.assignee || "me";
-    const tag = action.tag || "Personal";
 
     addEvent({
       title: action.title,
@@ -110,18 +112,8 @@ const HomePage = () => {
       user: assignee,
     });
 
-    addTask({
-      title: action.title,
-      time: action.time || "",
-      tag: tag as "Work" | "Personal" | "Household",
-      assignee,
-      scheduledDay: day,
-      scheduledMonth: month,
-      scheduledYear: year,
-    });
-
     toast.success(`Scheduled: ${action.title}`, {
-      description: `${action.date || "today"} ${action.time || "All day"}${assignee !== "me" ? ` · ${assignee === "partner" ? "Evelyn" : "Both"}` : ""}`,
+      description: `${action.date || "today"} ${action.time || "All day"}${assignee !== "me" ? ` · ${assignee === "partner" ? partner?.display_name || "Partner" : "Both"}` : ""}`,
     });
   };
 
@@ -130,7 +122,7 @@ const HomePage = () => {
     if (!textToSend.trim()) return;
     setAiLoading(true);
     try {
-      const body: any = { text: textToSend };
+      const body: any = { text: textToSend, timezone: userTimezone };
       if (history && history.length > 0) {
         body.conversationHistory = history;
       }
@@ -141,7 +133,6 @@ const HomePage = () => {
       const data = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
       if (data.error) throw new Error(data.error);
 
-      // Handle clarification requests
       if (data.type === "clarification") {
         const newHistory = history || [];
         newHistory.push({ role: "user", content: textToSend });
@@ -162,7 +153,6 @@ const HomePage = () => {
         return;
       }
 
-      // Handle actions
       if (data.type === "multi" && Array.isArray(data.actions)) {
         data.actions.forEach((action: any) => processAction(action));
         toast.success(`✨ ${data.actions.length} actions completed!`);
@@ -170,7 +160,6 @@ const HomePage = () => {
         processAction(data);
       }
 
-      // Speak confirmation in voice mode
       if (voiceMode && data.spokenResponse) {
         speakResponse(data.spokenResponse, true);
       }
@@ -210,6 +199,14 @@ const HomePage = () => {
     }
   };
 
+  const handleToggleHabit = useCallback((id: string) => {
+    const habit = morningHabits.find((h) => h.id === id);
+    if (habit && !habit.done) {
+      setCongratsType("habit");
+    }
+    toggleHabit(id);
+  }, [morningHabits, toggleHabit]);
+
   const partnerName = partner?.display_name || "Partner";
   const filters: { id: Filter; label: string }[] = [
     { id: "mine", label: "Mine" },
@@ -240,7 +237,7 @@ const HomePage = () => {
   const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
   const justDoIt = filteredTasks.filter((t) => !isTaskScheduled(t));
 
-  const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: userTimezone });
   const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
 
   const shiftDate = (days: number) => {
@@ -249,10 +246,15 @@ const HomePage = () => {
     setSelectedDate(d);
   };
 
-  const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening";
+  const now = new Date();
+  const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
 
   return (
     <div className="px-5">
+      {congratsType && (
+        <CongratsPopup type={congratsType} show={true} onClose={() => setCongratsType(null)} />
+      )}
+
       <header className="pt-12 pb-4 flex items-start justify-between">
         <div>
           <h1 className="text-[1.75rem] font-bold tracking-display">{greeting} 👋</h1>
@@ -448,7 +450,7 @@ const HomePage = () => {
           {morningHabits.map((habit) => (
             <button
               key={habit.id}
-              onClick={() => toggleHabit(habit.id)}
+              onClick={() => handleToggleHabit(habit.id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
                 habit.done
                   ? "border-habit-green bg-habit-green/10 text-habit-green"
@@ -476,10 +478,10 @@ const HomePage = () => {
         {scheduledTasks.length > 0 || visibleEvents.length > 0 ? (
           <div className="space-y-3">
             {scheduledTasks.map((task) => (
-              <TaskCard key={task.id} task={task} onToggle={toggleTask} />
+              <TaskCard key={task.id} task={task} onToggle={toggleTask} onCongrats={() => setCongratsType("task")} />
             ))}
             {visibleEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={removeEvent} />
+              <EventCard key={event.id} event={event} onRemove={removeEvent} onCongrats={() => setCongratsType("task")} />
             ))}
           </div>
         ) : (
@@ -496,7 +498,7 @@ const HomePage = () => {
         {justDoIt.length > 0 ? (
           <div className="space-y-3">
             {justDoIt.map((task) => (
-              <TaskCard key={task.id} task={task} onToggle={toggleTask} />
+              <TaskCard key={task.id} task={task} onToggle={toggleTask} onCongrats={() => setCongratsType("task")} />
             ))}
           </div>
         ) : (
@@ -509,10 +511,10 @@ const HomePage = () => {
   );
 };
 
-const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) => {
+const TaskCard = ({ task, onToggle, onCongrats }: { task: Task; onToggle: (id: string) => void; onCongrats: () => void }) => {
   const handleToggle = () => {
     if (!task.done) {
-      toast.success("🎉 Task complete!", { description: "Great job, keep it up!" });
+      onCongrats();
     }
     onToggle(task.id);
   };
@@ -556,7 +558,7 @@ const TaskCard = ({ task, onToggle }: { task: Task; onToggle: (id: string) => vo
   );
 };
 
-const EventCard = ({ event, onRemove }: { event: ScheduledEvent; onRemove: (id: string) => void }) => {
+const EventCard = ({ event, onRemove, onCongrats }: { event: ScheduledEvent; onRemove: (id: string) => void; onCongrats: () => void }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [done, setDone] = useState(false);
   const dateLabel = new Date(event.year, event.month, event.day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -576,7 +578,7 @@ const EventCard = ({ event, onRemove }: { event: ScheduledEvent; onRemove: (id: 
       <div className="flex items-center gap-3">
         <button
           onClick={() => {
-            if (!done) toast.success("🎉 Done!", { description: "Great job!" });
+            if (!done) onCongrats();
             setDone(!done);
           }}
           className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
