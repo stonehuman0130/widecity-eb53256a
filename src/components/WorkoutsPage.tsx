@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ExternalLink, ArrowRight, RotateCcw, Calendar as CalIcon, Copy } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ExternalLink, ArrowRight, RotateCcw, Calendar as CalIcon, Copy, Plus } from "lucide-react";
 import { useAppContext, Workout } from "@/context/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -37,6 +37,17 @@ const fmtDate = (d: Date) =>
 
 const todayStr = () => fmtDate(new Date());
 
+const MANUAL_ACTIVITIES = [
+  { emoji: "🏃", title: "Running", tag: "Cardio", defaultDuration: "30 min", defaultCal: 300 },
+  { emoji: "🧘", title: "Yoga", tag: "Flexibility", defaultDuration: "45 min", defaultCal: 200 },
+  { emoji: "🚴", title: "Cycling", tag: "Cardio", defaultDuration: "40 min", defaultCal: 350 },
+  { emoji: "🏊", title: "Swimming", tag: "Full Body", defaultDuration: "30 min", defaultCal: 400 },
+  { emoji: "🚶", title: "Walking", tag: "Cardio", defaultDuration: "30 min", defaultCal: 150 },
+  { emoji: "🤸", title: "Stretching", tag: "Flexibility", defaultDuration: "15 min", defaultCal: 50 },
+  { emoji: "🥊", title: "Boxing", tag: "Cardio", defaultDuration: "30 min", defaultCal: 350 },
+  { emoji: "⚽", title: "Sports", tag: "Full Body", defaultDuration: "60 min", defaultCal: 500 },
+];
+
 const WorkoutsPage = () => {
   const { workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate } = useAppContext();
   const [aiPrompt, setAiPrompt] = useState("");
@@ -46,6 +57,10 @@ const WorkoutsPage = () => {
   const [planType, setPlanType] = useState<"today" | "week" | "month">("today");
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [customTitle, setCustomTitle] = useState("");
+  const [customDuration, setCustomDuration] = useState("30");
+  const [customCal, setCustomCal] = useState("200");
 
   const today = todayStr();
 
@@ -152,7 +167,41 @@ const WorkoutsPage = () => {
     return fmtDate(d);
   };
 
-  // Stats
+  const addManualActivity = (activity: typeof MANUAL_ACTIVITIES[0]) => {
+    const newWorkout: Workout = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+      title: activity.title,
+      duration: activity.defaultDuration,
+      cal: activity.defaultCal,
+      tag: activity.tag,
+      emoji: activity.emoji,
+      done: false,
+      scheduledDate: selectedDate,
+    };
+    addWorkouts([newWorkout]);
+    toast.success(`Added ${activity.title}`);
+  };
+
+  const addCustomActivity = () => {
+    if (!customTitle.trim()) return;
+    const newWorkout: Workout = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+      title: customTitle,
+      duration: `${customDuration} min`,
+      cal: parseInt(customCal) || 0,
+      tag: "Other",
+      emoji: "🏋️",
+      done: false,
+      scheduledDate: selectedDate,
+    };
+    addWorkouts([newWorkout]);
+    setCustomTitle("");
+    setCustomDuration("30");
+    setCustomCal("200");
+    setShowManualAdd(false);
+    toast.success(`Added ${customTitle}`);
+  };
+
   const completedCount = workouts.filter((w) => w.done).length;
   const totalCal = workouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
   const todayCal = workouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
@@ -444,6 +493,77 @@ const WorkoutsPage = () => {
         </div>
       </div>
 
+      {/* Manual Add Section */}
+      <div className="mb-4">
+        <button
+          onClick={() => setShowManualAdd(!showManualAdd)}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+        >
+          <Plus size={16} />
+          Add Activity Manually
+        </button>
+
+        <AnimatePresence>
+          {showManualAdd && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+              <div className="mt-3 space-y-3">
+                {/* Quick Add Presets */}
+                <div className="grid grid-cols-4 gap-2">
+                  {MANUAL_ACTIVITIES.map((activity) => (
+                    <button
+                      key={activity.title}
+                      onClick={() => addManualActivity(activity)}
+                      className="flex flex-col items-center gap-1 py-3 px-2 rounded-xl bg-card border border-border hover:border-primary/40 transition-colors"
+                    >
+                      <span className="text-xl">{activity.emoji}</span>
+                      <span className="text-[11px] font-medium text-center leading-tight">{activity.title}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Entry */}
+                <div className="bg-card rounded-xl border border-border p-3 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Custom Activity</p>
+                  <input
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    placeholder="Activity name..."
+                    className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground border border-border"
+                  />
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground">Duration (min)</label>
+                      <input
+                        type="number"
+                        value={customDuration}
+                        onChange={(e) => setCustomDuration(e.target.value)}
+                        className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none border border-border"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground">Calories</label>
+                      <input
+                        type="number"
+                        value={customCal}
+                        onChange={(e) => setCustomCal(e.target.value)}
+                        className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none border border-border"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={addCustomActivity}
+                    disabled={!customTitle.trim()}
+                    className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+                  >
+                    Add Activity
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       <ExerciseDetailDialog
         exerciseName={selectedExercise}
         open={!!selectedExercise}
@@ -628,20 +748,6 @@ const ExerciseDetailDialog = ({
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`
     : null;
 
-  const handleWatchDemo = () => {
-    if (youtubeSearchUrl) {
-      // Use window.open as primary, copy to clipboard as fallback
-      const opened = window.open(youtubeSearchUrl, "_blank", "noopener,noreferrer");
-      if (!opened) {
-        navigator.clipboard.writeText(youtubeSearchUrl).then(() => {
-          toast.info("Link copied!", { description: "Paste it in your browser to watch the demo." });
-        }).catch(() => {
-          toast.error("Could not open link. Please search YouTube for: " + detail?.videoSearchQuery);
-        });
-      }
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 overflow-hidden">
@@ -679,27 +785,17 @@ const ExerciseDetailDialog = ({
 
             {detail && (
               <>
-                {/* Watch Demo - opens externally with fallback */}
+                {/* Watch Demo - uses <a> tag to bypass iframe popup blocking */}
                 {youtubeSearchUrl && (
-                  <div className="space-y-2">
-                    <button
-                      onClick={handleWatchDemo}
-                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-red-500/10 text-red-500 text-sm font-semibold hover:bg-red-500/20 transition-colors border border-red-500/20"
-                    >
-                      <ExternalLink size={14} />
-                      🎬 Watch Demo on YouTube
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(youtubeSearchUrl);
-                        toast.success("Link copied to clipboard!");
-                      }}
-                      className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs text-muted-foreground font-medium hover:bg-secondary transition-colors"
-                    >
-                      <Copy size={12} />
-                      Copy link if blocked
-                    </button>
-                  </div>
+                  <a
+                    href={youtubeSearchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-colors border border-destructive/20"
+                  >
+                    <ExternalLink size={14} />
+                    🎬 Watch Demo on YouTube
+                  </a>
                 )}
 
                 {/* Steps */}
