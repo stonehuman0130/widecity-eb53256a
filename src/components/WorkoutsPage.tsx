@@ -367,15 +367,15 @@ const ExerciseDetailDialog = ({
     }
   };
 
-  // Fetch when dialog opens with a new exercise
-  const prevName = useState<string | null>(null);
-  if (open && exerciseName && exerciseName !== prevName[0]) {
-    prevName[1](exerciseName);
-    fetchDetail(exerciseName);
-  }
-  if (!open && prevName[0]) {
-    prevName[1](null);
-  }
+  useEffect(() => {
+    if (open && exerciseName) {
+      fetchDetail(exerciseName);
+    }
+    if (!open) {
+      setDetail(null);
+      setError(null);
+    }
+  }, [open, exerciseName]);
 
   const youtubeUrl = detail?.videoSearchQuery
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`
