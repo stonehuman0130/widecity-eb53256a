@@ -1,9 +1,16 @@
+import { useAuth } from "@/context/AuthContext";
+
 const UserBadge = ({ user }: { user: "me" | "partner" | "both" }) => {
+  const { profile, partner } = useAuth();
+
+  const myInitial = profile?.display_name?.charAt(0)?.toUpperCase() || "?";
+  const partnerInitial = partner?.display_name?.charAt(0)?.toUpperCase() || "P";
+
   if (user === "both") {
     return (
       <div className="flex -space-x-2">
-        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground bg-user-a ring-2 ring-card">H</div>
-        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground bg-user-b ring-2 ring-card">E</div>
+        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground bg-user-a ring-2 ring-card">{myInitial}</div>
+        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground bg-user-b ring-2 ring-card">{partnerInitial}</div>
       </div>
     );
   }
@@ -14,7 +21,7 @@ const UserBadge = ({ user }: { user: "me" | "partner" | "both" }) => {
         user === "me" ? "bg-user-a" : "bg-user-b"
       }`}
     >
-      {user === "me" ? "H" : "E"}
+      {user === "me" ? myInitial : partnerInitial}
     </div>
   );
 };

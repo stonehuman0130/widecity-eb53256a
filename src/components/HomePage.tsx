@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/context/AuthContext";
 import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2 } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
@@ -13,6 +14,7 @@ import { toast } from "sonner";
 type Filter = "mine" | "partner" | "household";
 
 const HomePage = () => {
+  const { profile, partner } = useAuth();
   const [filter, setFilter] = useState<Filter>("mine");
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -123,9 +125,10 @@ const HomePage = () => {
     }
   };
 
+  const partnerName = partner?.display_name || "Partner";
   const filters: { id: Filter; label: string }[] = [
     { id: "mine", label: "Mine" },
-    { id: "partner", label: "Evelyn's" },
+    { id: "partner", label: `${partnerName}'s` },
     { id: "household", label: "Household" },
   ];
 
@@ -153,13 +156,14 @@ const HomePage = () => {
     month: "short",
     day: "numeric",
   });
+  const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
 
   return (
     <div className="px-5">
       <header className="pt-12 pb-4 flex items-start justify-between">
         <div>
-          <h1 className="text-[1.75rem] font-bold tracking-display">Good morning 👋</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, Harrison</p>
+          <h1 className="text-[1.75rem] font-bold tracking-display">{greeting} 👋</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, {profile?.display_name || "there"}</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}

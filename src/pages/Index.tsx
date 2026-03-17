@@ -6,12 +6,28 @@ import WorkoutsPage from "@/components/WorkoutsPage";
 import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
 import SettingsPage from "@/components/SettingsPage";
+import AuthPage from "@/components/AuthPage";
 import { AppProvider } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { Loader2 } from "lucide-react";
 
 type Tab = "home" | "workout" | "habits" | "calendar" | "settings";
 
 const Index = () => {
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("home");
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-svh bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
 
   const pages: Record<Tab, React.ReactNode> = {
     home: <HomePage />,
