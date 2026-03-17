@@ -493,6 +493,77 @@ const WorkoutsPage = () => {
         </div>
       </div>
 
+      {/* Manual Add Section */}
+      <div className="mb-4">
+        <button
+          onClick={() => setShowManualAdd(!showManualAdd)}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+        >
+          <Plus size={16} />
+          Add Activity Manually
+        </button>
+
+        <AnimatePresence>
+          {showManualAdd && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+              <div className="mt-3 space-y-3">
+                {/* Quick Add Presets */}
+                <div className="grid grid-cols-4 gap-2">
+                  {MANUAL_ACTIVITIES.map((activity) => (
+                    <button
+                      key={activity.title}
+                      onClick={() => addManualActivity(activity)}
+                      className="flex flex-col items-center gap-1 py-3 px-2 rounded-xl bg-card border border-border hover:border-primary/40 transition-colors"
+                    >
+                      <span className="text-xl">{activity.emoji}</span>
+                      <span className="text-[11px] font-medium text-center leading-tight">{activity.title}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Entry */}
+                <div className="bg-card rounded-xl border border-border p-3 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Custom Activity</p>
+                  <input
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    placeholder="Activity name..."
+                    className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground border border-border"
+                  />
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground">Duration (min)</label>
+                      <input
+                        type="number"
+                        value={customDuration}
+                        onChange={(e) => setCustomDuration(e.target.value)}
+                        className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none border border-border"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground">Calories</label>
+                      <input
+                        type="number"
+                        value={customCal}
+                        onChange={(e) => setCustomCal(e.target.value)}
+                        className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none border border-border"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={addCustomActivity}
+                    disabled={!customTitle.trim()}
+                    className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+                  >
+                    Add Activity
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       <ExerciseDetailDialog
         exerciseName={selectedExercise}
         open={!!selectedExercise}
