@@ -744,10 +744,6 @@ const ExerciseDetailDialog = ({
     }
   }, [open, exerciseName]);
 
-  const youtubeSearchUrl = detail?.videoSearchQuery
-    ? `https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`
-    : null;
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 overflow-hidden">
@@ -762,12 +758,10 @@ const ExerciseDetailDialog = ({
           <div className="p-5 space-y-5">
             {loading && (
               <div className="space-y-4">
+                <Skeleton className="h-48 w-full rounded-xl" />
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-4 w-2/3" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-4/5" />
               </div>
             )}
 
@@ -785,17 +779,15 @@ const ExerciseDetailDialog = ({
 
             {detail && (
               <>
-                {/* Watch Demo - uses <a> tag to bypass iframe popup blocking */}
-                {youtubeSearchUrl && (
-                  <a
-                    href={youtubeSearchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-colors border border-destructive/20"
-                  >
-                    <ExternalLink size={14} />
-                    🎬 Watch Demo on YouTube
-                  </a>
+                {/* AI-generated exercise illustration */}
+                {detail.imageDataUrl && (
+                  <div className="rounded-xl overflow-hidden border border-border bg-white">
+                    <img
+                      src={detail.imageDataUrl}
+                      alt={`${exerciseName} demonstration`}
+                      className="w-full object-contain max-h-64"
+                    />
+                  </div>
                 )}
 
                 {/* Steps */}
