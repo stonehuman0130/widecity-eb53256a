@@ -61,16 +61,12 @@ serve(async (req) => {
                     items: { type: "string" },
                     description: "Primary and secondary muscles worked",
                   },
-                  youtubeVideoId: {
-                    type: "string",
-                    description: "The YouTube video ID (the 11-character code, e.g. 'dQw4w9WgXcQ') of a well-known, high-quality exercise tutorial video for this exercise. Pick from reputable fitness channels like Jeff Nippard, Athlean-X, Renaissance Periodization, Squat University, or similar. Only return the video ID, not a full URL.",
-                  },
                   videoSearchQuery: {
                     type: "string",
-                    description: "A YouTube search query to find a good demo video for this exercise (as fallback)",
+                    description: "A concise YouTube search query to find the best tutorial video for this exercise, e.g. 'barbell bench press form tutorial'",
                   },
                 },
-                required: ["steps", "formCues", "commonMistakes", "musclesWorked", "youtubeVideoId", "videoSearchQuery"],
+                required: ["steps", "formCues", "commonMistakes", "musclesWorked", "videoSearchQuery"],
                 additionalProperties: false,
               },
             },

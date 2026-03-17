@@ -22,7 +22,6 @@ interface ExerciseDetail {
   formCues: string[];
   commonMistakes: string[];
   musclesWorked: string[];
-  youtubeVideoId?: string;
   videoSearchQuery: string;
 }
 
