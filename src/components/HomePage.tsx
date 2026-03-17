@@ -37,6 +37,7 @@ const HomePage = () => {
   const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
+  const aiRequestInFlightRef = useRef(false);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
 
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
@@ -86,23 +87,70 @@ const HomePage = () => {
     return { day: selectedDate.getDate(), month: selectedDate.getMonth(), year: selectedDate.getFullYear() };
   };
 
-  const processAction = (action: any) => {
+  const normalizeValue = (value?: string) => (value || "").trim().toLowerCase();
+
+  const getEventSignature = (payload: {
+    title?: string;
+    time?: string;
+    day: number;
+    month: number;
+    year: number;
+    assignee: "me" | "partner" | "both";
+  }) => {
+    return [
+      normalizeValue(payload.title),
+      normalizeValue(payload.time || "All day"),
+      payload.day,
+      payload.month,
+      payload.year,
+      payload.assignee,
+    ].join("|");
+  };
+
+  const processAction = async (action: any, seenSignatures?: Set<string>) => {
     const actionType = action.action_type || action.type || (action.label ? "add_habit" : "create_event");
 
     if (actionType === "add_habit") {
       const label = action.label || action.title;
       const category = action.category || "other";
-      if (!label) return;
-      addHabit(label, category);
+      if (!label) return { created: false };
+      await addHabit(label, category);
       toast.success(`Habit added: ${label}`, { description: `Added to ${category} habits` });
-      return;
+      return { created: true };
     }
 
-    // For create_event: only create an event, NOT also a task (fixes duplicates)
-    const { day, month, year } = toDateParts(action.date);
-    const assignee = action.assignee || "me";
+    if (!action.title) return { created: false };
 
-    addEvent({
+    const { day, month, year } = toDateParts(action.date);
+    const assignee = (action.assignee || "me") as "me" | "partner" | "both";
+    const signature = getEventSignature({
+      title: action.title,
+      time: action.time,
+      day,
+      month,
+      year,
+      assignee,
+    });
+
+    const isDuplicateInBatch = seenSignatures?.has(signature);
+    const isDuplicateInState = events.some((event) =>
+      getEventSignature({
+        title: event.title,
+        time: event.time,
+        day: event.day,
+        month: event.month,
+        year: event.year,
+        assignee: event.user,
+      }) === signature
+    );
+
+    if (isDuplicateInBatch || isDuplicateInState) {
+      return { created: false, duplicate: true };
+    }
+
+    seenSignatures?.add(signature);
+
+    await addEvent({
       title: action.title,
       time: action.time || "All day",
       description: action.description || "",
@@ -115,12 +163,17 @@ const HomePage = () => {
     toast.success(`Scheduled: ${action.title}`, {
       description: `${action.date || "today"} ${action.time || "All day"}${assignee !== "me" ? ` · ${assignee === "partner" ? partner?.display_name || "Partner" : "Both"}` : ""}`,
     });
+
+    return { created: true };
   };
 
   const handleAiSchedule = async (overrideText?: string, history?: { role: string; content: string }[]) => {
     const textToSend = overrideText || input;
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() || aiRequestInFlightRef.current) return;
+
+    aiRequestInFlightRef.current = true;
     setAiLoading(true);
+
     try {
       const body: any = { text: textToSend, timezone: userTimezone };
       if (history && history.length > 0) {
@@ -134,7 +187,7 @@ const HomePage = () => {
       if (data.error) throw new Error(data.error);
 
       if (data.type === "clarification") {
-        const newHistory = history || [];
+        const newHistory = [...(history || [])];
         newHistory.push({ role: "user", content: textToSend });
         newHistory.push({ role: "assistant", content: data.question });
 
@@ -154,10 +207,24 @@ const HomePage = () => {
       }
 
       if (data.type === "multi" && Array.isArray(data.actions)) {
-        data.actions.forEach((action: any) => processAction(action));
-        toast.success(`✨ ${data.actions.length} actions completed!`);
+        const seenSignatures = new Set<string>();
+        let createdCount = 0;
+
+        for (const action of data.actions) {
+          const result = await processAction(action, seenSignatures);
+          if (result.created) createdCount += 1;
+        }
+
+        if (createdCount > 1) {
+          toast.success(`✨ ${createdCount} actions completed!`);
+        } else if (createdCount === 0) {
+          toast.info("No new item created", { description: "That request matches an existing scheduled item." });
+        }
       } else {
-        processAction(data);
+        const result = await processAction(data, new Set<string>());
+        if (!result.created && result.duplicate) {
+          toast.info("Already scheduled", { description: "That event already exists." });
+        }
       }
 
       if (voiceMode && data.spokenResponse) {
@@ -174,6 +241,7 @@ const HomePage = () => {
       }
     } finally {
       setAiLoading(false);
+      aiRequestInFlightRef.current = false;
     }
   };
 
