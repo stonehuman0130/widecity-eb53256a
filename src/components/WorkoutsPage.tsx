@@ -29,7 +29,7 @@ interface ExerciseDetail {
   formCues: string[];
   commonMistakes: string[];
   musclesWorked: string[];
-  imageDataUrl?: string | null;
+  videoSearchQuery?: string;
 }
 
 const fmtDate = (d: Date) =>
@@ -779,14 +779,34 @@ const ExerciseDetailDialog = ({
 
             {detail && (
               <>
-                {/* AI-generated exercise illustration */}
-                {detail.imageDataUrl && (
-                  <div className="rounded-xl overflow-hidden border border-border bg-white">
-                    <img
-                      src={detail.imageDataUrl}
-                      alt={`${exerciseName} demonstration`}
-                      className="w-full object-contain max-h-64"
-                    />
+                {/* YouTube embed - works when published, shows fallback in preview */}
+                {detail.videoSearchQuery && (
+                  <div className="space-y-2">
+                    <div className="rounded-xl overflow-hidden border border-border bg-muted">
+                      <iframe
+                        src={`https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(detail.videoSearchQuery)}`}
+                        className="w-full aspect-video"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        title={`${exerciseName} demo`}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.style.display = 'none';
+                          target.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                      <div className="hidden p-4 text-center">
+                        <p className="text-xs text-muted-foreground mb-2">Video preview unavailable here</p>
+                        <a
+                          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                        >
+                          🎬 Watch on YouTube
+                        </a>
+                      </div>
+                    </div>
                   </div>
                 )}
 
