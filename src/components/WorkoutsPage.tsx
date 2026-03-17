@@ -238,10 +238,12 @@ const WorkoutCard = ({
   workout,
   onToggle,
   onRemove,
+  onExerciseTap,
 }: {
   workout: Workout;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
+  onExerciseTap: (name: string) => void;
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
