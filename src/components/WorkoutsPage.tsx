@@ -31,6 +31,7 @@ const WorkoutsPage = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
   const [viewingDate, setViewingDate] = useState<string | null>(null);
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
 
   const completedCount = workouts.filter((w) => w.done).length;
   const totalCal = workouts.reduce((sum, w) => sum + w.cal, 0);
