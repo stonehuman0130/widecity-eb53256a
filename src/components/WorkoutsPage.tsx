@@ -422,13 +422,15 @@ const ExerciseDetailDialog = ({
 
             {detail && (
               <>
-                {/* Exercise Illustration */}
-                {detail.imageUrl && (
+                {/* YouTube Video Embed */}
+                {youtubeEmbedUrl && (
                   <div className="rounded-xl overflow-hidden border border-border bg-secondary/30">
-                    <img
-                      src={detail.imageUrl}
-                      alt={`${exerciseName} form illustration`}
-                      className="w-full h-auto max-h-56 object-contain"
+                    <iframe
+                      src={youtubeEmbedUrl}
+                      title={`${exerciseName} demo`}
+                      className="w-full aspect-video"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
                     />
                   </div>
                 )}
