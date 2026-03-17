@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.ai-workout]
 verify_jwt = false
+
+[functions.exercise-detail]
+verify_jwt = false
