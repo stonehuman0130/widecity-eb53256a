@@ -228,13 +228,9 @@ const WorkoutsPage = () => {
         open={!!selectedExercise}
         onClose={() => setSelectedExercise(null)}
       />
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground text-sm">No workouts planned</p>
-            <p className="text-xs text-muted-foreground mt-1">Use the AI Planner above to generate a workout</p>
-          </div>
-        )}
-      </div>
+    </div>
+  );
+};
     </div>
   );
 };
