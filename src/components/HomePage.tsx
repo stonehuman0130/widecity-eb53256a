@@ -169,8 +169,11 @@ const HomePage = () => {
 
   const handleAiSchedule = async (overrideText?: string, history?: { role: string; content: string }[]) => {
     const textToSend = overrideText || input;
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() || aiRequestInFlightRef.current) return;
+
+    aiRequestInFlightRef.current = true;
     setAiLoading(true);
+
     try {
       const body: any = { text: textToSend, timezone: userTimezone };
       if (history && history.length > 0) {
@@ -184,7 +187,7 @@ const HomePage = () => {
       if (data.error) throw new Error(data.error);
 
       if (data.type === "clarification") {
-        const newHistory = history || [];
+        const newHistory = [...(history || [])];
         newHistory.push({ role: "user", content: textToSend });
         newHistory.push({ role: "assistant", content: data.question });
 
@@ -204,10 +207,24 @@ const HomePage = () => {
       }
 
       if (data.type === "multi" && Array.isArray(data.actions)) {
-        data.actions.forEach((action: any) => processAction(action));
-        toast.success(`✨ ${data.actions.length} actions completed!`);
+        const seenSignatures = new Set<string>();
+        let createdCount = 0;
+
+        for (const action of data.actions) {
+          const result = await processAction(action, seenSignatures);
+          if (result.created) createdCount += 1;
+        }
+
+        if (createdCount > 1) {
+          toast.success(`✨ ${createdCount} actions completed!`);
+        } else if (createdCount === 0) {
+          toast.info("No new item created", { description: "That request matches an existing scheduled item." });
+        }
       } else {
-        processAction(data);
+        const result = await processAction(data, new Set<string>());
+        if (!result.created && result.duplicate) {
+          toast.info("Already scheduled", { description: "That event already exists." });
+        }
       }
 
       if (voiceMode && data.spokenResponse) {
@@ -224,6 +241,7 @@ const HomePage = () => {
       }
     } finally {
       setAiLoading(false);
+      aiRequestInFlightRef.current = false;
     }
   };
 
