@@ -37,6 +37,17 @@ const fmtDate = (d: Date) =>
 
 const todayStr = () => fmtDate(new Date());
 
+const MANUAL_ACTIVITIES = [
+  { emoji: "🏃", title: "Running", tag: "Cardio", defaultDuration: "30 min", defaultCal: 300 },
+  { emoji: "🧘", title: "Yoga", tag: "Flexibility", defaultDuration: "45 min", defaultCal: 200 },
+  { emoji: "🚴", title: "Cycling", tag: "Cardio", defaultDuration: "40 min", defaultCal: 350 },
+  { emoji: "🏊", title: "Swimming", tag: "Full Body", defaultDuration: "30 min", defaultCal: 400 },
+  { emoji: "🚶", title: "Walking", tag: "Cardio", defaultDuration: "30 min", defaultCal: 150 },
+  { emoji: "🤸", title: "Stretching", tag: "Flexibility", defaultDuration: "15 min", defaultCal: 50 },
+  { emoji: "🥊", title: "Boxing", tag: "Cardio", defaultDuration: "30 min", defaultCal: 350 },
+  { emoji: "⚽", title: "Sports", tag: "Full Body", defaultDuration: "60 min", defaultCal: 500 },
+];
+
 const WorkoutsPage = () => {
   const { workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate } = useAppContext();
   const [aiPrompt, setAiPrompt] = useState("");
@@ -46,8 +57,10 @@ const WorkoutsPage = () => {
   const [planType, setPlanType] = useState<"today" | "week" | "month">("today");
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
-
-  const today = todayStr();
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [customTitle, setCustomTitle] = useState("");
+  const [customDuration, setCustomDuration] = useState("30");
+  const [customCal, setCustomCal] = useState("200");
 
   // Generate date range: 7 days back + 14 days forward
   const dateRange = useMemo(() => {
