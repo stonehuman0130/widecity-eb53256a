@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           day: number
           description: string | null
+          hidden_from_partner: boolean
           id: string
           month: number
           time: string
@@ -32,6 +33,7 @@ export type Database = {
           created_at?: string
           day: number
           description?: string | null
+          hidden_from_partner?: boolean
           id?: string
           month: number
           time?: string
@@ -44,6 +46,7 @@ export type Database = {
           created_at?: string
           day?: number
           description?: string | null
+          hidden_from_partner?: boolean
           id?: string
           month?: number
           time?: string
@@ -89,6 +92,7 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          hidden_from_partner: boolean
           id: string
           label: string
           user_id: string
@@ -96,6 +100,7 @@ export type Database = {
         Insert: {
           category?: string
           created_at?: string
+          hidden_from_partner?: boolean
           id?: string
           label: string
           user_id: string
@@ -103,6 +108,7 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          hidden_from_partner?: boolean
           id?: string
           label?: string
           user_id?: string
@@ -196,6 +202,7 @@ export type Database = {
           assignee: string
           created_at: string
           done: boolean
+          hidden_from_partner: boolean
           id: string
           scheduled_day: number | null
           scheduled_month: number | null
@@ -209,6 +216,7 @@ export type Database = {
           assignee?: string
           created_at?: string
           done?: boolean
+          hidden_from_partner?: boolean
           id?: string
           scheduled_day?: number | null
           scheduled_month?: number | null
@@ -222,6 +230,7 @@ export type Database = {
           assignee?: string
           created_at?: string
           done?: boolean
+          hidden_from_partner?: boolean
           id?: string
           scheduled_day?: number | null
           scheduled_month?: number | null
@@ -266,6 +275,7 @@ export type Database = {
           duration: string
           emoji: string
           exercises: Json | null
+          hidden_from_partner: boolean
           id: string
           scheduled_date: string | null
           tag: string
@@ -280,6 +290,7 @@ export type Database = {
           duration?: string
           emoji?: string
           exercises?: Json | null
+          hidden_from_partner?: boolean
           id?: string
           scheduled_date?: string | null
           tag?: string
@@ -294,6 +305,7 @@ export type Database = {
           duration?: string
           emoji?: string
           exercises?: Json | null
+          hidden_from_partner?: boolean
           id?: string
           scheduled_date?: string | null
           tag?: string
@@ -308,6 +320,10 @@ export type Database = {
     }
     Functions: {
       connect_partner: { Args: { code: string }; Returns: Json }
+      create_shared_habit: {
+        Args: { _category: string; _label: string }
+        Returns: Json
+      }
       disconnect_partner: { Args: never; Returns: Json }
       get_partner_id: { Args: { _user_id: string }; Returns: string }
     }
