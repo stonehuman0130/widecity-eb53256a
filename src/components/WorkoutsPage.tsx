@@ -60,6 +60,8 @@ const WorkoutsPage = () => {
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
   const [customDuration, setCustomDuration] = useState("30");
+  const [customCal, setCustomCal] = useState("200");
+
   const today = todayStr();
 
   // Generate date range: 7 days back + 14 days forward
