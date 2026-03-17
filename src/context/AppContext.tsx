@@ -274,12 +274,40 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const addEvent = async (event: Omit<ScheduledEvent, "id">) => {
     if (!user) return;
+
+    const normalizedTitle = event.title.trim().toLowerCase();
+    const normalizedTime = (event.time || "All day").trim().toLowerCase();
+    const duplicateInMemory = events.some((existing) =>
+      existing.title.trim().toLowerCase() === normalizedTitle &&
+      (existing.time || "All day").trim().toLowerCase() === normalizedTime &&
+      existing.day === event.day &&
+      existing.month === event.month &&
+      existing.year === event.year &&
+      existing.user === event.user
+    );
+
+    if (duplicateInMemory) return;
+
+    const { data: existingRows } = await supabase
+      .from("events")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("title", event.title)
+      .eq("time", event.time || "All day")
+      .eq("day", event.day)
+      .eq("month", event.month)
+      .eq("year", event.year)
+      .eq("assignee", event.user)
+      .limit(1);
+
+    if (existingRows && existingRows.length > 0) return;
+
     const { data, error } = await supabase
       .from("events")
       .insert({
         user_id: user.id,
         title: event.title,
-        time: event.time,
+        time: event.time || "All day",
         description: event.description,
         day: event.day,
         month: event.month,
@@ -290,7 +318,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (data && !error) {
-      setEvents((e) => [...e, { ...event, id: data.id }]);
+      setEvents((e) => [...e, { ...event, time: event.time || "All day", id: data.id }]);
     }
   };
 
