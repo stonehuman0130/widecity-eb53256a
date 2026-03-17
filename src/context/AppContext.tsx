@@ -8,6 +8,7 @@ export interface Habit {
   done: boolean;
   category: "morning" | "other";
   completionDates: string[];
+  hiddenFromPartner?: boolean;
 }
 
 export interface ScheduledEvent {
@@ -19,6 +20,7 @@ export interface ScheduledEvent {
   month: number;
   year: number;
   user: "me" | "partner" | "both";
+  hiddenFromPartner?: boolean;
 }
 
 export interface Task {
@@ -31,6 +33,7 @@ export interface Task {
   scheduledDay?: number;
   scheduledMonth?: number;
   scheduledYear?: number;
+  hiddenFromPartner?: boolean;
 }
 
 export interface Workout {
@@ -44,12 +47,14 @@ export interface Workout {
   scheduledDate?: string;
   completedDate?: string;
   exercises?: { name: string; sets: number; reps: string }[];
+  hiddenFromPartner?: boolean;
 }
 
 interface AppContextType {
   habits: Habit[];
   toggleHabit: (id: string) => void;
   addHabit: (label: string, category: "morning" | "other") => void;
+  addSharedHabit: (label: string, category: "morning" | "other") => Promise<void>;
   events: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
   removeEvent: (id: string) => void;
@@ -72,6 +77,14 @@ interface AppContextType {
   getHabitStreak: (id: string) => number;
   getHabitsForDate: (date: string) => Habit[];
   getWorkoutsForDate: (date: string) => Workout[];
+  // Partner data
+  partnerHabits: Habit[];
+  partnerEvents: ScheduledEvent[];
+  partnerTasks: Task[];
+  partnerWorkouts: Workout[];
+  getPartnerWorkoutsForDate: (date: string) => Workout[];
+  getPartnerHabitsForDate: (date: string) => Habit[];
+  getPartnerHabitStreak: (id: string) => number;
   loading: boolean;
 }
 
@@ -83,13 +96,17 @@ const todayStr = () => {
 };
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth();
+  const { user, partner } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [events, setEvents] = useState<ScheduledEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [waterIntake, setWaterIntakeState] = useState(0);
   const [waterGoal, setWaterGoalState] = useState(3);
   const [workouts, setWorkoutsState] = useState<Workout[]>([]);
+  const [partnerHabits, setPartnerHabits] = useState<Habit[]>([]);
+  const [partnerEvents, setPartnerEvents] = useState<ScheduledEvent[]>([]);
+  const [partnerTasks, setPartnerTasks] = useState<Task[]>([]);
+  const [partnerWorkouts, setPartnerWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load all data from database on mount
@@ -99,6 +116,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setEvents([]);
       setTasks([]);
       setWorkoutsState([]);
+      setPartnerHabits([]);
+      setPartnerEvents([]);
+      setPartnerTasks([]);
+      setPartnerWorkouts([]);
       setWaterIntakeState(0);
       setWaterGoalState(3);
       setLoading(false);
@@ -108,7 +129,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Load habits with completions
+        // Load own habits with completions
         const { data: habitsData } = await supabase
           .from("habits")
           .select("*")
@@ -136,6 +157,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               category: h.category as "morning" | "other",
               done: completionDates.includes(todayDate),
               completionDates,
+              hiddenFromPartner: h.hidden_from_partner || false,
             };
           }));
         }
@@ -157,6 +179,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             scheduledDay: t.scheduled_day,
             scheduledMonth: t.scheduled_month,
             scheduledYear: t.scheduled_year,
+            hiddenFromPartner: t.hidden_from_partner || false,
           })));
         }
 
@@ -176,6 +199,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             month: e.month,
             year: e.year,
             user: e.assignee as "me" | "partner" | "both",
+            hiddenFromPartner: e.hidden_from_partner || false,
           })));
         }
 
@@ -197,6 +221,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             scheduledDate: w.scheduled_date,
             completedDate: w.completed_date,
             exercises: w.exercises || [],
+            hiddenFromPartner: w.hidden_from_partner || false,
           })));
         }
 
@@ -225,6 +250,117 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadData();
   }, [user]);
 
+  // Load partner data separately
+  useEffect(() => {
+    if (!user || !partner) {
+      setPartnerHabits([]);
+      setPartnerEvents([]);
+      setPartnerTasks([]);
+      setPartnerWorkouts([]);
+      return;
+    }
+
+    const loadPartnerData = async () => {
+      try {
+        // Partner habits
+        const { data: pHabits } = await supabase
+          .from("habits")
+          .select("*")
+          .eq("user_id", partner.id);
+
+        const { data: pCompletions } = await supabase
+          .from("habit_completions")
+          .select("*")
+          .eq("user_id", partner.id);
+
+        if (pHabits) {
+          const completionMap = new Map<string, string[]>();
+          (pCompletions || []).forEach((c: any) => {
+            const dates = completionMap.get(c.habit_id) || [];
+            dates.push(c.completed_date);
+            completionMap.set(c.habit_id, dates);
+          });
+
+          const todayDate = todayStr();
+          setPartnerHabits(pHabits.map((h: any) => {
+            const completionDates = completionMap.get(h.id) || [];
+            return {
+              id: h.id,
+              label: h.label,
+              category: h.category as "morning" | "other",
+              done: completionDates.includes(todayDate),
+              completionDates,
+            };
+          }));
+        }
+
+        // Partner tasks
+        const { data: pTasks } = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("user_id", partner.id);
+
+        if (pTasks) {
+          setPartnerTasks(pTasks.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            time: t.time || "",
+            tag: t.tag as "Work" | "Personal" | "Household",
+            assignee: t.assignee as "me" | "partner" | "both",
+            done: t.done,
+            scheduledDay: t.scheduled_day,
+            scheduledMonth: t.scheduled_month,
+            scheduledYear: t.scheduled_year,
+          })));
+        }
+
+        // Partner events
+        const { data: pEvents } = await supabase
+          .from("events")
+          .select("*")
+          .eq("user_id", partner.id);
+
+        if (pEvents) {
+          setPartnerEvents(pEvents.map((e: any) => ({
+            id: e.id,
+            title: e.title,
+            time: e.time || "",
+            description: e.description,
+            day: e.day,
+            month: e.month,
+            year: e.year,
+            user: e.assignee as "me" | "partner" | "both",
+          })));
+        }
+
+        // Partner workouts
+        const { data: pWorkouts } = await supabase
+          .from("workouts")
+          .select("*")
+          .eq("user_id", partner.id);
+
+        if (pWorkouts) {
+          setPartnerWorkouts(pWorkouts.map((w: any) => ({
+            id: w.id,
+            title: w.title,
+            duration: w.duration,
+            cal: w.cal,
+            tag: w.tag,
+            emoji: w.emoji,
+            done: w.done,
+            scheduledDate: w.scheduled_date,
+            completedDate: w.completed_date,
+            exercises: w.exercises || [],
+          })));
+        }
+      } catch (err) {
+        console.error("Error loading partner data:", err);
+      }
+    };
+
+    loadPartnerData();
+  }, [user, partner]);
+
   const toggleHabit = async (id: string) => {
     const dateKey = todayStr();
     const habit = habits.find((h) => h.id === id);
@@ -232,7 +368,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const wasDone = habit.completionDates.includes(dateKey);
 
-    // Optimistic update
     setHabits((h) =>
       h.map((item) => {
         if (item.id !== id) return item;
@@ -269,6 +404,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     if (data && !error) {
       setHabits((h) => [...h, { id: data.id, label, done: false, category, completionDates: [] }]);
+    }
+  };
+
+  const addSharedHabit = async (label: string, category: "morning" | "other") => {
+    if (!user) return;
+    const { data, error } = await supabase.rpc("create_shared_habit", {
+      _label: label,
+      _category: category,
+    });
+
+    if (error) {
+      console.error("Error creating shared habit:", error);
+      return;
+    }
+
+    const result = data as any;
+    if (result?.error) {
+      console.error("Shared habit error:", result.error);
+      return;
+    }
+
+    // Add to own habits
+    if (result?.my_habit_id) {
+      setHabits((h) => [...h, { id: result.my_habit_id, label, done: false, category, completionDates: [] }]);
+    }
+    // Add to partner habits view
+    if (result?.partner_habit_id) {
+      setPartnerHabits((h) => [...h, { id: result.partner_habit_id, label, done: false, category, completionDates: [] }]);
     }
   };
 
@@ -495,6 +658,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return streak;
   }, [habits]);
 
+  const getPartnerHabitStreak = useCallback((id: string) => {
+    const habit = partnerHabits.find((h) => h.id === id);
+    if (!habit) return 0;
+    const sorted = [...habit.completionDates].sort().reverse();
+    if (sorted.length === 0) return 0;
+
+    let streak = 0;
+    const d = new Date();
+    for (let i = 0; i < 365; i++) {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (sorted.includes(key)) {
+        streak++;
+      } else if (i > 0) {
+        break;
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }, [partnerHabits]);
+
   const getHabitsForDate = useCallback((date: string) => {
     return habits.map((h) => ({
       ...h,
@@ -502,18 +685,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, [habits]);
 
+  const getPartnerHabitsForDate = useCallback((date: string) => {
+    return partnerHabits.map((h) => ({
+      ...h,
+      done: h.completionDates.includes(date),
+    }));
+  }, [partnerHabits]);
+
   const getWorkoutsForDate = useCallback((date: string) => {
     return workouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
   }, [workouts]);
 
+  const getPartnerWorkoutsForDate = useCallback((date: string) => {
+    return partnerWorkouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
+  }, [partnerWorkouts]);
+
   return (
     <AppContext.Provider value={{
-      habits, toggleHabit, addHabit,
+      habits, toggleHabit, addHabit, addSharedHabit,
       events, addEvent, removeEvent,
       tasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
+      partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
+      getPartnerWorkoutsForDate, getPartnerHabitsForDate, getPartnerHabitStreak,
       loading,
     }}>
       {children}

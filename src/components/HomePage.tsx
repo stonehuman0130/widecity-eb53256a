@@ -34,7 +34,10 @@ const HomePage = () => {
   const [voiceMode, setVoiceMode] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
-  const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent } = useAppContext();
+  const {
+    habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent,
+    partnerHabits, partnerEvents, partnerTasks,
+  } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
   const aiRequestInFlightRef = useRef(false);
@@ -50,8 +53,6 @@ const HomePage = () => {
       }
     },
   });
-
-  const morningHabits = habits.filter((h) => h.category === "morning");
 
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -267,13 +268,18 @@ const HomePage = () => {
     }
   };
 
+  // Morning habits: show own when "mine", partner's when "partner"
+  const myMorningHabits = habits.filter((h) => h.category === "morning");
+  const partnerMorningHabits = partnerHabits.filter((h) => h.category === "morning");
+  const displayMorningHabits = filter === "partner" ? partnerMorningHabits : myMorningHabits;
+
   const handleToggleHabit = useCallback((id: string) => {
-    const habit = morningHabits.find((h) => h.id === id);
+    const habit = myMorningHabits.find((h) => h.id === id);
     if (habit && !habit.done) {
       setCongratsType("habit");
     }
     toggleHabit(id);
-  }, [morningHabits, toggleHabit]);
+  }, [myMorningHabits, toggleHabit]);
 
   const partnerName = partner?.display_name || "Partner";
   const filters: { id: Filter; label: string }[] = [
@@ -281,12 +287,6 @@ const HomePage = () => {
     { id: "partner", label: `${partnerName}'s` },
     { id: "household", label: "Household" },
   ];
-
-  const matchesFilter = (assignee: "me" | "partner" | "both", tag?: string) => {
-    if (filter === "mine") return assignee === "me" || assignee === "both";
-    if (filter === "partner") return assignee === "partner" || assignee === "both";
-    return tag === "Household" || assignee === "both";
-  };
 
   const sd = selectedDate;
   const selDay = sd.getDate();
@@ -298,8 +298,26 @@ const HomePage = () => {
     return day === selDay && month === selMonth && year === selYear;
   };
 
-  const filteredTasks = tasks.filter((t) => matchesFilter(t.assignee, t.tag) && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-  const visibleEvents = events.filter((e) => matchesFilter(e.user) && e.day === selDay && e.month === selMonth && e.year === selYear);
+  // Partner filter: show PARTNER's data, not own data with assignee="partner"
+  let filteredTasks: Task[];
+  let visibleEvents: ScheduledEvent[];
+
+  if (filter === "mine") {
+    filteredTasks = tasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    visibleEvents = events.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
+  } else if (filter === "partner") {
+    filteredTasks = partnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    visibleEvents = partnerEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
+  } else {
+    // Household: own household items + partner household items
+    const myHousehold = tasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    const partnerHousehold = partnerTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    filteredTasks = [...myHousehold, ...partnerHousehold];
+
+    const myHouseholdEvents = events.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
+    const partnerHouseholdEvents = partnerEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
+    visibleEvents = [...myHouseholdEvents, ...partnerHouseholdEvents];
+  }
 
   const isTaskScheduled = (t: Task) => Boolean(t.time);
   const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
@@ -316,6 +334,9 @@ const HomePage = () => {
 
   const now = new Date();
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
+
+  // Determine if we can toggle items (only own items)
+  const isViewingPartner = filter === "partner";
 
   return (
     <div className="px-5">
@@ -513,17 +534,20 @@ const HomePage = () => {
       )}
 
       <section className="mb-6">
-        <h2 className="text-lg font-semibold tracking-display mb-3">Morning Habits</h2>
+        <h2 className="text-lg font-semibold tracking-display mb-3">
+          {filter === "partner" ? `${partnerName}'s Morning Habits` : "Morning Habits"}
+        </h2>
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-          {morningHabits.map((habit) => (
+          {displayMorningHabits.map((habit) => (
             <button
               key={habit.id}
-              onClick={() => handleToggleHabit(habit.id)}
+              onClick={() => !isViewingPartner && handleToggleHabit(habit.id)}
+              disabled={isViewingPartner}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
                 habit.done
                   ? "border-habit-green bg-habit-green/10 text-habit-green"
                   : "border-border bg-card text-foreground"
-              }`}
+              } ${isViewingPartner ? "opacity-80" : ""}`}
             >
               {habit.done ? (
                 <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
@@ -535,6 +559,11 @@ const HomePage = () => {
               {habit.label}
             </button>
           ))}
+          {displayMorningHabits.length === 0 && (
+            <p className="text-sm text-muted-foreground py-2">
+              {isViewingPartner ? `${partnerName} has no morning habits yet` : "No morning habits yet"}
+            </p>
+          )}
         </div>
       </section>
 
@@ -546,10 +575,10 @@ const HomePage = () => {
         {scheduledTasks.length > 0 || visibleEvents.length > 0 ? (
           <div className="space-y-3">
             {scheduledTasks.map((task) => (
-              <TaskCard key={task.id} task={task} onToggle={toggleTask} onCongrats={() => setCongratsType("task")} />
+              <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {visibleEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={removeEvent} onCongrats={() => setCongratsType("task")} />
+              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
           </div>
         ) : (
@@ -566,7 +595,7 @@ const HomePage = () => {
         {justDoIt.length > 0 ? (
           <div className="space-y-3">
             {justDoIt.map((task) => (
-              <TaskCard key={task.id} task={task} onToggle={toggleTask} onCongrats={() => setCongratsType("task")} />
+              <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
           </div>
         ) : (
@@ -579,8 +608,9 @@ const HomePage = () => {
   );
 };
 
-const TaskCard = ({ task, onToggle, onCongrats }: { task: Task; onToggle: (id: string) => void; onCongrats: () => void }) => {
+const TaskCard = ({ task, onToggle, onCongrats, readOnly }: { task: Task; onToggle?: (id: string) => void; onCongrats: () => void; readOnly?: boolean }) => {
   const handleToggle = () => {
+    if (readOnly || !onToggle) return;
     if (!task.done) {
       onCongrats();
     }
@@ -607,9 +637,10 @@ const TaskCard = ({ task, onToggle, onCongrats }: { task: Task; onToggle: (id: s
       <div className="flex items-center gap-3">
         <button
           onClick={handleToggle}
+          disabled={readOnly}
           className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
             task.done ? "bg-habit-green border-habit-green" : "border-muted"
-          }`}
+          } ${readOnly ? "opacity-60" : ""}`}
         >
           {task.done && <Check size={14} className="text-primary-foreground" />}
         </button>
@@ -617,7 +648,7 @@ const TaskCard = ({ task, onToggle, onCongrats }: { task: Task; onToggle: (id: s
           {task.title}
         </span>
         <UserBadge user={task.assignee} />
-        <TaskActionMenu taskId={task.id} />
+        {!readOnly && <TaskActionMenu taskId={task.id} />}
       </div>
       <div className="mt-2 ml-9">
         <TaskTag tag={task.tag} />
@@ -626,7 +657,7 @@ const TaskCard = ({ task, onToggle, onCongrats }: { task: Task; onToggle: (id: s
   );
 };
 
-const EventCard = ({ event, onRemove, onCongrats }: { event: ScheduledEvent; onRemove: (id: string) => void; onCongrats: () => void }) => {
+const EventCard = ({ event, onRemove, onCongrats, readOnly }: { event: ScheduledEvent; onRemove?: (id: string) => void; onCongrats: () => void; readOnly?: boolean }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [done, setDone] = useState(false);
   const dateLabel = new Date(event.year, event.month, event.day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -646,12 +677,14 @@ const EventCard = ({ event, onRemove, onCongrats }: { event: ScheduledEvent; onR
       <div className="flex items-center gap-3">
         <button
           onClick={() => {
+            if (readOnly) return;
             if (!done) onCongrats();
             setDone(!done);
           }}
+          disabled={readOnly}
           className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
             done ? "bg-habit-green border-habit-green" : "border-muted"
-          }`}
+          } ${readOnly ? "opacity-60" : ""}`}
         >
           {done && <Check size={14} className="text-primary-foreground" />}
         </button>
@@ -659,28 +692,30 @@ const EventCard = ({ event, onRemove, onCongrats }: { event: ScheduledEvent; onR
           {event.title}
         </span>
         <UserBadge user={event.user} />
-        <div className="relative">
-          <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
-            <MoreVertical size={16} />
-          </button>
-          {menuOpen && (
-            <>
-              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-              <div className="absolute right-0 top-8 z-50 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
-                <button
-                  onClick={() => {
-                    onRemove(event.id);
-                    setMenuOpen(false);
-                    toast.success("Event deleted");
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        {!readOnly && onRemove && (
+          <div className="relative">
+            <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+              <MoreVertical size={16} />
+            </button>
+            {menuOpen && (
+              <>
+                <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+                <div className="absolute right-0 top-8 z-50 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
+                  <button
+                    onClick={() => {
+                      onRemove(event.id);
+                      setMenuOpen(false);
+                      toast.success("Event deleted");
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
       {(!event.time || event.time === "All day") && (
         <div className="mt-2 ml-9">
