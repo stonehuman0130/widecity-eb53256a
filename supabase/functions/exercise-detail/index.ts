@@ -134,6 +134,7 @@ serve(async (req) => {
       try {
         const imageData = await imageResponse.json();
         const msg = imageData.choices?.[0]?.message;
+        console.log("Image response structure:", JSON.stringify(msg).substring(0, 500));
 
         // Check for inline_data in parts (Gemini native format)
         if (msg?.content && Array.isArray(msg.content)) {
