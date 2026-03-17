@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, CalendarDays, ChevronLeft, ChevronRight, Dumbbell, AlertTriangle, Target, ExternalLink } from "lucide-react";
 import { useAppContext, Workout } from "@/context/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AIPlan {
   title: string;
@@ -12,6 +15,14 @@ interface AIPlan {
   cal: number;
   tag: string;
   exercises: { name: string; sets: number; reps: string }[];
+}
+
+interface ExerciseDetail {
+  steps: string[];
+  formCues: string[];
+  commonMistakes: string[];
+  musclesWorked: string[];
+  videoSearchQuery: string;
 }
 
 const WorkoutsPage = () => {
