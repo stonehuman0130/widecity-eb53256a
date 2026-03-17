@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, CalendarDays, Sun, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "@/context/AppContext";
+import { toast } from "sonner";
 
 type ModalStep = "choose" | "calendar" | "morning-habit" | "other-habit";
 
@@ -20,6 +21,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const [calTime, setCalTime] = useState("");
   const [calDesc, setCalDesc] = useState("");
   const [calUser, setCalUser] = useState<"me" | "partner" | "both">("me");
+  const [calTag, setCalTag] = useState<"Work" | "Personal" | "Household">("Personal");
 
   // Habit form state
   const [habitLabel, setHabitLabel] = useState("");
@@ -31,6 +33,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     setCalTime("");
     setCalDesc("");
     setCalUser("me");
+    setCalTag("Personal");
     setHabitLabel("");
   };
 
@@ -41,19 +44,18 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
 
   const handleAddCalendar = () => {
     if (!calTitle.trim()) return;
-    const today = new Date();
-    let day = today.getDate();
-    let month = today.getMonth();
-    let year = today.getFullYear();
+    const now = new Date();
+    let day = now.getDate();
+    let month = now.getMonth();
+    let year = now.getFullYear();
 
     if (calDate) {
-      const parsed = new Date(calDate);
-      day = parsed.getDate();
-      month = parsed.getMonth();
-      year = parsed.getFullYear();
+      const [y, m, d] = calDate.split("-").map(Number);
+      day = d;
+      month = m - 1;
+      year = y;
     }
 
-    // Add as event
     addEvent({
       title: calTitle.trim(),
       time: calTime || "All day",
@@ -64,19 +66,17 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
       user: calUser,
     });
 
-    // Also add as a task if it's today
-    if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
-      addTask({
-        title: calTitle.trim(),
-        time: calTime || "",
-        tag: "Personal",
-        assignee: calUser === "partner" ? "partner" : "me",
-        scheduledDay: day,
-        scheduledMonth: month,
-        scheduledYear: year,
-      });
-    }
+    addTask({
+      title: calTitle.trim(),
+      time: calTime || "",
+      tag: calTag,
+      assignee: calUser === "partner" ? "partner" : calUser === "both" ? "both" : "me",
+      scheduledDay: day,
+      scheduledMonth: month,
+      scheduledYear: year,
+    });
 
+    toast.success(`Scheduled: ${calTitle.trim()}`);
     handleClose();
   };
 
@@ -94,7 +94,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center overflow-y-auto"
+        className="fixed inset-0 z-[60] bg-black/50 flex items-end justify-center"
         onClick={handleClose}
       >
         <motion.div
@@ -102,10 +102,12 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="w-full max-w-md bg-card rounded-t-2xl p-5 pb-12 border-t border-border max-h-[90vh] overflow-y-auto"
+          className="w-full max-w-md bg-card rounded-t-2xl border-t border-border flex flex-col"
+          style={{ maxHeight: "calc(100vh - 2rem)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between mb-5">
+          {/* Fixed header */}
+          <div className="flex items-center justify-between p-5 pb-3 flex-shrink-0">
             <h2 className="text-lg font-bold tracking-display">
               {step === "choose" ? "Add New" : step === "calendar" ? "Schedule Event" : step === "morning-habit" ? "Morning Habit" : "New Habit"}
             </h2>
@@ -114,117 +116,150 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
             </button>
           </div>
 
-          {step === "choose" && (
-            <div className="space-y-3">
-              <button
-                onClick={() => setStep("calendar")}
-                className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
-              >
-                <span className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <CalendarDays size={22} />
-                </span>
-                <div className="text-left">
-                  <p className="text-[15px] font-semibold">Calendar Schedule</p>
-                  <p className="text-xs text-muted-foreground">Add an event with date, time & details</p>
-                </div>
-              </button>
-              <button
-                onClick={() => setStep("morning-habit")}
-                className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
-              >
-                <span className="w-11 h-11 rounded-xl bg-accent/20 flex items-center justify-center text-accent">
-                  <Sun size={22} />
-                </span>
-                <div className="text-left">
-                  <p className="text-[15px] font-semibold">Morning Habit</p>
-                  <p className="text-xs text-muted-foreground">Add to your morning routine</p>
-                </div>
-              </button>
-              <button
-                onClick={() => setStep("other-habit")}
-                className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
-              >
-                <span className="w-11 h-11 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
-                  <Sparkles size={22} />
-                </span>
-                <div className="text-left">
-                  <p className="text-[15px] font-semibold">Other Habit</p>
-                  <p className="text-xs text-muted-foreground">Evening, anytime, or recurring habit</p>
-                </div>
-              </button>
-            </div>
-          )}
-
-          {step === "calendar" && (
-            <div className="space-y-3">
-              <input
-                value={calTitle}
-                onChange={(e) => setCalTitle(e.target.value)}
-                placeholder="Event title..."
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
-                autoFocus
-              />
-              <input
-                type="date"
-                value={calDate}
-                onChange={(e) => setCalDate(e.target.value)}
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
-              />
-              <input
-                type="time"
-                value={calTime}
-                onChange={(e) => setCalTime(e.target.value)}
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
-              />
-              <textarea
-                value={calDesc}
-                onChange={(e) => setCalDesc(e.target.value)}
-                placeholder="Description (optional)..."
-                rows={2}
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground resize-none"
-              />
-              <div className="flex gap-2">
-                {(["me", "partner", "both"] as const).map((u) => (
-                  <button
-                    key={u}
-                    onClick={() => setCalUser(u)}
-                    className={`flex-1 py-2.5 text-xs font-semibold rounded-xl border transition-all ${
-                      calUser === u
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground"
-                    }`}
-                  >
-                    {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
-                  </button>
-                ))}
+          {/* Scrollable content */}
+          <div className="overflow-y-auto flex-1 px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px)+60px)]">
+            {step === "choose" && (
+              <div className="space-y-3">
+                <button
+                  onClick={() => setStep("calendar")}
+                  className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
+                >
+                  <span className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                    <CalendarDays size={22} />
+                  </span>
+                  <div className="text-left">
+                    <p className="text-[15px] font-semibold">Calendar Schedule</p>
+                    <p className="text-xs text-muted-foreground">Add an event with date, time & details</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setStep("morning-habit")}
+                  className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
+                >
+                  <span className="w-11 h-11 rounded-xl bg-accent/20 flex items-center justify-center text-accent">
+                    <Sun size={22} />
+                  </span>
+                  <div className="text-left">
+                    <p className="text-[15px] font-semibold">Morning Habit</p>
+                    <p className="text-xs text-muted-foreground">Add to your morning routine</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setStep("other-habit")}
+                  className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
+                >
+                  <span className="w-11 h-11 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+                    <Sparkles size={22} />
+                  </span>
+                  <div className="text-left">
+                    <p className="text-[15px] font-semibold">Other Habit</p>
+                    <p className="text-xs text-muted-foreground">Evening, anytime, or recurring habit</p>
+                  </div>
+                </button>
               </div>
-              <button
-                onClick={handleAddCalendar}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold"
-              >
-                Add to Calendar
-              </button>
-            </div>
-          )}
+            )}
 
-          {(step === "morning-habit" || step === "other-habit") && (
-            <div className="space-y-3">
-              <input
-                value={habitLabel}
-                onChange={(e) => setHabitLabel(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddHabit(step === "morning-habit" ? "morning" : "other")}
-                placeholder={step === "morning-habit" ? "e.g. Cold shower, Journaling..." : "e.g. Read 10 pages, No sugar..."}
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
-                autoFocus
-              />
-              <button
-                onClick={() => handleAddHabit(step === "morning-habit" ? "morning" : "other")}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold"
-              >
-                Add Habit
-              </button>
-            </div>
-          )}
+            {step === "calendar" && (
+              <div className="space-y-3">
+                <input
+                  value={calTitle}
+                  onChange={(e) => setCalTitle(e.target.value)}
+                  placeholder="Event title..."
+                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+                  autoFocus
+                />
+                <input
+                  type="date"
+                  value={calDate}
+                  onChange={(e) => setCalDate(e.target.value)}
+                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
+                />
+                <input
+                  type="time"
+                  value={calTime}
+                  onChange={(e) => setCalTime(e.target.value)}
+                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
+                />
+                <textarea
+                  value={calDesc}
+                  onChange={(e) => setCalDesc(e.target.value)}
+                  placeholder="Description (optional)..."
+                  rows={2}
+                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground resize-none"
+                />
+
+                {/* Category / Tag selector */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Category</p>
+                  <div className="flex gap-2">
+                    {(["Work", "Personal", "Household"] as const).map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => setCalTag(tag)}
+                        className={`flex-1 py-2.5 text-xs font-semibold rounded-xl border transition-all ${
+                          calTag === tag
+                            ? tag === "Work"
+                              ? "border-blue-500 bg-blue-500/10 text-blue-500"
+                              : tag === "Household"
+                              ? "border-orange-500 bg-orange-500/10 text-orange-500"
+                              : "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Assignee selector */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Assign to</p>
+                  <div className="flex gap-2">
+                    {(["me", "partner", "both"] as const).map((u) => (
+                      <button
+                        key={u}
+                        onClick={() => setCalUser(u)}
+                        className={`flex-1 py-2.5 text-xs font-semibold rounded-xl border transition-all ${
+                          calUser === u
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleAddCalendar}
+                  className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold"
+                >
+                  Add to Calendar
+                </button>
+              </div>
+            )}
+
+            {(step === "morning-habit" || step === "other-habit") && (
+              <div className="space-y-3">
+                <input
+                  value={habitLabel}
+                  onChange={(e) => setHabitLabel(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddHabit(step === "morning-habit" ? "morning" : "other")}
+                  placeholder={step === "morning-habit" ? "e.g. Cold shower, Journaling..." : "e.g. Read 10 pages, No sugar..."}
+                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+                  autoFocus
+                />
+                <button
+                  onClick={() => handleAddHabit(step === "morning-habit" ? "morning" : "other")}
+                  className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold"
+                >
+                  Add Habit
+                </button>
+              </div>
+            )}
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
