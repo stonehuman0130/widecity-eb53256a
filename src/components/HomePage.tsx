@@ -14,6 +14,7 @@ import { toast } from "sonner";
 type Filter = "mine" | "partner" | "household";
 
 const HomePage = () => {
+  const { profile, partner } = useAuth();
   const [filter, setFilter] = useState<Filter>("mine");
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
