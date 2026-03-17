@@ -29,7 +29,7 @@ interface ExerciseDetail {
   formCues: string[];
   commonMistakes: string[];
   musclesWorked: string[];
-  imageDataUrl?: string | null;
+  videoSearchQuery?: string;
 }
 
 const fmtDate = (d: Date) =>
