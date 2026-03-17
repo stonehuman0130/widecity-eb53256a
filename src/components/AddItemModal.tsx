@@ -66,16 +66,6 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
       user: calUser,
     });
 
-    addTask({
-      title: calTitle.trim(),
-      time: calTime || "",
-      tag: calTag,
-      assignee: calUser === "partner" ? "partner" : calUser === "both" ? "both" : "me",
-      scheduledDay: day,
-      scheduledMonth: month,
-      scheduledYear: year,
-    });
-
     toast.success(`Scheduled: ${calTitle.trim()}`);
     handleClose();
   };

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Mic } from "lucide-react";
 import { useAppContext, Workout } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -50,8 +51,12 @@ const MANUAL_ACTIVITIES = [
   { emoji: "⚽", title: "Sports", tag: "Full Body", defaultDuration: "60 min", defaultCal: 500 },
 ];
 
+type ViewFilter = "mine" | "partner";
+
 const WorkoutsPage = () => {
-  const { workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate } = useAppContext();
+  const { workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
+  const { partner } = useAuth();
+  const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
@@ -68,6 +73,7 @@ const WorkoutsPage = () => {
   const [customDuration, setCustomDuration] = useState("30");
   const [customCal, setCustomCal] = useState("200");
 
+  const isViewingPartner = viewFilter === "partner";
   const today = todayStr();
 
   const dateRange = useMemo(() => {
@@ -81,11 +87,17 @@ const WorkoutsPage = () => {
     return dates;
   }, []);
 
-  const dateWorkouts = useMemo(() => getWorkoutsForDate(selectedDate), [selectedDate, getWorkoutsForDate]);
+  const dateWorkouts = useMemo(() => {
+    if (isViewingPartner) return getPartnerWorkoutsForDate(selectedDate);
+    return getWorkoutsForDate(selectedDate);
+  }, [selectedDate, getWorkoutsForDate, getPartnerWorkoutsForDate, isViewingPartner]);
+
+  const activeWorkouts = isViewingPartner ? partnerWorkouts : workouts;
 
   const missedWorkouts = useMemo(() => {
+    if (isViewingPartner) return [];
     return workouts.filter((w) => w.scheduledDate && w.scheduledDate < today && !w.done);
-  }, [workouts, today]);
+  }, [workouts, today, isViewingPartner]);
 
   const isToday = selectedDate === today;
   const isPast = selectedDate < today;
@@ -207,6 +219,7 @@ const WorkoutsPage = () => {
   };
 
   const handleToggleWorkout = (id: string) => {
+    if (isViewingPartner) return;
     const workout = workouts.find((w) => w.id === id);
     if (workout && !workout.done) {
       setShowCongrats(true);
@@ -214,9 +227,10 @@ const WorkoutsPage = () => {
     toggleWorkout(id);
   };
 
-  const completedCount = workouts.filter((w) => w.done).length;
-  const totalCal = workouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
-  const todayCal = workouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
+  const completedCount = activeWorkouts.filter((w) => w.done).length;
+  const totalCal = activeWorkouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
+  const todayCal = activeWorkouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
+  const partnerName = partner?.display_name || "Partner";
 
   return (
     <div className="px-5 pb-24">
@@ -229,69 +243,93 @@ const WorkoutsPage = () => {
         <p className="text-sm text-muted-foreground mt-0.5">Stay active and healthy together</p>
       </header>
 
-      {/* AI Workout Planner */}
-      <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4 mb-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles size={16} className="text-purple-500" />
-          <span className="text-sm font-semibold">AI Workout Planner</span>
-        </div>
-
-        <div className="flex gap-1.5 mb-3">
-          {(["today", "week", "month"] as const).map((type) => (
-            <button
-              key={type}
-              onClick={() => setPlanType(type)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                planType === type
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {type === "today" ? "Today" : type === "week" ? "This Week" : "This Month"}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2">
-          <input
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAiPlan()}
-            placeholder={
-              planType === "today"
-                ? "e.g. Plan me a chest workout..."
-                : planType === "week"
-                ? "e.g. Build me a push/pull/legs week..."
-                : "e.g. Give me a 4-week strength program..."
-            }
-            className="flex-1 bg-card rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground border border-border min-w-0"
-          />
-          {wSpeech && (
-            <button
-              onClick={wListen ? wStop : wStart}
-              className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                wListen
-                  ? "bg-destructive text-destructive-foreground animate-pulse"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Mic size={16} />
-            </button>
-          )}
+      {/* Mine / Partner Toggle */}
+      {partner && (
+        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
           <button
-            onClick={handleAiPlan}
-            disabled={aiLoading || !aiPrompt.trim()}
-            className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-primary-foreground text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50 flex-shrink-0"
+            onClick={() => setViewFilter("mine")}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              viewFilter === "mine" ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+            }`}
           >
-            {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            {aiLoading ? "..." : "Go"}
+            Mine
+          </button>
+          <button
+            onClick={() => setViewFilter("partner")}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              viewFilter === "partner" ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+            }`}
+          >
+            {partnerName}'s
           </button>
         </div>
-      </div>
+      )}
+
+      {/* AI Workout Planner - only for own view */}
+      {!isViewingPartner && (
+        <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4 mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles size={16} className="text-purple-500" />
+            <span className="text-sm font-semibold">AI Workout Planner</span>
+          </div>
+
+          <div className="flex gap-1.5 mb-3">
+            {(["today", "week", "month"] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => setPlanType(type)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  planType === type
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {type === "today" ? "Today" : type === "week" ? "This Week" : "This Month"}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAiPlan()}
+              placeholder={
+                planType === "today"
+                  ? "e.g. Plan me a chest workout..."
+                  : planType === "week"
+                  ? "e.g. Build me a push/pull/legs week..."
+                  : "e.g. Give me a 4-week strength program..."
+              }
+              className="flex-1 bg-card rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground border border-border min-w-0"
+            />
+            {wSpeech && (
+              <button
+                onClick={wListen ? wStop : wStart}
+                className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                  wListen
+                    ? "bg-destructive text-destructive-foreground animate-pulse"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Mic size={16} />
+              </button>
+            )}
+            <button
+              onClick={handleAiPlan}
+              disabled={aiLoading || !aiPrompt.trim()}
+              className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-primary-foreground text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50 flex-shrink-0"
+            >
+              {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {aiLoading ? "..." : "Go"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* AI Single Day Plans */}
       <AnimatePresence>
-        {aiPlans && (
+        {aiPlans && !isViewingPartner && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">Choose a plan</h3>
@@ -332,7 +370,7 @@ const WorkoutsPage = () => {
 
       {/* AI Weekly/Monthly Plan Preview */}
       <AnimatePresence>
-        {aiWeeklyPlan && (
+        {aiWeeklyPlan && !isViewingPartner && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">📅 {planType === "month" ? "Monthly" : "Weekly"} Plan</h3>
@@ -388,7 +426,7 @@ const WorkoutsPage = () => {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[
-          { label: "workouts", value: String(completedCount), sublabel: "Done", icon: "📈" },
+          { label: "workouts", value: String(completedCount), sublabel: isViewingPartner ? `${partnerName}` : "Done", icon: "📈" },
           { label: "calories", value: String(totalCal), sublabel: "All Time", icon: "🔥" },
           { label: "calories", value: String(todayCal), sublabel: "Today", icon: "✅" },
         ].map((stat) => (
@@ -401,7 +439,7 @@ const WorkoutsPage = () => {
       </div>
 
       {/* Missed Workouts Banner */}
-      {missedWorkouts.length > 0 && isToday && (
+      {missedWorkouts.length > 0 && isToday && !isViewingPartner && (
         <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 mb-5">
           <h3 className="text-sm font-semibold text-destructive flex items-center gap-2 mb-3">
             <AlertTriangle size={14} />
@@ -447,7 +485,9 @@ const WorkoutsPage = () => {
               const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
               const isSelected = date === selectedDate;
               const isT = date === today;
-              const hasWorkouts = getWorkoutsForDate(date).length > 0;
+              const hasWorkouts = isViewingPartner
+                ? getPartnerWorkoutsForDate(date).length > 0
+                : getWorkoutsForDate(date).length > 0;
 
               return (
                 <button
@@ -469,81 +509,87 @@ const WorkoutsPage = () => {
         </ScrollArea>
       </div>
 
-      {/* Quick Add Activities */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold">Quick Add</h3>
-          <button
-            onClick={() => setShowManualAdd(!showManualAdd)}
-            className="text-xs text-primary font-semibold flex items-center gap-1"
-          >
-            <Plus size={12} /> Custom
-          </button>
-        </div>
-
-        {showManualAdd && (
-          <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
-            <input
-              value={customTitle}
-              onChange={(e) => setCustomTitle(e.target.value)}
-              placeholder="Activity name..."
-              className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
-            />
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
-                <input
-                  type="number"
-                  value={customDuration}
-                  onChange={(e) => setCustomDuration(e.target.value)}
-                  className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
-                <input
-                  type="number"
-                  value={customCal}
-                  onChange={(e) => setCustomCal(e.target.value)}
-                  className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5"
-                />
-              </div>
-            </div>
+      {/* Quick Add Activities - only for own view */}
+      {!isViewingPartner && (
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">Quick Add</h3>
             <button
-              onClick={addCustomActivity}
-              disabled={!customTitle.trim()}
-              className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+              onClick={() => setShowManualAdd(!showManualAdd)}
+              className="text-xs text-primary font-semibold flex items-center gap-1"
             >
-              Add Activity
+              <Plus size={12} /> Custom
             </button>
           </div>
-        )}
 
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {MANUAL_ACTIVITIES.map((activity) => (
-            <button
-              key={activity.title}
-              onClick={() => addManualActivity(activity)}
-              className="flex flex-col items-center min-w-[72px] p-3 rounded-xl bg-card border border-border hover:border-primary/50 transition-all active:scale-[0.97]"
-            >
-              <span className="text-2xl mb-1">{activity.emoji}</span>
-              <span className="text-[11px] font-medium text-center">{activity.title}</span>
-            </button>
-          ))}
+          {showManualAdd && (
+            <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
+              <input
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                placeholder="Activity name..."
+                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+              />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
+                  <input
+                    type="number"
+                    value={customDuration}
+                    onChange={(e) => setCustomDuration(e.target.value)}
+                    className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
+                  <input
+                    type="number"
+                    value={customCal}
+                    onChange={(e) => setCustomCal(e.target.value)}
+                    className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={addCustomActivity}
+                disabled={!customTitle.trim()}
+                className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+              >
+                Add Activity
+              </button>
+            </div>
+          )}
+
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {MANUAL_ACTIVITIES.map((activity) => (
+              <button
+                key={activity.title}
+                onClick={() => addManualActivity(activity)}
+                className="flex flex-col items-center min-w-[72px] p-3 rounded-xl bg-card border border-border hover:border-primary/50 transition-all active:scale-[0.97]"
+              >
+                <span className="text-2xl mb-1">{activity.emoji}</span>
+                <span className="text-[11px] font-medium text-center">{activity.title}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Selected Date Workouts */}
       <section className="mb-6">
         <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
           <CalIcon size={14} className="text-muted-foreground" />
-          {isToday ? "Today's Workouts" : isFuture ? "Upcoming" : "Past Workouts"}
+          {isViewingPartner
+            ? `${partnerName}'s Workouts`
+            : isToday ? "Today's Workouts" : isFuture ? "Upcoming" : "Past Workouts"}
           <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
         </h3>
 
         {dateWorkouts.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">
-            {isToday ? "No workouts today. Add one above!" : isFuture ? "Nothing scheduled yet." : "No workouts on this day."}
+            {isViewingPartner
+              ? `${partnerName} has no workouts on this day`
+              : isToday ? "No workouts today. Add one above!" : isFuture ? "Nothing scheduled yet." : "No workouts on this day."}
           </p>
         ) : (
           <div className="space-y-3">
@@ -555,6 +601,7 @@ const WorkoutsPage = () => {
                 onRemove={removeWorkout}
                 onSelectExercise={setSelectedExercise}
                 isToday={isToday}
+                readOnly={isViewingPartner}
               />
             ))}
           </div>
@@ -576,12 +623,14 @@ const WorkoutCard = ({
   onRemove,
   onSelectExercise,
   isToday,
+  readOnly,
 }: {
   workout: Workout;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onSelectExercise: (name: string) => void;
   isToday: boolean;
+  readOnly?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -606,7 +655,7 @@ const WorkoutCard = ({
             </div>
           </div>
           <div className="flex items-center gap-1">
-            {isToday && (
+            {isToday && !readOnly && (
               <button
                 onClick={() => onToggle(workout.id)}
                 className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
@@ -616,24 +665,26 @@ const WorkoutCard = ({
                 {workout.done && <Check size={14} className="text-primary-foreground" />}
               </button>
             )}
-            <div className="relative">
-              <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 text-muted-foreground">
-                <MoreVertical size={16} />
-              </button>
-              {menuOpen && (
-                <>
-                  <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute right-0 top-8 z-50 min-w-[120px] rounded-xl border border-border bg-card shadow-card overflow-hidden">
-                    <button
-                      onClick={() => { onRemove(workout.id); setMenuOpen(false); }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 size={14} /> Delete
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            {!readOnly && (
+              <div className="relative">
+                <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 text-muted-foreground">
+                  <MoreVertical size={16} />
+                </button>
+                {menuOpen && (
+                  <>
+                    <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} />
+                    <div className="absolute right-0 top-8 z-50 min-w-[120px] rounded-xl border border-border bg-card shadow-card overflow-hidden">
+                      <button
+                        onClick={() => { onRemove(workout.id); setMenuOpen(false); }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -719,7 +770,6 @@ const ExerciseDetailDialog = ({ exerciseName, onClose }: { exerciseName: string 
             </div>
           ) : detail ? (
             <div className="space-y-5">
-              {/* Watch Demo Link */}
               <a
                 href={`https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`}
                 target="_blank"
@@ -733,7 +783,6 @@ const ExerciseDetailDialog = ({ exerciseName, onClose }: { exerciseName: string 
                 </div>
               </a>
 
-              {/* Steps */}
               <div>
                 <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">📋 How to Perform</h4>
                 <ol className="space-y-1.5">
@@ -746,7 +795,6 @@ const ExerciseDetailDialog = ({ exerciseName, onClose }: { exerciseName: string 
                 </ol>
               </div>
 
-              {/* Muscles */}
               <div>
                 <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">💪 Muscles Worked</h4>
                 <div className="flex flex-wrap gap-1.5">
@@ -756,7 +804,6 @@ const ExerciseDetailDialog = ({ exerciseName, onClose }: { exerciseName: string 
                 </div>
               </div>
 
-              {/* Form Cues */}
               <div>
                 <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">🎯 Form Cues</h4>
                 <ul className="space-y-1">
@@ -769,7 +816,6 @@ const ExerciseDetailDialog = ({ exerciseName, onClose }: { exerciseName: string 
                 </ul>
               </div>
 
-              {/* Common Mistakes */}
               <div>
                 <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">⚠️ Common Mistakes</h4>
                 <ul className="space-y-1">

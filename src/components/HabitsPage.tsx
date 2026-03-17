@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Flame, Check, Droplets, Bell } from "lucide-react";
+import { Plus, Flame, Check, Droplets, Bell, Users } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,47 +13,28 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+type ViewFilter = "mine" | "partner";
+
 const HabitsPage = () => {
-  const { habits, toggleHabit, addHabit, getHabitStreak } = useAppContext();
+  const { habits, toggleHabit, addHabit, addSharedHabit, getHabitStreak, partnerHabits, getPartnerHabitStreak } = useAppContext();
   const { user, partner } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
   const [addingTo, setAddingTo] = useState<"morning" | "other" | null>(null);
+  const [assignTo, setAssignTo] = useState<"me" | "both">("me");
   const [showCongrats, setShowCongrats] = useState(false);
-  const [partnerCompletions, setPartnerCompletions] = useState<Set<string>>(new Set());
+  const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
 
-  const morningHabits = habits.filter((h) => h.category === "morning");
-  const otherHabits = habits.filter((h) => h.category === "other");
+  const isViewingPartner = viewFilter === "partner";
+  const displayHabits = isViewingPartner ? partnerHabits : habits;
 
-  const totalCompleted = habits.filter((h) => h.done).length;
-  const total = habits.length;
+  const morningHabits = displayHabits.filter((h) => h.category === "morning");
+  const otherHabits = displayHabits.filter((h) => h.category === "other");
+
+  const totalCompleted = displayHabits.filter((h) => h.done).length;
+  const total = displayHabits.length;
   const morningCompleted = morningHabits.filter((h) => h.done).length;
 
-  // Load partner's habit completions for today
-  useEffect(() => {
-    if (!partner) return;
-    const loadPartnerCompletions = async () => {
-      // Get partner's habits
-      const { data: partnerHabits } = await supabase
-        .from("habits")
-        .select("id")
-        .eq("user_id", partner.id);
-
-      if (!partnerHabits || partnerHabits.length === 0) return;
-
-      const habitIds = partnerHabits.map((h) => h.id);
-      const { data: completions } = await supabase
-        .from("habit_completions")
-        .select("habit_id")
-        .eq("user_id", partner.id)
-        .eq("completed_date", todayStr())
-        .in("habit_id", habitIds);
-
-      if (completions) {
-        setPartnerCompletions(new Set(completions.map((c) => c.habit_id)));
-      }
-    };
-    loadPartnerCompletions();
-  }, [partner, habits]);
+  const streakFn = isViewingPartner ? getPartnerHabitStreak : getHabitStreak;
 
   // Check for incoming nudges
   useEffect(() => {
@@ -72,7 +53,6 @@ const HabitsPage = () => {
             duration: 5000,
           });
         }
-        // Mark as seen
         const ids = data.map((n) => n.id);
         await supabase.from("nudges").update({ seen: true }).in("id", ids);
       }
@@ -80,14 +60,21 @@ const HabitsPage = () => {
     checkNudges();
   }, [user, partner]);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newHabitLabel.trim() || !addingTo) return;
-    addHabit(newHabitLabel.trim(), addingTo);
+    if (assignTo === "both" && partner) {
+      await addSharedHabit(newHabitLabel.trim(), addingTo);
+      toast.success(`Shared habit "${newHabitLabel.trim()}" added for both!`);
+    } else {
+      addHabit(newHabitLabel.trim(), addingTo);
+    }
     setNewHabitLabel("");
     setAddingTo(null);
+    setAssignTo("me");
   };
 
   const handleToggle = (id: string) => {
+    if (isViewingPartner) return;
     const habit = habits.find((h) => h.id === id);
     if (habit && !habit.done) {
       setShowCongrats(true);
@@ -110,14 +97,7 @@ const HabitsPage = () => {
     }
   };
 
-  // Check if partner has a matching habit (by label) and completed it
-  const getPartnerHabitStatus = (label: string): "done" | "not_done" | "no_partner" => {
-    if (!partner) return "no_partner";
-    // We check partner completions by looking at partner's habits with same label
-    // Since we loaded partner's completions, we check if any partner habit with this label is completed
-    // For simplicity, we assume shared morning habits have the same label
-    return "not_done"; // Default - we'll refine below
-  };
+  const partnerName = partner?.display_name || "Partner";
 
   return (
     <div className="px-5">
@@ -132,11 +112,35 @@ const HabitsPage = () => {
         </div>
       </header>
 
+      {/* Mine / Partner Toggle */}
+      {partner && (
+        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
+          <button
+            onClick={() => setViewFilter("mine")}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              viewFilter === "mine" ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+            }`}
+          >
+            Mine
+          </button>
+          <button
+            onClick={() => setViewFilter("partner")}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              viewFilter === "partner" ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+            }`}
+          >
+            {partnerName}'s
+          </button>
+        </div>
+      )}
+
       {/* Progress Card */}
       <div className="bg-card rounded-xl p-5 border border-border shadow-card mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-muted-foreground font-medium">Today's Progress</p>
+            <p className="text-xs text-muted-foreground font-medium">
+              {isViewingPartner ? `${partnerName}'s Progress` : "Today's Progress"}
+            </p>
             <p className="text-3xl font-bold tracking-display mt-1">{totalCompleted}/{total}</p>
           </div>
           <span className="text-4xl">🌱</span>
@@ -152,35 +156,57 @@ const HabitsPage = () => {
         </p>
       </div>
 
-      {/* Water Slider */}
-      <WaterSlider />
+      {/* Water Slider - only for own view */}
+      {!isViewingPartner && <WaterSlider />}
 
-      {/* Past Date Viewer */}
-      <HabitDateViewer />
+      {/* Past Date Viewer - only for own view */}
+      {!isViewingPartner && <HabitDateViewer />}
 
       {/* Morning Habits */}
       <section className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold tracking-display">☀️ Morning Habits</h2>
-          <button
-            onClick={() => setAddingTo(addingTo === "morning" ? null : "morning")}
-            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
-          >
-            <Plus size={16} />
-          </button>
+          {!isViewingPartner && (
+            <button
+              onClick={() => setAddingTo(addingTo === "morning" ? null : "morning")}
+              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+            >
+              <Plus size={16} />
+            </button>
+          )}
         </div>
-        {addingTo === "morning" && (
-          <div className="flex gap-2 mb-3">
+        {addingTo === "morning" && !isViewingPartner && (
+          <div className="space-y-2 mb-3">
             <input
               value={newHabitLabel}
               onChange={(e) => setNewHabitLabel(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               placeholder="New morning habit..."
-              className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
               autoFocus
             />
-            <button onClick={handleAdd} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
-              Add
+            {partner && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAssignTo("me")}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
+                    assignTo === "me" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                  }`}
+                >
+                  Just Me
+                </button>
+                <button
+                  onClick={() => setAssignTo("both")}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1 ${
+                    assignTo === "both" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                  }`}
+                >
+                  <Users size={12} /> Both
+                </button>
+              </div>
+            )}
+            <button onClick={handleAdd} className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+              {assignTo === "both" ? "Add for Both" : "Add"}
             </button>
           </div>
         )}
@@ -190,41 +216,70 @@ const HabitsPage = () => {
               key={habit.id}
               habit={habit}
               onToggle={handleToggle}
-              streak={getHabitStreak(habit.id)}
+              streak={streakFn(habit.id)}
               partner={partner}
-              partnerCompletions={partnerCompletions}
+              isViewingPartner={isViewingPartner}
               onNudge={() => sendNudge(habit.label, habit.id)}
             />
           ))}
+          {morningHabits.length === 0 && (
+            <p className="text-sm text-muted-foreground py-2">
+              {isViewingPartner ? `${partnerName} has no morning habits` : "No morning habits yet"}
+            </p>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          {morningCompleted}/{morningHabits.length} completed
-        </p>
+        {morningHabits.length > 0 && (
+          <p className="text-xs text-muted-foreground mt-2">
+            {morningCompleted}/{morningHabits.length} completed
+          </p>
+        )}
       </section>
 
       {/* Other Habits */}
       <section className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold tracking-display">🌙 Other Habits</h2>
-          <button
-            onClick={() => setAddingTo(addingTo === "other" ? null : "other")}
-            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
-          >
-            <Plus size={16} />
-          </button>
+          {!isViewingPartner && (
+            <button
+              onClick={() => setAddingTo(addingTo === "other" ? null : "other")}
+              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+            >
+              <Plus size={16} />
+            </button>
+          )}
         </div>
-        {addingTo === "other" && (
-          <div className="flex gap-2 mb-3">
+        {addingTo === "other" && !isViewingPartner && (
+          <div className="space-y-2 mb-3">
             <input
               value={newHabitLabel}
               onChange={(e) => setNewHabitLabel(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               placeholder="New habit..."
-              className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
               autoFocus
             />
-            <button onClick={handleAdd} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
-              Add
+            {partner && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAssignTo("me")}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
+                    assignTo === "me" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                  }`}
+                >
+                  Just Me
+                </button>
+                <button
+                  onClick={() => setAssignTo("both")}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1 ${
+                    assignTo === "both" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                  }`}
+                >
+                  <Users size={12} /> Both
+                </button>
+              </div>
+            )}
+            <button onClick={handleAdd} className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+              {assignTo === "both" ? "Add for Both" : "Add"}
             </button>
           </div>
         )}
@@ -233,9 +288,10 @@ const HabitsPage = () => {
             <button
               key={habit.id}
               onClick={() => handleToggle(habit.id)}
+              disabled={isViewingPartner}
               className={`bg-card rounded-xl p-5 border shadow-card flex flex-col items-center gap-2 transition-all active:scale-[0.97] ${
                 habit.done ? "border-habit-green" : "border-border"
-              }`}
+              } ${isViewingPartner ? "opacity-80" : ""}`}
             >
               {habit.done ? (
                 <span className="w-8 h-8 rounded-full bg-habit-green flex items-center justify-center">
@@ -247,11 +303,16 @@ const HabitsPage = () => {
               <p className="text-sm font-semibold text-center">{habit.label}</p>
               <div className="flex items-center gap-1 text-accent">
                 <Flame size={14} />
-                <span className="text-xs font-bold">{getHabitStreak(habit.id)} days</span>
+                <span className="text-xs font-bold">{streakFn(habit.id)} days</span>
               </div>
             </button>
           ))}
         </div>
+        {otherHabits.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            {isViewingPartner ? `${partnerName} has no other habits` : "No other habits yet"}
+          </p>
+        )}
       </section>
     </div>
   );
@@ -262,25 +323,21 @@ interface MorningHabitRowProps {
   onToggle: (id: string) => void;
   streak: number;
   partner: { id: string; display_name: string; avatar_url: string | null; email: string | null } | null;
-  partnerCompletions: Set<string>;
+  isViewingPartner: boolean;
   onNudge: () => void;
 }
 
-const MorningHabitRow = ({ habit, onToggle, streak, partner, partnerCompletions, onNudge }: MorningHabitRowProps) => {
-  // For shared morning habits, check if partner completed it
-  // We look for partner completions by habit_id (partner may have the same habit)
-  // Since partner has their own habit IDs, we just show a general partner status indicator
-  const partnerDone = partnerCompletions.size > 0; // simplified: partner has done some morning habits
-
+const MorningHabitRow = ({ habit, onToggle, streak, partner, isViewingPartner, onNudge }: MorningHabitRowProps) => {
   return (
     <div className="w-full">
       <button
         onClick={() => onToggle(habit.id)}
+        disabled={isViewingPartner}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all active:scale-[0.98] ${
           habit.done
             ? "border-habit-green bg-habit-green/5"
             : "border-border bg-card"
-        }`}
+        } ${isViewingPartner ? "opacity-80" : ""}`}
       >
         {habit.done ? (
           <span className="w-6 h-6 rounded-full bg-habit-green flex items-center justify-center flex-shrink-0">
@@ -295,21 +352,16 @@ const MorningHabitRow = ({ habit, onToggle, streak, partner, partnerCompletions,
           <span className="text-xs font-bold">{streak}d</span>
         </div>
       </button>
-      {/* Partner status for shared morning habits */}
-      {partner && (
-        <div className="flex items-center justify-between ml-10 mt-1 mb-1">
-          <span className="text-xs text-muted-foreground">
-            {partner.display_name}: {partnerDone ? "✅ Done" : "⏳ Not yet"}
-          </span>
-          {!partnerDone && (
-            <button
-              onClick={onNudge}
-              className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 transition-colors"
-            >
-              <Bell size={10} />
-              Nudge
-            </button>
-          )}
+      {/* When viewing own habits and partner exists, show nudge for incomplete habits */}
+      {partner && !isViewingPartner && !habit.done && (
+        <div className="flex items-center justify-end ml-10 mt-1 mb-1">
+          <button
+            onClick={onNudge}
+            className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 transition-colors"
+          >
+            <Bell size={10} />
+            Nudge {partner.display_name}
+          </button>
         </div>
       )}
     </div>
