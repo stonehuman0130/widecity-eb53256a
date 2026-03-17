@@ -37,6 +37,7 @@ const HomePage = () => {
   const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
+  const aiRequestInFlightRef = useRef(false);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
 
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
