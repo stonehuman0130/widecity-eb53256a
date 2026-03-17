@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "pwa-icon-192.png", "pwa-icon-512.png"],
       manifest: {
-        name: "Life Planner — Fitness & Habits",
-        short_name: "Life Planner",
+        name: "WC Planner",
+        short_name: "WC Planner",
         description: "Your all-in-one fitness, habit, and schedule planner for couples",
         theme_color: "#6366f1",
         background_color: "#0a0a0a",
