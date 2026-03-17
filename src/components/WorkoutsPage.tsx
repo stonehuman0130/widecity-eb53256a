@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus } from "lucide-react";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
+import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Mic } from "lucide-react";
 import { useAppContext, Workout } from "@/context/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -52,6 +53,9 @@ const WorkoutsPage = () => {
   const { workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate } = useAppContext();
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const { listening: wListen, start: wStart, stop: wStop, isSupported: wSpeech } = useSpeechToText({
+    onResult: (t) => setAiPrompt((p) => (p ? p + " " + t : t)),
+  });
   const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
   const [aiWeeklyPlan, setAiWeeklyPlan] = useState<AIDayPlan[] | null>(null);
   const [planType, setPlanType] = useState<"today" | "week" | "month">("today");
@@ -249,12 +253,24 @@ const WorkoutsPage = () => {
                 ? "e.g. Build me a push/pull/legs week..."
                 : "e.g. Give me a 4-week strength program..."
             }
-            className="flex-1 bg-card rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground border border-border"
+            className="flex-1 bg-card rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground border border-border min-w-0"
           />
+          {wSpeech && (
+            <button
+              onClick={wListen ? wStop : wStart}
+              className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                wListen
+                  ? "bg-destructive text-destructive-foreground animate-pulse"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Mic size={16} />
+            </button>
+          )}
           <button
             onClick={handleAiPlan}
             disabled={aiLoading || !aiPrompt.trim()}
-            className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-primary-foreground text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50"
+            className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-primary-foreground text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50 flex-shrink-0"
           >
             {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             {aiLoading ? "..." : "Go"}

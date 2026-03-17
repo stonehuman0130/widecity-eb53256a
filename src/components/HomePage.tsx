@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2 } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
@@ -10,6 +10,7 @@ import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 type Filter = "mine" | "partner" | "household";
 
@@ -19,29 +20,29 @@ const HomePage = () => {
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const { habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent } = useAppContext();
+
+  const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
+    onResult: (transcript) => {
+      setInput((prev) => (prev ? prev + " " + transcript : transcript));
+    },
+  });
 
   const morningHabits = habits.filter((h) => h.category === "morning");
 
   const handleQuickAdd = () => {
     if (!input.trim()) return;
-    const now = new Date();
     addTask({
       title: input,
       time: "",
       tag: "Personal",
       assignee: "me",
-      scheduledDay: now.getDate(),
-      scheduledMonth: now.getMonth(),
-      scheduledYear: now.getFullYear(),
+      scheduledDay: selectedDate.getDate(),
+      scheduledMonth: selectedDate.getMonth(),
+      scheduledYear: selectedDate.getFullYear(),
     });
     setInput("");
-  };
-
-  const isTodayDate = (day?: number, month?: number, year?: number) => {
-    if (day === undefined || month === undefined || year === undefined) return true;
-    const now = new Date();
-    return day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
   };
 
   const toDateParts = (dateStr?: string) => {
@@ -49,8 +50,7 @@ const HomePage = () => {
       const [y, m, d] = dateStr.split("-").map(Number);
       return { day: d, month: m - 1, year: y };
     }
-    const now = new Date();
-    return { day: now.getDate(), month: now.getMonth(), year: now.getFullYear() };
+    return { day: selectedDate.getDate(), month: selectedDate.getMonth(), year: selectedDate.getFullYear() };
   };
 
   const processAction = (action: any) => {
@@ -138,25 +138,39 @@ const HomePage = () => {
     return tag === "Household" || assignee === "both";
   };
 
-  const now = new Date();
+  // Date-based filtering
+  const sd = selectedDate;
+  const selDay = sd.getDate();
+  const selMonth = sd.getMonth();
+  const selYear = sd.getFullYear();
 
-  const filteredTasks = tasks.filter((t) => matchesFilter(t.assignee, t.tag));
-  const visibleEvents = events.filter((e) => matchesFilter(e.user));
-
-  const isTaskScheduled = (t: Task) => {
-    const hasNonTodayDate = !isTodayDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear);
-    return Boolean(t.time) || hasNonTodayDate;
+  const isSelectedDate = (day?: number, month?: number, year?: number) => {
+    if (day === undefined || month === undefined || year === undefined) return true;
+    return day === selDay && month === selMonth && year === selYear;
   };
 
+  const filteredTasks = tasks.filter((t) => matchesFilter(t.assignee, t.tag) && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+  const visibleEvents = events.filter((e) => matchesFilter(e.user) && e.day === selDay && e.month === selMonth && e.year === selYear);
+
+  const isTaskScheduled = (t: Task) => Boolean(t.time);
   const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
   const justDoIt = filteredTasks.filter((t) => !isTaskScheduled(t));
 
-  const todayFormatted = now.toLocaleDateString("en-US", {
+  const dateFormatted = sd.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
   });
-  const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
+
+  const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
+
+  const shiftDate = (days: number) => {
+    const d = new Date(sd);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(d);
+  };
+
+  const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening";
 
   return (
     <div className="px-5">
@@ -172,6 +186,22 @@ const HomePage = () => {
           <Plus size={22} />
         </button>
       </header>
+
+      {/* Date Selector */}
+      <div className="flex items-center justify-between bg-card rounded-xl p-2 mb-4 shadow-card border border-border">
+        <button onClick={() => shiftDate(-1)} className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary active:scale-95 transition-all">
+          <ChevronLeft size={20} />
+        </button>
+        <button
+          onClick={() => setSelectedDate(new Date())}
+          className={`flex-1 text-center py-1.5 rounded-lg text-sm font-semibold transition-colors ${isToday ? "text-primary" : "text-foreground hover:text-primary"}`}
+        >
+          {isToday ? `Today · ${dateFormatted}` : dateFormatted}
+        </button>
+        <button onClick={() => shiftDate(1)} className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary active:scale-95 transition-all">
+          <ChevronRight size={20} />
+        </button>
+      </div>
 
       <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
         {filters.map((f) => (
@@ -205,19 +235,31 @@ const HomePage = () => {
             }
           }}
           placeholder="Try: 'call at 2pm tomorrow & add stretch to mornings'"
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
         />
+        {speechSupported && (
+          <button
+            onClick={listening ? stopListening : startListening}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 ${
+              listening
+                ? "bg-destructive text-destructive-foreground animate-pulse"
+                : "bg-secondary text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Mic size={16} />
+          </button>
+        )}
         <button
           onClick={handleAiSchedule}
           disabled={aiLoading || !input.trim()}
-          className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-primary-foreground disabled:opacity-50"
+          className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-primary-foreground disabled:opacity-50 flex-shrink-0"
         >
           {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
         </button>
         <button
           onClick={handleQuickAdd}
           disabled={!input.trim()}
-          className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-50"
+          className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-50 flex-shrink-0"
         >
           <Plus size={16} />
         </button>
@@ -253,7 +295,6 @@ const HomePage = () => {
         <div className="flex items-center gap-2 mb-3">
           <Clock size={18} className="text-muted-foreground" />
           <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
-          <span className="text-sm text-muted-foreground">· {todayFormatted}</span>
         </div>
         {scheduledTasks.length > 0 || visibleEvents.length > 0 ? (
           <div className="space-y-3">
@@ -265,14 +306,14 @@ const HomePage = () => {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">No scheduled items yet</p>
+          <p className="text-sm text-muted-foreground text-center py-4">No scheduled items</p>
         )}
       </section>
 
       <section className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="w-2 h-2 rounded-full bg-foreground" />
-          <h2 className="text-lg font-semibold tracking-display">Just Do it Today</h2>
+          <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
           <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
         </div>
         {justDoIt.length > 0 ? (
