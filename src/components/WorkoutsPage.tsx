@@ -378,7 +378,10 @@ const ExerciseDetailDialog = ({
     }
   }, [open, exerciseName]);
 
-  const youtubeUrl = detail?.videoSearchQuery
+  const youtubeEmbedUrl = detail?.youtubeVideoId
+    ? `https://www.youtube.com/embed/${detail.youtubeVideoId}`
+    : null;
+  const youtubeSearchUrl = detail?.videoSearchQuery
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`
     : null;
 
