@@ -125,9 +125,10 @@ const HomePage = () => {
     }
   };
 
+  const partnerName = partner?.display_name || "Partner";
   const filters: { id: Filter; label: string }[] = [
     { id: "mine", label: "Mine" },
-    { id: "partner", label: "Evelyn's" },
+    { id: "partner", label: `${partnerName}'s` },
     { id: "household", label: "Household" },
   ];
 
