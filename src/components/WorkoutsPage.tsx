@@ -22,7 +22,6 @@ interface ExerciseDetail {
   formCues: string[];
   commonMistakes: string[];
   musclesWorked: string[];
-  youtubeVideoId?: string;
   videoSearchQuery: string;
 }
 
@@ -378,9 +377,6 @@ const ExerciseDetailDialog = ({
     }
   }, [open, exerciseName]);
 
-  const youtubeEmbedUrl = detail?.youtubeVideoId
-    ? `https://www.youtube.com/embed/${detail.youtubeVideoId}`
-    : null;
   const youtubeSearchUrl = detail?.videoSearchQuery
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`
     : null;
@@ -422,17 +418,17 @@ const ExerciseDetailDialog = ({
 
             {detail && (
               <>
-                {/* YouTube Video Embed */}
-                {youtubeEmbedUrl && (
-                  <div className="rounded-xl overflow-hidden border border-border bg-secondary/30">
-                    <iframe
-                      src={youtubeEmbedUrl}
-                      title={`${exerciseName} demo`}
-                      className="w-full aspect-video"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
+                {/* YouTube Search Link */}
+                {youtubeSearchUrl && (
+                  <a
+                    href={youtubeSearchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-red-500/10 text-red-500 text-sm font-semibold hover:bg-red-500/20 transition-colors border border-red-500/20"
+                  >
+                    <ExternalLink size={14} />
+                    🎬 Watch Demo on YouTube
+                  </a>
                 )}
                 {/* Steps */}
                 <section>
@@ -500,18 +496,6 @@ const ExerciseDetailDialog = ({
                   </div>
                 </section>
 
-                {/* Video Link Fallback */}
-                {youtubeSearchUrl && (
-                  <a
-                    href={youtubeSearchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-secondary text-sm font-semibold hover:bg-secondary/80 transition-colors"
-                  >
-                    <ExternalLink size={14} />
-                    {youtubeEmbedUrl ? "Browse More Videos" : "Watch Demo on YouTube"}
-                  </a>
-                )}
               </>
             )}
           </div>
