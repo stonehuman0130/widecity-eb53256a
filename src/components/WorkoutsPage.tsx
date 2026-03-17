@@ -22,8 +22,8 @@ interface ExerciseDetail {
   formCues: string[];
   commonMistakes: string[];
   musclesWorked: string[];
+  youtubeVideoId?: string;
   videoSearchQuery: string;
-  imageUrl?: string | null;
 }
 
 const WorkoutsPage = () => {
@@ -378,7 +378,10 @@ const ExerciseDetailDialog = ({
     }
   }, [open, exerciseName]);
 
-  const youtubeUrl = detail?.videoSearchQuery
+  const youtubeEmbedUrl = detail?.youtubeVideoId
+    ? `https://www.youtube.com/embed/${detail.youtubeVideoId}`
+    : null;
+  const youtubeSearchUrl = detail?.videoSearchQuery
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(detail.videoSearchQuery)}`
     : null;
 
@@ -419,13 +422,15 @@ const ExerciseDetailDialog = ({
 
             {detail && (
               <>
-                {/* Exercise Illustration */}
-                {detail.imageUrl && (
+                {/* YouTube Video Embed */}
+                {youtubeEmbedUrl && (
                   <div className="rounded-xl overflow-hidden border border-border bg-secondary/30">
-                    <img
-                      src={detail.imageUrl}
-                      alt={`${exerciseName} form illustration`}
-                      className="w-full h-auto max-h-56 object-contain"
+                    <iframe
+                      src={youtubeEmbedUrl}
+                      title={`${exerciseName} demo`}
+                      className="w-full aspect-video"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
                     />
                   </div>
                 )}
@@ -495,16 +500,16 @@ const ExerciseDetailDialog = ({
                   </div>
                 </section>
 
-                {/* Video Link */}
-                {youtubeUrl && (
+                {/* Video Link Fallback */}
+                {youtubeSearchUrl && (
                   <a
-                    href={youtubeUrl}
+                    href={youtubeSearchUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-secondary text-sm font-semibold hover:bg-secondary/80 transition-colors"
                   >
                     <ExternalLink size={14} />
-                    Watch Demo on YouTube
+                    {youtubeEmbedUrl ? "Browse More Videos" : "Watch Demo on YouTube"}
                   </a>
                 )}
               </>
