@@ -225,6 +225,28 @@ const SettingsPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Calendar Integration Dialog */}
+      <Dialog open={showCalendarDialog} onOpenChange={setShowCalendarDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Calendar Integration</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Calendar sync is coming soon! We're working on integrating with Apple Calendar, Google Calendar, and Outlook.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              In the meantime, you can manually add events using the AI assistant on the Home page.
+            </p>
+            <button
+              onClick={() => setShowCalendarDialog(false)}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
+            >
+              Got it
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
