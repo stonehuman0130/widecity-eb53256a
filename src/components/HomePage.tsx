@@ -577,12 +577,12 @@ const HomePage = () => {
           <Clock size={18} className="text-muted-foreground" />
           <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
         </div>
-        {scheduledTasks.length > 0 || visibleEvents.length > 0 ? (
+        {scheduledTasks.length > 0 || timedEvents.length > 0 ? (
           <div className="space-y-3">
             {scheduledTasks.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
-            {visibleEvents.map((event) => (
+            {timedEvents.map((event) => (
               <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
           </div>
