@@ -309,6 +309,7 @@ const HabitsPage = () => {
 interface MorningHabitRowProps {
   habit: { id: string; label: string; done: boolean };
   onToggle: (id: string) => void;
+  onDelete?: (id: string) => void;
   streak: number;
   partner: { id: string; display_name: string; avatar_url: string | null; email: string | null } | null;
   isViewingPartner: boolean;
