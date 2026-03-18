@@ -319,9 +319,14 @@ const HomePage = () => {
     visibleEvents = [...myHouseholdEvents, ...partnerHouseholdEvents];
   }
 
-  const isTaskScheduled = (t: Task) => Boolean(t.time);
+  const hasSpecificTime = (time?: string) => Boolean(time) && time !== "" && time !== "All day";
+  const isTaskScheduled = (t: Task) => hasSpecificTime(t.time);
   const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
   const justDoIt = filteredTasks.filter((t) => !isTaskScheduled(t));
+
+  // Split events: timed events go to Scheduled, all-day events go to Just Do It
+  const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
+  const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
 
   const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: userTimezone });
   const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
