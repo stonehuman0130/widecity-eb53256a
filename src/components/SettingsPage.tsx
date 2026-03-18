@@ -135,8 +135,8 @@ const SettingsPage = () => {
         )}
       </div>
 
-      {/* Calendar Integrations */}
-      <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
+      {/* Calendar Integrations Section */}
+      <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden" id="calendar-integrations">
         <div className="p-4">
           <div className="flex items-center gap-3 mb-3">
             <Calendar size={16} className="text-primary" />
