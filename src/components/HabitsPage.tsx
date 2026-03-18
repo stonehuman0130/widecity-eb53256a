@@ -286,27 +286,14 @@ const HabitsPage = () => {
         )}
         <div className="grid grid-cols-2 gap-3">
           {otherHabits.map((habit) => (
-            <button
+            <OtherHabitCard
               key={habit.id}
-              onClick={() => handleToggle(habit.id)}
-              disabled={isViewingPartner}
-              className={`bg-card rounded-xl p-5 border shadow-card flex flex-col items-center gap-2 transition-all active:scale-[0.97] ${
-                habit.done ? "border-habit-green" : "border-border"
-              } ${isViewingPartner ? "opacity-80" : ""}`}
-            >
-              {habit.done ? (
-                <span className="w-8 h-8 rounded-full bg-habit-green flex items-center justify-center">
-                  <Check size={16} className="text-primary-foreground" />
-                </span>
-              ) : (
-                <span className="w-8 h-8 rounded-full border-2 border-muted" />
-              )}
-              <p className="text-sm font-semibold text-center">{habit.label}</p>
-              <div className="flex items-center gap-1 text-accent">
-                <Flame size={14} />
-                <span className="text-xs font-bold">{streakFn(habit.id)} days</span>
-              </div>
-            </button>
+              habit={habit}
+              onToggle={handleToggle}
+              onDelete={isViewingPartner ? undefined : (id) => { removeHabit(id); toast.success("Habit deleted"); }}
+              streak={streakFn(habit.id)}
+              isViewingPartner={isViewingPartner}
+            />
           ))}
         </div>
         {otherHabits.length === 0 && (
