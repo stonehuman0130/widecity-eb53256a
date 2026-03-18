@@ -75,24 +75,19 @@ const SettingsPage = () => {
     }
   };
 
-  const handleConnectGoogleCalendar = () => {
+  const handleConnectGoogleCalendar = async () => {
     if (!user) return;
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-callback`;
-    const scope = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
-
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: "code",
-        scope,
-        access_type: "offline",
-        prompt: "consent",
-        state: user.id,
-      }).toString();
-
-    window.location.href = authUrl;
+    setGcalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-calendar-auth-url", {
+        body: { user_id: user.id },
+      });
+      if (error || !data?.url) throw error || new Error("No URL returned");
+      window.location.href = data.url;
+    } catch (err) {
+      toast.error("Failed to start Google Calendar connection");
+      setGcalLoading(false);
+    }
   };
 
   const handleDisconnectGoogleCalendar = async () => {
