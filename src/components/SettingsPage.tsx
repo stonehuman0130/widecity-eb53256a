@@ -14,6 +14,7 @@ const settingsItems = [
 const SettingsPage = () => {
   const { profile, partner, signOut, connectPartner, disconnectPartner, refreshProfile } = useAuth();
   const [showPartnerDialog, setShowPartnerDialog] = useState(false);
+  const [showCalendarDialog, setShowCalendarDialog] = useState(false);
   const [inviteInput, setInviteInput] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
