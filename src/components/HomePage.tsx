@@ -35,7 +35,7 @@ const HomePage = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
-    habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent,
+    habits, toggleHabit, addHabit, removeHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent, removeTask,
     partnerHabits, partnerEvents, partnerTasks,
   } = useAppContext();
 
