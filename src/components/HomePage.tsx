@@ -35,7 +35,7 @@ const HomePage = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
-    habits, toggleHabit, addHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent,
+    habits, toggleHabit, addHabit, removeHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent, removeTask,
     partnerHabits, partnerEvents, partnerTasks,
   } = useAppContext();
 
@@ -181,6 +181,17 @@ const HomePage = () => {
         body.conversationHistory = history;
       }
 
+      // Pass current schedule and habits context for delete/query operations
+      const sd = selectedDate;
+      const todayEvents = events.filter((e) => e.day === sd.getDate() && e.month === sd.getMonth() && e.year === sd.getFullYear());
+      const todayTasks = tasks.filter((t) => t.scheduledDay === sd.getDate() && t.scheduledMonth === sd.getMonth() && t.scheduledYear === sd.getFullYear());
+
+      body.currentSchedule = [
+        ...todayEvents.map((e) => ({ id: e.id, title: e.title, time: e.time, type: "event" })),
+        ...todayTasks.map((t) => ({ id: t.id, title: t.title, time: t.time, type: "task" })),
+      ];
+      body.currentHabits = habits.map((h) => ({ id: h.id, label: h.label, category: h.category, done: h.done }));
+
       const { data: rawData, error } = await supabase.functions.invoke("ai-schedule", { body });
       if (error) throw error;
 
@@ -207,13 +218,51 @@ const HomePage = () => {
         return;
       }
 
+      // Handle query responses
+      if (data.type === "query_response") {
+        toast.info(data.answer, { duration: 6000 });
+        if (voiceMode && data.spokenResponse) {
+          speakResponse(data.spokenResponse, true);
+        }
+        setInput("");
+        setClarification(null);
+        return;
+      }
+
+      // Handle delete actions
+      if (data.type === "delete_item") {
+        const { item_id, item_type, item_title } = data;
+        if (item_type === "event") {
+          removeEvent(item_id);
+        } else if (item_type === "task") {
+          removeTask(item_id);
+        } else if (item_type === "habit") {
+          removeHabit(item_id);
+        }
+        toast.success(`Deleted: ${item_title}`);
+        if (voiceMode && data.spokenResponse) {
+          speakResponse(data.spokenResponse, true);
+        }
+        setInput("");
+        setClarification(null);
+        return;
+      }
+
       if (data.type === "multi" && Array.isArray(data.actions)) {
         const seenSignatures = new Set<string>();
         let createdCount = 0;
 
         for (const action of data.actions) {
-          const result = await processAction(action, seenSignatures);
-          if (result.created) createdCount += 1;
+          if (action.action_type === "delete_item") {
+            if (action.item_type === "event") removeEvent(action.item_id);
+            else if (action.item_type === "task") removeTask(action.item_id);
+            else if (action.item_type === "habit") removeHabit(action.item_id);
+            toast.success(`Deleted: ${action.item_title || "item"}`);
+            createdCount++;
+          } else {
+            const result = await processAction(action, seenSignatures);
+            if (result.created) createdCount += 1;
+          }
         }
 
         if (createdCount > 1) {
@@ -319,9 +368,14 @@ const HomePage = () => {
     visibleEvents = [...myHouseholdEvents, ...partnerHouseholdEvents];
   }
 
-  const isTaskScheduled = (t: Task) => Boolean(t.time);
+  const hasSpecificTime = (time?: string) => Boolean(time) && time !== "" && time !== "All day";
+  const isTaskScheduled = (t: Task) => hasSpecificTime(t.time);
   const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
   const justDoIt = filteredTasks.filter((t) => !isTaskScheduled(t));
+
+  // Split events: timed events go to Scheduled, all-day events go to Just Do It
+  const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
+  const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
 
   const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: userTimezone });
   const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
@@ -572,12 +626,12 @@ const HomePage = () => {
           <Clock size={18} className="text-muted-foreground" />
           <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
         </div>
-        {scheduledTasks.length > 0 || visibleEvents.length > 0 ? (
+        {scheduledTasks.length > 0 || timedEvents.length > 0 ? (
           <div className="space-y-3">
             {scheduledTasks.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
-            {visibleEvents.map((event) => (
+            {timedEvents.map((event) => (
               <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
           </div>
@@ -592,10 +646,13 @@ const HomePage = () => {
           <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
           <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
         </div>
-        {justDoIt.length > 0 ? (
+        {justDoIt.length > 0 || allDayEvents.length > 0 ? (
           <div className="space-y-3">
             {justDoIt.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+            ))}
+            {allDayEvents.map((event) => (
+              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
           </div>
         ) : (

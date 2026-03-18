@@ -220,11 +220,20 @@ const makeActionSignature = (action: any) => {
   return JSON.stringify(action);
 };
 
+// Detect intent category from text
+const detectIntent = (text: string): "delete" | "query" | "update" | "create" => {
+  const lower = text.toLowerCase();
+  if (/\b(delete|remove|cancel|drop|get rid of)\b/.test(lower)) return "delete";
+  if (/\b(what|how many|do i have|what's|whats|show me|list|tell me about|look like|anything)\b/.test(lower)) return "query";
+  if (/\b(update|change|move|reschedule|modify|edit)\b/.test(lower)) return "update";
+  return "create";
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { text, conversationHistory, timezone } = await req.json();
+    const { text, conversationHistory, timezone, currentSchedule, currentHabits } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -232,6 +241,7 @@ serve(async (req) => {
     const nowInfo = getNowInTimezone(userTz);
     const dateSignals = extractDateSignals(text || "");
     const timeMention = extractTimeMention(text || "");
+    const intent = detectIntent(text || "");
 
     const tomorrowStr = formatDateStringLocal(
       new Date(parseLocalDate(nowInfo.todayStr).getFullYear(), parseLocalDate(nowInfo.todayStr).getMonth(), parseLocalDate(nowInfo.todayStr).getDate() + 1),
@@ -240,7 +250,8 @@ serve(async (req) => {
     let forcedTime: string | null = null;
     let forcedDate: string | null = null;
 
-    if (timeMention) {
+    // Only do time/date pre-processing for create intents
+    if (intent === "create" && timeMention) {
       if (!dateSignals.hasDate) {
         return askClarification({
           question: `I caught "${timeMention.raw}". What date is this for, and is it work, personal, or household?`,
@@ -267,7 +278,6 @@ serve(async (req) => {
               context: `Ambiguous time (${timeMention.raw}) with explicit 'today'.`,
             });
           }
-
           forcedTime = inference.resolvedTime;
         } else {
           return askClarification({
@@ -279,6 +289,23 @@ serve(async (req) => {
         }
       } else {
         forcedTime = normalizeMentionedTime(timeMention);
+      }
+    }
+
+    // Build context about current schedule/habits for query & delete intents
+    let scheduleContext = "";
+    if ((intent === "query" || intent === "delete" || intent === "update") && (currentSchedule || currentHabits)) {
+      if (currentSchedule && currentSchedule.length > 0) {
+        scheduleContext += "\n\nCurrent schedule for today:\n" + currentSchedule.map((item: any) =>
+          `- "${item.title}" at ${item.time || "All day"} (ID: ${item.id}, type: ${item.type})`
+        ).join("\n");
+      } else {
+        scheduleContext += "\n\nNo scheduled items for today.";
+      }
+      if (currentHabits && currentHabits.length > 0) {
+        scheduleContext += "\n\nCurrent habits:\n" + currentHabits.map((h: any) =>
+          `- "${h.label}" (${h.category}, ${h.done ? "completed" : "not completed"}, ID: ${h.id})`
+        ).join("\n");
       }
     }
 
@@ -296,8 +323,20 @@ CRITICAL RULES:
 ACTIONS YOU CAN PERFORM:
 1. create_event — Schedule an event with date and optionally time
 2. add_habit — Add a daily habit
-3. perform_actions — Batch multiple distinct actions only when user clearly asked for multiple items
-4. ask_clarification — Ask a specific follow-up question when critical information is missing
+3. delete_item — Delete a scheduled event, task, or habit by ID
+4. query_schedule — Answer questions about the user's schedule or habits
+5. perform_actions — Batch multiple distinct actions only when user clearly asked for multiple items
+6. ask_clarification — Ask a specific follow-up question when critical information is missing
+
+DELETE RULES:
+- When a user wants to delete something, match their description against the current schedule/habits provided.
+- If exactly one item matches, delete it directly.
+- If multiple items match, ask_clarification to confirm which one.
+- If no items match, respond saying nothing was found.
+
+QUERY RULES:
+- When asked about their schedule, habits, or upcoming items, use query_schedule to provide a natural-language answer.
+- Summarize the relevant items conversationally.
 
 PERSON/ASSIGNMENT RULES:
 - "Harrison", "mine", "my", "me", "I" → assignee "me"
@@ -317,7 +356,8 @@ TAG RULES:
 
 VOICE RESPONSE:
 - Always include a spokenResponse field with a natural confirmation or question.
-- Keep it concise and conversational.`;
+- Keep it concise and conversational.
+${scheduleContext}`;
 
     const messages: any[] = [{ role: "system", content: systemPrompt }];
 
@@ -336,6 +376,140 @@ VOICE RESPONSE:
 
     messages.push({ role: "user", content: text });
 
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "create_event",
+          description: "Create a single calendar event.",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Event title" },
+              date: { type: "string", description: "Date in YYYY-MM-DD format" },
+              time: { type: "string", description: "Time like '2:00 PM'. Include if user provided any time." },
+              description: { type: "string", description: "Brief description" },
+              assignee: { type: "string", enum: ["me", "partner", "both"] },
+              tag: { type: "string", enum: ["Work", "Personal", "Household"] },
+              spokenResponse: { type: "string", description: "Natural spoken confirmation" },
+            },
+            required: ["title", "date", "spokenResponse"],
+            additionalProperties: false,
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "add_habit",
+          description: "Add a new daily habit to the user's habit list",
+          parameters: {
+            type: "object",
+            properties: {
+              label: { type: "string" },
+              category: { type: "string", enum: ["morning", "other"] },
+              spokenResponse: { type: "string", description: "Natural spoken confirmation" },
+            },
+            required: ["label", "category", "spokenResponse"],
+            additionalProperties: false,
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "delete_item",
+          description: "Delete a scheduled event, task, or habit by ID",
+          parameters: {
+            type: "object",
+            properties: {
+              item_id: { type: "string", description: "The ID of the item to delete" },
+              item_type: { type: "string", enum: ["event", "task", "habit"], description: "Type of item" },
+              item_title: { type: "string", description: "Title of the item being deleted for confirmation" },
+              spokenResponse: { type: "string", description: "Natural spoken confirmation" },
+            },
+            required: ["item_id", "item_type", "item_title", "spokenResponse"],
+            additionalProperties: false,
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "query_schedule",
+          description: "Answer questions about the user's schedule, habits, or upcoming items",
+          parameters: {
+            type: "object",
+            properties: {
+              answer: { type: "string", description: "Natural language answer to the user's question" },
+              spokenResponse: { type: "string", description: "Natural spoken version of the answer" },
+            },
+            required: ["answer", "spokenResponse"],
+            additionalProperties: false,
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "ask_clarification",
+          description: "Ask the user follow-up questions when critical information is missing.",
+          parameters: {
+            type: "object",
+            properties: {
+              question: { type: "string", description: "The follow-up question" },
+              suggestions: {
+                type: "array",
+                items: { type: "string" },
+                description: "2-4 quick-reply suggestions",
+              },
+              spokenResponse: { type: "string", description: "Natural spoken version of the question" },
+              context: { type: "string", description: "What the AI understood so far" },
+            },
+            required: ["question", "suggestions", "spokenResponse", "context"],
+            additionalProperties: false,
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "perform_actions",
+          description: "Perform multiple distinct actions at once",
+          parameters: {
+            type: "object",
+            properties: {
+              actions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    action_type: { type: "string", enum: ["create_event", "add_habit", "delete_item"] },
+                    title: { type: "string" },
+                    date: { type: "string" },
+                    time: { type: "string" },
+                    description: { type: "string" },
+                    assignee: { type: "string", enum: ["me", "partner", "both"] },
+                    tag: { type: "string", enum: ["Work", "Personal", "Household"] },
+                    label: { type: "string" },
+                    category: { type: "string", enum: ["morning", "other"] },
+                    item_id: { type: "string" },
+                    item_type: { type: "string", enum: ["event", "task", "habit"] },
+                    item_title: { type: "string" },
+                  },
+                  required: ["action_type"],
+                  additionalProperties: false,
+                },
+              },
+              spokenResponse: { type: "string", description: "Natural spoken confirmation" },
+            },
+            required: ["actions", "spokenResponse"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ];
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -345,102 +519,7 @@ VOICE RESPONSE:
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "create_event",
-              description: "Create a single calendar event. Use ask_clarification when required details are missing.",
-              parameters: {
-                type: "object",
-                properties: {
-                  title: { type: "string", description: "Event title" },
-                  date: { type: "string", description: "Date in YYYY-MM-DD format" },
-                  time: { type: "string", description: "Time like '2:00 PM'. Include if user provided any time." },
-                  description: { type: "string", description: "Brief description" },
-                  assignee: { type: "string", enum: ["me", "partner", "both"] },
-                  tag: { type: "string", enum: ["Work", "Personal", "Household"] },
-                  spokenResponse: { type: "string", description: "Natural spoken confirmation" },
-                },
-                required: ["title", "date", "spokenResponse"],
-                additionalProperties: false,
-              },
-            },
-          },
-          {
-            type: "function",
-            function: {
-              name: "add_habit",
-              description: "Add a new daily habit to the user's habit list",
-              parameters: {
-                type: "object",
-                properties: {
-                  label: { type: "string" },
-                  category: { type: "string", enum: ["morning", "other"] },
-                  spokenResponse: { type: "string", description: "Natural spoken confirmation" },
-                },
-                required: ["label", "category", "spokenResponse"],
-                additionalProperties: false,
-              },
-            },
-          },
-          {
-            type: "function",
-            function: {
-              name: "ask_clarification",
-              description: "Ask the user follow-up questions when critical information is missing.",
-              parameters: {
-                type: "object",
-                properties: {
-                  question: { type: "string", description: "The follow-up question" },
-                  suggestions: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "2-4 quick-reply suggestions",
-                  },
-                  spokenResponse: { type: "string", description: "Natural spoken version of the question" },
-                  context: { type: "string", description: "What the AI understood so far" },
-                },
-                required: ["question", "suggestions", "spokenResponse", "context"],
-                additionalProperties: false,
-              },
-            },
-          },
-          {
-            type: "function",
-            function: {
-              name: "perform_actions",
-              description: "Perform multiple distinct actions at once",
-              parameters: {
-                type: "object",
-                properties: {
-                  actions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        action_type: { type: "string", enum: ["create_event", "add_habit"] },
-                        title: { type: "string" },
-                        date: { type: "string" },
-                        time: { type: "string" },
-                        description: { type: "string" },
-                        assignee: { type: "string", enum: ["me", "partner", "both"] },
-                        tag: { type: "string", enum: ["Work", "Personal", "Household"] },
-                        label: { type: "string" },
-                        category: { type: "string", enum: ["morning", "other"] },
-                      },
-                      required: ["action_type"],
-                      additionalProperties: false,
-                    },
-                  },
-                  spokenResponse: { type: "string", description: "Natural spoken confirmation" },
-                },
-                required: ["actions", "spokenResponse"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
+        tools,
       }),
     });
 
@@ -467,6 +546,28 @@ VOICE RESPONSE:
         suggestions: parsed.suggestions || [],
         spokenResponse: parsed.spokenResponse || parsed.question,
         context: parsed.context || "",
+      });
+    }
+
+    if (fname === "query_schedule") {
+      return new Response(JSON.stringify({
+        type: "query_response",
+        answer: parsed.answer,
+        spokenResponse: parsed.spokenResponse || parsed.answer,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (fname === "delete_item") {
+      return new Response(JSON.stringify({
+        type: "delete_item",
+        item_id: parsed.item_id,
+        item_type: parsed.item_type,
+        item_title: parsed.item_title,
+        spokenResponse: parsed.spokenResponse || "",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -510,6 +611,7 @@ VOICE RESPONSE:
       });
     }
 
+    // create_event
     if (forcedDate) parsed.date = forcedDate;
     if (forcedTime) parsed.time = forcedTime;
 

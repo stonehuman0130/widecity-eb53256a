@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Bell, Shield, Palette, HelpCircle, LogOut, ChevronRight, Link2, Copy, Check, Unlink, Loader2 } from "lucide-react";
+import { User, Bell, Shield, Palette, HelpCircle, LogOut, ChevronRight, Link2, Copy, Check, Unlink, Loader2, Calendar } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,6 +14,7 @@ const settingsItems = [
 const SettingsPage = () => {
   const { profile, partner, signOut, connectPartner, disconnectPartner, refreshProfile } = useAuth();
   const [showPartnerDialog, setShowPartnerDialog] = useState(false);
+  const [showCalendarDialog, setShowCalendarDialog] = useState(false);
   const [inviteInput, setInviteInput] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -134,6 +135,39 @@ const SettingsPage = () => {
         )}
       </div>
 
+      {/* Calendar Integrations */}
+      <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Calendar size={16} className="text-primary" />
+            <span className="text-sm font-semibold">Calendar Integrations</span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Connect your calendars to sync scheduled items automatically.
+          </p>
+          <div className="space-y-2">
+            {[
+              { name: "Apple Calendar", emoji: "🍎", desc: "Sync with iCloud Calendar" },
+              { name: "Google Calendar", emoji: "📅", desc: "Sync with Google Calendar" },
+              { name: "Outlook Calendar", emoji: "📧", desc: "Sync with Microsoft Outlook" },
+            ].map((cal) => (
+              <button
+                key={cal.name}
+                onClick={() => setShowCalendarDialog(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-secondary transition-colors"
+              >
+                <span className="text-xl">{cal.emoji}</span>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium">{cal.name}</p>
+                  <p className="text-xs text-muted-foreground">{cal.desc}</p>
+                </div>
+                <ChevronRight size={14} className="text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Settings List */}
       <div className="space-y-1">
         {settingsItems.map((item) => (
@@ -187,6 +221,28 @@ const SettingsPage = () => {
             >
               {connecting ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}
               {connecting ? "Connecting..." : "Connect"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Calendar Integration Dialog */}
+      <Dialog open={showCalendarDialog} onOpenChange={setShowCalendarDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Calendar Integration</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Calendar sync is coming soon! We're working on integrating with Apple Calendar, Google Calendar, and Outlook.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              In the meantime, you can manually add events using the AI assistant on the Home page.
+            </p>
+            <button
+              onClick={() => setShowCalendarDialog(false)}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
+            >
+              Got it
             </button>
           </div>
         </DialogContent>

@@ -54,6 +54,7 @@ interface AppContextType {
   habits: Habit[];
   toggleHabit: (id: string) => void;
   addHabit: (label: string, category: "morning" | "other") => void;
+  removeHabit: (id: string) => void;
   addSharedHabit: (label: string, category: "morning" | "other") => Promise<void>;
   events: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
@@ -407,6 +408,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const removeHabit = async (id: string) => {
+    setHabits((h) => h.filter((item) => item.id !== id));
+    await supabase.from("habit_completions").delete().eq("habit_id", id);
+    await supabase.from("habits").delete().eq("id", id);
+  };
+
   const addSharedHabit = async (label: string, category: "morning" | "other") => {
     if (!user) return;
     const { data, error } = await supabase.rpc("create_shared_habit", {
@@ -702,7 +709,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AppContext.Provider value={{
-      habits, toggleHabit, addHabit, addSharedHabit,
+      habits, toggleHabit, addHabit, removeHabit, addSharedHabit,
       events, addEvent, removeEvent,
       tasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
