@@ -135,6 +135,39 @@ const SettingsPage = () => {
         )}
       </div>
 
+      {/* Calendar Integrations */}
+      <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Calendar size={16} className="text-primary" />
+            <span className="text-sm font-semibold">Calendar Integrations</span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Connect your calendars to sync scheduled items automatically.
+          </p>
+          <div className="space-y-2">
+            {[
+              { name: "Apple Calendar", emoji: "🍎", desc: "Sync with iCloud Calendar" },
+              { name: "Google Calendar", emoji: "📅", desc: "Sync with Google Calendar" },
+              { name: "Outlook Calendar", emoji: "📧", desc: "Sync with Microsoft Outlook" },
+            ].map((cal) => (
+              <button
+                key={cal.name}
+                onClick={() => setShowCalendarDialog(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-secondary transition-colors"
+              >
+                <span className="text-xl">{cal.emoji}</span>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium">{cal.name}</p>
+                  <p className="text-xs text-muted-foreground">{cal.desc}</p>
+                </div>
+                <ChevronRight size={14} className="text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Settings List */}
       <div className="space-y-1">
         {settingsItems.map((item) => (
