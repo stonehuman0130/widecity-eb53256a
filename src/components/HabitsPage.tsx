@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Flame, Check, Droplets, Bell, Users } from "lucide-react";
+import { Plus, Flame, Check, Droplets, Bell, Users, MoreVertical, Trash2 } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
