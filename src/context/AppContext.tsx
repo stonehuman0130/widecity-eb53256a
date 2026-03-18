@@ -408,6 +408,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const removeHabit = async (id: string) => {
+    setHabits((h) => h.filter((item) => item.id !== id));
+    await supabase.from("habit_completions").delete().eq("habit_id", id);
+    await supabase.from("habits").delete().eq("id", id);
+  };
+
   const addSharedHabit = async (label: string, category: "morning" | "other") => {
     if (!user) return;
     const { data, error } = await supabase.rpc("create_shared_habit", {
