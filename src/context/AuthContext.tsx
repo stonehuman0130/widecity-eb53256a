@@ -10,6 +10,7 @@ interface Profile {
   timezone: string;
   partner_id: string | null;
   invite_code: string | null;
+  calendar_token: string | null;
 }
 
 interface PartnerProfile {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Bell, Shield, Palette, HelpCircle, LogOut, ChevronRight, Link2, Copy, Check, Unlink, Loader2, Calendar } from "lucide-react";
+import { User, Bell, Shield, Palette, HelpCircle, LogOut, ChevronRight, Link2, Copy, Check, Unlink, Loader2, Calendar, ExternalLink } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,10 +14,19 @@ const settingsItems = [
 const SettingsPage = () => {
   const { profile, partner, signOut, connectPartner, disconnectPartner, refreshProfile } = useAuth();
   const [showPartnerDialog, setShowPartnerDialog] = useState(false);
-  const [showCalendarDialog, setShowCalendarDialog] = useState(false);
+  const [showAppleCalDialog, setShowAppleCalDialog] = useState(false);
   const [inviteInput, setInviteInput] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [calUrlCopied, setCalUrlCopied] = useState(false);
+
+  const calendarToken = (profile as any)?.calendar_token;
+  const calFeedUrl = calendarToken
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calendar-feed?token=${calendarToken}`
+    : null;
+
+  // webcal:// protocol for Apple Calendar subscription
+  const webcalUrl = calFeedUrl ? calFeedUrl.replace(/^https?:\/\//, "webcal://") : null;
 
   const handleCopyCode = () => {
     if (profile?.invite_code) {
@@ -25,6 +34,15 @@ const SettingsPage = () => {
       setCodeCopied(true);
       toast.success("Invite code copied!");
       setTimeout(() => setCodeCopied(false), 2000);
+    }
+  };
+
+  const handleCopyCalUrl = () => {
+    if (calFeedUrl) {
+      navigator.clipboard.writeText(calFeedUrl);
+      setCalUrlCopied(true);
+      toast.success("Calendar URL copied!");
+      setTimeout(() => setCalUrlCopied(false), 2000);
     }
   };
 
@@ -143,27 +161,63 @@ const SettingsPage = () => {
             <span className="text-sm font-semibold">Calendar Integrations</span>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
-            Connect your calendars to sync scheduled items automatically.
+            Subscribe to your WC Planner schedule in your favorite calendar app.
           </p>
           <div className="space-y-2">
-            {[
-              { name: "Apple Calendar", emoji: "🍎", desc: "Sync with iCloud Calendar" },
-              { name: "Google Calendar", emoji: "📅", desc: "Sync with Google Calendar" },
-              { name: "Outlook Calendar", emoji: "📧", desc: "Sync with Microsoft Outlook" },
-            ].map((cal) => (
-              <button
-                key={cal.name}
-                onClick={() => setShowCalendarDialog(true)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-secondary transition-colors"
-              >
-                <span className="text-xl">{cal.emoji}</span>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">{cal.name}</p>
-                  <p className="text-xs text-muted-foreground">{cal.desc}</p>
-                </div>
-                <ChevronRight size={14} className="text-muted-foreground" />
-              </button>
-            ))}
+            {/* Apple Calendar - real subscription */}
+            <button
+              onClick={() => setShowAppleCalDialog(true)}
+              className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-secondary transition-colors"
+            >
+              <span className="text-xl">🍎</span>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Apple Calendar</p>
+                <p className="text-xs text-muted-foreground">Subscribe via ICS feed</p>
+              </div>
+              <ChevronRight size={14} className="text-muted-foreground" />
+            </button>
+
+            {/* Google Calendar - ICS subscription */}
+            <a
+              href={calFeedUrl ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(calFeedUrl)}` : "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                if (!calFeedUrl) {
+                  e.preventDefault();
+                  toast.error("Calendar token not ready. Please refresh.");
+                }
+              }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-secondary transition-colors"
+            >
+              <span className="text-xl">📅</span>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Google Calendar</p>
+                <p className="text-xs text-muted-foreground">Add to Google Calendar</p>
+              </div>
+              <ExternalLink size={14} className="text-muted-foreground" />
+            </a>
+
+            {/* Outlook Calendar - ICS subscription */}
+            <a
+              href={calFeedUrl ? `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(calFeedUrl)}&name=WC+Planner` : "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                if (!calFeedUrl) {
+                  e.preventDefault();
+                  toast.error("Calendar token not ready. Please refresh.");
+                }
+              }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-secondary transition-colors"
+            >
+              <span className="text-xl">📧</span>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Outlook Calendar</p>
+                <p className="text-xs text-muted-foreground">Add to Outlook</p>
+              </div>
+              <ExternalLink size={14} className="text-muted-foreground" />
+            </a>
           </div>
         </div>
       </div>
@@ -225,25 +279,58 @@ const SettingsPage = () => {
           </div>
         </DialogContent>
       </Dialog>
-      {/* Calendar Integration Dialog */}
-      <Dialog open={showCalendarDialog} onOpenChange={setShowCalendarDialog}>
+
+      {/* Apple Calendar Dialog */}
+      <Dialog open={showAppleCalDialog} onOpenChange={setShowAppleCalDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Calendar Integration</DialogTitle>
+            <DialogTitle>Apple Calendar</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <p className="text-sm text-muted-foreground">
-              Calendar sync is coming soon! We're working on integrating with Apple Calendar, Google Calendar, and Outlook.
+              Subscribe to your WC Planner events in Apple Calendar. Your calendar will auto-refresh to stay in sync.
             </p>
-            <p className="text-sm text-muted-foreground">
-              In the meantime, you can manually add events using the AI assistant on the Home page.
-            </p>
-            <button
-              onClick={() => setShowCalendarDialog(false)}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
-            >
-              Got it
-            </button>
+
+            {webcalUrl ? (
+              <>
+                {/* Direct subscribe button */}
+                <a
+                  href={webcalUrl}
+                  className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2"
+                >
+                  <Calendar size={16} />
+                  Open in Apple Calendar
+                </a>
+
+                <div className="text-center text-xs text-muted-foreground">or copy the URL manually</div>
+
+                {/* Copy URL */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-secondary rounded-lg px-3 py-2.5 overflow-hidden">
+                    <p className="text-[10px] text-muted-foreground truncate">{calFeedUrl}</p>
+                  </div>
+                  <button
+                    onClick={handleCopyCalUrl}
+                    className="p-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
+                  >
+                    {calUrlCopied ? <Check size={16} /> : <Copy size={16} />}
+                  </button>
+                </div>
+
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p className="font-medium">Manual steps:</p>
+                  <ol className="list-decimal list-inside space-y-0.5">
+                    <li>Copy the URL above</li>
+                    <li>Open Apple Calendar → File → New Calendar Subscription</li>
+                    <li>Paste the URL and click Subscribe</li>
+                  </ol>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Loading your calendar feed URL...
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
