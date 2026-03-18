@@ -316,32 +316,55 @@ interface MorningHabitRowProps {
   onNudge: () => void;
 }
 
-const MorningHabitRow = ({ habit, onToggle, streak, partner, isViewingPartner, onNudge }: MorningHabitRowProps) => {
+const MorningHabitRow = ({ habit, onToggle, onDelete, streak, partner, isViewingPartner, onNudge }: MorningHabitRowProps) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div className="w-full">
-      <button
-        onClick={() => onToggle(habit.id)}
-        disabled={isViewingPartner}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all active:scale-[0.98] ${
-          habit.done
-            ? "border-habit-green bg-habit-green/5"
-            : "border-border bg-card"
-        } ${isViewingPartner ? "opacity-80" : ""}`}
-      >
-        {habit.done ? (
-          <span className="w-6 h-6 rounded-full bg-habit-green flex items-center justify-center flex-shrink-0">
-            <Check size={14} className="text-primary-foreground" />
-          </span>
-        ) : (
-          <span className="w-6 h-6 rounded-full border-2 border-muted flex-shrink-0" />
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onToggle(habit.id)}
+          disabled={isViewingPartner}
+          className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border transition-all active:scale-[0.98] ${
+            habit.done
+              ? "border-habit-green bg-habit-green/5"
+              : "border-border bg-card"
+          } ${isViewingPartner ? "opacity-80" : ""}`}
+        >
+          {habit.done ? (
+            <span className="w-6 h-6 rounded-full bg-habit-green flex items-center justify-center flex-shrink-0">
+              <Check size={14} className="text-primary-foreground" />
+            </span>
+          ) : (
+            <span className="w-6 h-6 rounded-full border-2 border-muted flex-shrink-0" />
+          )}
+          <span className={`flex-1 text-left text-sm font-medium ${habit.done ? "line-through opacity-50" : ""}`}>{habit.label}</span>
+          <div className="flex items-center gap-1 text-accent">
+            <Flame size={12} />
+            <span className="text-xs font-bold">{streak}d</span>
+          </div>
+        </button>
+        {onDelete && (
+          <div className="relative">
+            <button onClick={() => setMenuOpen((v) => !v)} className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+              <MoreVertical size={16} />
+            </button>
+            {menuOpen && (
+              <>
+                <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+                <div className="absolute right-0 top-8 z-50 min-w-[120px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
+                  <button
+                    onClick={() => { onDelete(habit.id); setMenuOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
-        <span className={`flex-1 text-left text-sm font-medium ${habit.done ? "line-through opacity-50" : ""}`}>{habit.label}</span>
-        <div className="flex items-center gap-1 text-accent">
-          <Flame size={12} />
-          <span className="text-xs font-bold">{streak}d</span>
-        </div>
-      </button>
-      {/* When viewing own habits and partner exists, show nudge for incomplete habits */}
+      </div>
       {partner && !isViewingPartner && !habit.done && (
         <div className="flex items-center justify-end ml-10 mt-1 mb-1">
           <button
@@ -351,6 +374,63 @@ const MorningHabitRow = ({ habit, onToggle, streak, partner, isViewingPartner, o
             <Bell size={10} />
             Nudge {partner.display_name}
           </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface OtherHabitCardProps {
+  habit: { id: string; label: string; done: boolean };
+  onToggle: (id: string) => void;
+  onDelete?: (id: string) => void;
+  streak: number;
+  isViewingPartner: boolean;
+}
+
+const OtherHabitCard = ({ habit, onToggle, onDelete, streak, isViewingPartner }: OtherHabitCardProps) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => onToggle(habit.id)}
+        disabled={isViewingPartner}
+        className={`w-full bg-card rounded-xl p-5 border shadow-card flex flex-col items-center gap-2 transition-all active:scale-[0.97] ${
+          habit.done ? "border-habit-green" : "border-border"
+        } ${isViewingPartner ? "opacity-80" : ""}`}
+      >
+        {habit.done ? (
+          <span className="w-8 h-8 rounded-full bg-habit-green flex items-center justify-center">
+            <Check size={16} className="text-primary-foreground" />
+          </span>
+        ) : (
+          <span className="w-8 h-8 rounded-full border-2 border-muted" />
+        )}
+        <p className="text-sm font-semibold text-center">{habit.label}</p>
+        <div className="flex items-center gap-1 text-accent">
+          <Flame size={14} />
+          <span className="text-xs font-bold">{streak} days</span>
+        </div>
+      </button>
+      {onDelete && (
+        <div className="absolute top-2 right-2">
+          <button onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }} className="p-1 text-muted-foreground hover:text-foreground transition-colors">
+            <MoreVertical size={14} />
+          </button>
+          {menuOpen && (
+            <>
+              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+              <div className="absolute right-0 top-6 z-50 min-w-[120px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(habit.id); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
