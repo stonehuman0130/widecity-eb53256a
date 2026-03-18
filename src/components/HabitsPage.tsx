@@ -216,6 +216,7 @@ const HabitsPage = () => {
               key={habit.id}
               habit={habit}
               onToggle={handleToggle}
+              onDelete={isViewingPartner ? undefined : (id) => { removeHabit(id); toast.success("Habit deleted"); }}
               streak={streakFn(habit.id)}
               partner={partner}
               isViewingPartner={isViewingPartner}
