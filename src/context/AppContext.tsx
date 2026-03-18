@@ -703,7 +703,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AppContext.Provider value={{
-      habits, toggleHabit, addHabit, addSharedHabit,
+      habits, toggleHabit, addHabit, removeHabit, addSharedHabit,
       events, addEvent, removeEvent,
       tasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
