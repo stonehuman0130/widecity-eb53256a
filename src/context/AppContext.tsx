@@ -130,6 +130,15 @@ const fmtDateCtx = (d: Date) =>
 
 const todayStr = () => fmtDateCtx(new Date());
 
+type Assignee = "me" | "partner" | "both";
+
+const toViewerPerspective = (assignee: Assignee, isOwnerView: boolean): Assignee => {
+  if (isOwnerView) return assignee;
+  if (assignee === "me") return "partner";
+  if (assignee === "partner") return "me";
+  return "both";
+};
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { user, partner, activeGroup } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -144,6 +153,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [partnerWorkouts, setPartnerWorkouts] = useState<Workout[]>([]);
   const [googleCalendarEvents, setGoogleCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const contextOtherUserId = useMemo(() => {
+    if (!user) return null;
+
+    if (activeGroup) {
+      const otherMembers = activeGroup.members.filter((m) => m.user_id !== user.id);
+      if (otherMembers.length === 1) return otherMembers[0].user_id;
+      return null;
+    }
+
+    return partner?.id ?? null;
+  }, [activeGroup, partner?.id, user]);
 
   // Load all data from database on mount
   useEffect(() => {
@@ -329,20 +350,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const data = await res.json();
         const rawEvents: GoogleCalendarEvent[] = data.events || [];
 
-        // Load designations to apply assignee overrides
-        const { data: designations } = await supabase
-          .from("gcal_event_designations")
-          .select("gcal_event_id, assignee")
-          .eq("user_id", user.id);
-
-        const designationMap = new Map<string, string>();
-        (designations || []).forEach((d: any) => designationMap.set(d.gcal_event_id, d.assignee));
-
         const enriched = rawEvents.map((ge) => {
-          const override = designationMap.get(ge.id);
-          // Default: if ownerUserId matches current user -> "me", else -> "partner"
-          let assignee: "me" | "partner" | "both" = ge.ownerUserId === user.id ? "me" : "partner";
-          if (override) assignee = override as "me" | "partner" | "both";
+          const fallbackAssignee: Assignee = ge.ownerUserId === user.id ? "me" : "partner";
+          const assignee = (ge.assignee as Assignee | undefined) ?? fallbackAssignee;
           return { ...ge, assignee };
         });
 
@@ -355,9 +365,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadGcalEvents();
   }, [user, activeGroup]);
 
-  // Load partner data separately
+  // Load "other member" data for the active context (group member if selected, otherwise linked partner)
   useEffect(() => {
-    if (!user || !partner) {
+    if (!user || !contextOtherUserId) {
       setPartnerHabits([]);
       setPartnerEvents([]);
       setPartnerTasks([]);
@@ -367,16 +377,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const loadPartnerData = async () => {
       try {
-        // Partner habits
+        // Other user's habits
         const { data: pHabits } = await supabase
           .from("habits")
           .select("*")
-          .eq("user_id", partner.id);
+          .eq("user_id", contextOtherUserId);
 
         const { data: pCompletions } = await supabase
           .from("habit_completions")
           .select("*")
-          .eq("user_id", partner.id);
+          .eq("user_id", contextOtherUserId);
 
         if (pHabits) {
           const completionMap = new Map<string, string[]>();
@@ -401,11 +411,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           }));
         }
 
-        // Partner tasks
+        // Other user's tasks (assignee is stored in owner's perspective, so swap for viewer)
         const { data: pTasks } = await supabase
           .from("tasks")
           .select("*")
-          .eq("user_id", partner.id);
+          .eq("user_id", contextOtherUserId);
 
         if (pTasks) {
           setPartnerTasks(pTasks.map((t: any) => ({
@@ -413,7 +423,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             title: t.title,
             time: t.time || "",
             tag: t.tag as "Work" | "Personal" | "Household",
-            assignee: t.assignee as "me" | "partner" | "both",
+            assignee: toViewerPerspective(t.assignee as Assignee, false),
             done: t.done,
             scheduledDay: t.scheduled_day,
             scheduledMonth: t.scheduled_month,
@@ -423,11 +433,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           })));
         }
 
-        // Partner events
+        // Other user's events (assignee is stored in owner's perspective, so swap for viewer)
         const { data: pEvents } = await supabase
           .from("events")
           .select("*")
-          .eq("user_id", partner.id);
+          .eq("user_id", contextOtherUserId);
 
         if (pEvents) {
           setPartnerEvents(pEvents.map((e: any) => ({
@@ -438,17 +448,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             day: e.day,
             month: e.month,
             year: e.year,
-            user: e.assignee as "me" | "partner" | "both",
+            user: toViewerPerspective(e.assignee as Assignee, false),
             hiddenFromPartner: e.hidden_from_partner || false,
             groupId: e.group_id || null,
           })));
         }
 
-        // Partner workouts
+        // Other user's workouts
         const { data: pWorkouts } = await supabase
           .from("workouts")
           .select("*")
-          .eq("user_id", partner.id);
+          .eq("user_id", contextOtherUserId);
 
         if (pWorkouts) {
           setPartnerWorkouts(pWorkouts.map((w: any) => ({
@@ -472,7 +482,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadPartnerData();
-  }, [user, partner]);
+  }, [contextOtherUserId, user]);
 
   const toggleHabit = async (id: string) => {
     const dateKey = todayStr();
@@ -930,19 +940,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [habits]);
 
   const getPartnerHabitsForDate = useCallback((date: string) => {
-    return partnerHabits.map((h) => ({
+    const scoped = activeGroup
+      ? partnerHabits.filter((h) => h.groupId === activeGroup.id)
+      : partnerHabits;
+
+    return scoped.map((h) => ({
       ...h,
       done: h.completionDates.includes(date),
     }));
-  }, [partnerHabits]);
+  }, [activeGroup, partnerHabits]);
 
   const getWorkoutsForDate = useCallback((date: string) => {
     return workouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
   }, [workouts]);
 
   const getPartnerWorkoutsForDate = useCallback((date: string) => {
-    return partnerWorkouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
-  }, [partnerWorkouts]);
+    const scoped = activeGroup
+      ? partnerWorkouts.filter((w) => w.groupId === activeGroup.id || w.groupId == null)
+      : partnerWorkouts;
+
+    return scoped.filter((w) => w.scheduledDate === date || w.completedDate === date);
+  }, [activeGroup, partnerWorkouts]);
 
   // Group-filtered data
   const filterByGroup = useCallback(<T extends { groupId?: string | null }>(items: T[]): T[] => {

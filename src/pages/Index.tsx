@@ -45,6 +45,10 @@ const Index = () => {
     setActiveTab("launcher");
   };
 
+  const handleOpenSettingsFromLauncher = () => {
+    setActiveTab("settings");
+  };
+
   const handleTabChange = (tab: "home" | "workout" | "habits" | "calendar" | "chat" | "settings") => {
     setActiveTab(tab);
   };
@@ -57,7 +61,7 @@ const Index = () => {
   };
 
   const pages: Record<string, React.ReactNode> = {
-    launcher: <LauncherPage onEnterGroup={handleEnterGroup} />,
+    launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettingsFromLauncher} />,
     home: <HomePage onBackToLauncher={handleBackToLauncher} />,
     workout: <WorkoutsPage />,
     habits: <HabitsPage />,

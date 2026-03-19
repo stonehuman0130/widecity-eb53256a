@@ -72,7 +72,7 @@ function detectManagementIntent(prompt: string): { type: "delete"; filter: "all"
 type ViewFilter = "mine" | "partner";
 
 const WorkoutsPage = () => {
-  const { workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
+  const { workouts, filteredWorkouts, filteredPartnerWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, getPartnerWorkoutsForDate } = useAppContext();
   const { partner } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -116,7 +116,7 @@ const WorkoutsPage = () => {
     return filteredWorkouts.filter((w) => w.scheduledDate === selectedDate || w.completedDate === selectedDate);
   }, [selectedDate, filteredWorkouts, getPartnerWorkoutsForDate, isViewingPartner]);
 
-  const activeWorkouts = isViewingPartner ? partnerWorkouts : filteredWorkouts;
+  const activeWorkouts = isViewingPartner ? filteredPartnerWorkouts : filteredWorkouts;
 
   const missedWorkouts = useMemo(() => {
     if (isViewingPartner) return [];

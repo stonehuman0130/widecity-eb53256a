@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Loader2, Mic, ChevronRight, Plus } from "lucide-react";
+import { Sparkles, Mic, ChevronRight, Plus, Settings } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 interface LauncherPageProps {
   onEnterGroup: (groupId: string | null) => void;
   onCreateGroup?: () => void;
+  onOpenSettings?: () => void;
 }
 
-const LauncherPage = ({ onEnterGroup, onCreateGroup }: LauncherPageProps) => {
+const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherPageProps) => {
   const { profile, groups } = useAuth();
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
@@ -30,7 +31,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup }: LauncherPageProps) => {
   return (
     <div className="px-5 flex flex-col min-h-[calc(100svh-5rem)]">
       {/* Header */}
-      <header className="pt-14 pb-2">
+      <header className="pt-14 pb-2 flex items-start justify-between gap-3">
         <motion.h1
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -41,6 +42,15 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup }: LauncherPageProps) => {
             {profile?.display_name || "there"}
           </span>
         </motion.h1>
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            aria-label="Open settings"
+            className="w-10 h-10 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/30 flex items-center justify-center transition-all shadow-card"
+          >
+            <Settings size={17} />
+          </button>
+        )}
       </header>
 
       {/* AI Input Section */}

@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type Assignee = "me" | "partner" | "both";
+
 async function refreshAccessToken(refreshToken: string): Promise<{ access_token: string; expires_in: number } | null> {
   const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
   const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
@@ -26,6 +28,13 @@ async function refreshAccessToken(refreshToken: string): Promise<{ access_token:
   }
 
   return await res.json();
+}
+
+function toViewerPerspective(assignee: Assignee, isOwnerView: boolean): Assignee {
+  if (isOwnerView) return assignee;
+  if (assignee === "me") return "partner";
+  if (assignee === "partner") return "me";
+  return "both";
 }
 
 Deno.serve(async (req) => {
@@ -236,7 +245,33 @@ Deno.serve(async (req) => {
     }
   }
 
-  return new Response(JSON.stringify({ events: allEvents }), {
+  const ownerUserIds = [...new Set(allEvents.map((e: any) => e.ownerUserId).filter(Boolean))];
+  const eventIds = [...new Set(allEvents.map((e: any) => e.id).filter(Boolean))];
+
+  const designationMap = new Map<string, Assignee>();
+  if (ownerUserIds.length > 0 && eventIds.length > 0) {
+    const { data: designationRows } = await supabase
+      .from("gcal_event_designations")
+      .select("user_id, gcal_event_id, assignee")
+      .in("user_id", ownerUserIds)
+      .in("gcal_event_id", eventIds);
+
+    (designationRows || []).forEach((row: any) => {
+      designationMap.set(`${row.user_id}:${row.gcal_event_id}`, row.assignee as Assignee);
+    });
+  }
+
+  const events = allEvents.map((event: any) => {
+    const key = `${event.ownerUserId}:${event.id}`;
+    const ownerAssignee = designationMap.get(key);
+    const assignee = ownerAssignee
+      ? toViewerPerspective(ownerAssignee, event.ownerUserId === userId)
+      : (event.ownerUserId === userId ? "me" : "partner");
+
+    return { ...event, assignee };
+  });
+
+  return new Response(JSON.stringify({ events }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

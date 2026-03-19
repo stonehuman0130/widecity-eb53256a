@@ -18,7 +18,7 @@ const todayStr = () => {
 type ViewFilter = "mine" | "partner";
 
 const HabitsPage = () => {
-  const { habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit, getHabitStreak, partnerHabits, getPartnerHabitStreak } = useAppContext();
+  const { habits, filteredHabits, filteredPartnerHabits, toggleHabit, addHabit, removeHabit, addSharedHabit, getHabitStreak, getPartnerHabitStreak } = useAppContext();
   const { user, partner } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
   const [addingTo, setAddingTo] = useState<"morning" | "other" | null>(null);
@@ -27,7 +27,7 @@ const HabitsPage = () => {
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
 
   const isViewingPartner = viewFilter === "partner";
-  const displayHabits = isViewingPartner ? partnerHabits : filteredHabits;
+  const displayHabits = isViewingPartner ? filteredPartnerHabits : filteredHabits;
 
   const morningHabits = displayHabits.filter((h) => h.category === "morning");
   const otherHabits = displayHabits.filter((h) => h.category === "other");
