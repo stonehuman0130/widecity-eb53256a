@@ -319,7 +319,7 @@ const HomePage = () => {
   };
 
   // Morning habits: show own when "mine", partner's when "partner"
-  const myMorningHabits = habits.filter((h) => h.category === "morning");
+  const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
   const partnerMorningHabits = partnerHabits.filter((h) => h.category === "morning");
   const displayMorningHabits = filter === "partner" ? partnerMorningHabits : myMorningHabits;
 
