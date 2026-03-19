@@ -12,7 +12,7 @@ interface ItemActionMenuProps {
   onMoveToTomorrow?: () => void;
   onMoveToDate?: (date: Date) => void;
   /** Delete */
-  onRemove: () => void;
+  onRemove?: () => void;
 }
 
 const ItemActionMenu = ({ hidden, onToggleVisibility, onMoveToTomorrow, onMoveToDate, onRemove }: ItemActionMenuProps) => {
