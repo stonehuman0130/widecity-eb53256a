@@ -35,10 +35,11 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
   // Get user from JWT
   const authHeader = req.headers.get("authorization");
-  if (!authHeader) {
+  if (!authHeader?.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Not authenticated" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -46,18 +47,21 @@ Deno.serve(async (req) => {
   }
 
   const token = authHeader.replace("Bearer ", "");
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-  
-  if (userError || !user) {
-    console.error("Auth error:", userError?.message);
+  const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+
+  if (claimsError || !claimsData?.claims?.sub) {
+    console.error("Auth error:", claimsError?.message);
     return new Response(JSON.stringify({ error: "Invalid token" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const supabase = supabaseAdmin;
+  const userId = claimsData.claims.sub as string;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // Parse request params
   const url = new URL(req.url);
