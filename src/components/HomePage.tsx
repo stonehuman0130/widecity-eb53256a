@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft, EyeOff, Eye } from "lucide-react";
+import GroupBadge from "@/components/GroupBadge";
 import ItemActionMenu from "@/components/ItemActionMenu";
 import GroupSelector from "@/components/GroupSelector";
 import TaskTag from "@/components/TaskTag";
@@ -638,6 +639,7 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
                 <span className="w-5 h-5 rounded-full border-2 border-muted" />
               )}
               {habit.label}
+              <GroupBadge groupId={habit.groupId} />
             </button>
           ))}
           {displayMorningHabits.length === 0 && (
@@ -699,6 +701,7 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
 };
 
 const TaskCard = ({ task, onToggle, onCongrats, readOnly }: { task: Task; onToggle?: (id: string) => void; onCongrats: () => void; readOnly?: boolean }) => {
+  const { activeGroup } = useAuth();
   const handleToggle = () => {
     if (readOnly || !onToggle) return;
     if (!task.done) {
@@ -740,8 +743,9 @@ const TaskCard = ({ task, onToggle, onCongrats, readOnly }: { task: Task; onTogg
         <UserBadge user={task.assignee} />
         {!readOnly && <TaskActionMenu taskId={task.id} />}
       </div>
-      <div className="mt-2 ml-9">
+      <div className="mt-2 ml-9 flex items-center gap-2">
         <TaskTag tag={task.tag} />
+        <GroupBadge groupId={task.groupId} />
       </div>
     </motion.div>
   );
@@ -771,6 +775,7 @@ const EventCard = ({ event, onRemove, onToggleVisibility, onReschedule, onCongra
           <span className="text-xs font-medium text-muted-foreground">{formatTime(event.time)}</span>
           <span className="text-xs text-muted-foreground">· {dateLabel}</span>
           {event.hiddenFromPartner && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
+          <GroupBadge groupId={event.groupId} />
         </div>
       )}
       <div className="flex items-center gap-3">
@@ -805,6 +810,7 @@ const EventCard = ({ event, onRemove, onToggleVisibility, onReschedule, onCongra
         <div className="mt-2 ml-9 flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{dateLabel} · All day</span>
           {event.hiddenFromPartner && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
+          <GroupBadge groupId={event.groupId} />
         </div>
       )}
     </motion.div>

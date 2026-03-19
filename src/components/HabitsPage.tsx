@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import GroupBadge from "@/components/GroupBadge";
 import { Plus, Flame, Check, Droplets, Bell, Users, MoreVertical, Trash2 } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -307,7 +308,7 @@ const HabitsPage = () => {
 };
 
 interface MorningHabitRowProps {
-  habit: { id: string; label: string; done: boolean };
+  habit: { id: string; label: string; done: boolean; groupId?: string | null };
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
   streak: number;
@@ -339,6 +340,7 @@ const MorningHabitRow = ({ habit, onToggle, onDelete, streak, partner, isViewing
             <span className="w-6 h-6 rounded-full border-2 border-muted flex-shrink-0" />
           )}
           <span className={`flex-1 text-left text-sm font-medium ${habit.done ? "line-through opacity-50" : ""}`}>{habit.label}</span>
+          <GroupBadge groupId={habit.groupId} />
           <div className="flex items-center gap-1 text-accent">
             <Flame size={12} />
             <span className="text-xs font-bold">{streak}d</span>
@@ -381,7 +383,7 @@ const MorningHabitRow = ({ habit, onToggle, onDelete, streak, partner, isViewing
 };
 
 interface OtherHabitCardProps {
-  habit: { id: string; label: string; done: boolean };
+  habit: { id: string; label: string; done: boolean; groupId?: string | null };
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
   streak: number;
@@ -408,6 +410,7 @@ const OtherHabitCard = ({ habit, onToggle, onDelete, streak, isViewingPartner }:
           <span className="w-8 h-8 rounded-full border-2 border-muted" />
         )}
         <p className="text-sm font-semibold text-center">{habit.label}</p>
+        <GroupBadge groupId={habit.groupId} />
         <div className="flex items-center gap-1 text-accent">
           <Flame size={14} />
           <span className="text-xs font-bold">{streak} days</span>

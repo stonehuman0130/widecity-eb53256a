@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Check, MoreVertical, Trash2, Clock, EyeOff, Eye } from "lucide-react";
+import GroupBadge from "@/components/GroupBadge";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import UserBadge from "@/components/UserBadge";
@@ -254,6 +255,7 @@ const CalendarPage = () => {
                       time={event.time}
                       user={event.user}
                       hidden={event.hiddenFromPartner}
+                      groupId={event.groupId}
                       onRemove={() => { removeEvent(event.id); toast.success("Event deleted"); }}
                       onToggleVisibility={() => { toggleEventVisibility(event.id); toast.success(event.hiddenFromPartner ? "Now visible to others" : "Hidden from others"); }}
                       onMoveToTomorrow={() => { rescheduleEvent(event.id, tomorrow.getDate(), tomorrow.getMonth(), tomorrow.getFullYear()); toast.success("Moved to tomorrow"); }}
@@ -275,6 +277,7 @@ const CalendarPage = () => {
                       user={task.assignee}
                       done={task.done}
                       tag={task.tag}
+                      groupId={task.groupId}
                       onToggle={() => {
                         if (!task.done) toast.success("🎉 Task complete!");
                         toggleTask(task.id);
@@ -327,6 +330,7 @@ const CalendarPage = () => {
                       user={task.assignee}
                       done={task.done}
                       tag={task.tag}
+                      groupId={task.groupId}
                       onToggle={() => {
                         if (!task.done) toast.success("🎉 Task complete!");
                         toggleTask(task.id);
@@ -348,7 +352,7 @@ const CalendarPage = () => {
 
 /** Unified card for both events and tasks on the calendar page */
 const CalendarItemCard = ({
-  title, time, user, done, tag, hidden, onToggle, onRemove, onToggleVisibility, onMoveToTomorrow, onMoveToDate,
+  title, time, user, done, tag, hidden, groupId, onToggle, onRemove, onToggleVisibility, onMoveToTomorrow, onMoveToDate,
 }: {
   title: string;
   time?: string;
@@ -356,6 +360,7 @@ const CalendarItemCard = ({
   done?: boolean;
   tag?: string;
   hidden?: boolean;
+  groupId?: string | null;
   onToggle?: () => void;
   onRemove: () => void;
   onToggleVisibility?: () => void;
@@ -393,14 +398,16 @@ const CalendarItemCard = ({
         />
       </div>
       {tag && (
-        <div className="mt-2 ml-9">
+        <div className="mt-2 ml-9 flex items-center gap-2">
           <TaskTag tag={tag as "Work" | "Personal" | "Household"} />
+          <GroupBadge groupId={groupId} />
         </div>
       )}
       {(!time || time === "All day") && (
         <div className="mt-1 ml-9 flex items-center gap-2">
           <span className="text-xs text-muted-foreground">All day</span>
           {hidden && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
+          <GroupBadge groupId={groupId} />
         </div>
       )}
     </div>
