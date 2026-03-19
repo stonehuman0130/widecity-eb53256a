@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
     const { data, error: tokenErr } = await supabase
       .from("google_calendar_tokens")
       .select("*")
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
     if (!tokenErr && data) tokenRows = data;
   } else {
     const { data, error: tokenErr } = await supabase
