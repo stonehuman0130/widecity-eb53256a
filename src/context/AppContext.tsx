@@ -940,19 +940,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [habits]);
 
   const getPartnerHabitsForDate = useCallback((date: string) => {
-    return partnerHabits.map((h) => ({
+    return filteredPartnerHabits.map((h) => ({
       ...h,
       done: h.completionDates.includes(date),
     }));
-  }, [partnerHabits]);
+  }, [filteredPartnerHabits]);
 
   const getWorkoutsForDate = useCallback((date: string) => {
     return workouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
   }, [workouts]);
 
   const getPartnerWorkoutsForDate = useCallback((date: string) => {
-    return partnerWorkouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
-  }, [partnerWorkouts]);
+    return filteredPartnerWorkouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
+  }, [filteredPartnerWorkouts]);
 
   // Group-filtered data
   const filterByGroup = useCallback(<T extends { groupId?: string | null }>(items: T[]): T[] => {
