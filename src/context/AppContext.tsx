@@ -64,6 +64,7 @@ export interface GoogleCalendarEvent {
   location: string | null;
   htmlLink: string;
   ownerUserId?: string;
+  assignee?: "me" | "partner" | "both";
 }
 
 interface AppContextType {
