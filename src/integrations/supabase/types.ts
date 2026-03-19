@@ -67,6 +67,30 @@ export type Database = {
           },
         ]
       }
+      gcal_event_designations: {
+        Row: {
+          assignee: string
+          created_at: string
+          gcal_event_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assignee?: string
+          created_at?: string
+          gcal_event_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assignee?: string
+          created_at?: string
+          gcal_event_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       google_calendar_tokens: {
         Row: {
           access_token: string
