@@ -595,6 +595,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     if (existingRows && existingRows.length > 0) return;
 
+    const groupId = activeGroup?.id ?? null;
     const { data, error } = await supabase
       .from("events")
       .insert({
@@ -606,12 +607,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         month: event.month,
         year: event.year,
         assignee: event.user,
+        group_id: groupId,
       })
       .select()
       .single();
 
     if (data && !error) {
-      setEvents((e) => [...e, { ...event, time: event.time || "All day", id: data.id }]);
+      setEvents((e) => [...e, { ...event, time: event.time || "All day", id: data.id, groupId }]);
     }
   };
 
