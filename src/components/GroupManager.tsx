@@ -128,6 +128,9 @@ const GroupManager = () => {
               <p className="text-xs text-muted-foreground">
                 {group.members.length} member{group.members.length !== 1 ? "s" : ""} · {group.type}
               </p>
+              {activeGroup?.id === group.id && (
+                <p className="text-[11px] font-semibold text-primary mt-1">Selected for Settings</p>
+              )}
             </div>
             <div className="flex -space-x-2">
               {group.members.slice(0, 3).map((m) => (
