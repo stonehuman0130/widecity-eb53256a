@@ -395,8 +395,9 @@ const CalendarItemCard = ({
         />
       </div>
       {tag && (
-        <div className="mt-2 ml-9">
+        <div className="mt-2 ml-9 flex items-center gap-2">
           <TaskTag tag={tag as "Work" | "Personal" | "Household"} />
+          <GroupBadge groupId={groupId} />
         </div>
       )}
       {(!time || time === "All day") && (
