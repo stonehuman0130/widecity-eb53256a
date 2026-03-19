@@ -779,13 +779,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return partnerWorkouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
   }, [partnerWorkouts]);
 
+  // Group-filtered data
+  const filterByGroup = useCallback(<T extends { groupId?: string | null }>(items: T[]): T[] => {
+    if (!activeGroup) return items; // "All" mode
+    return items.filter((item) => item.groupId === activeGroup.id);
+  }, [activeGroup]);
+
+  const filteredHabits = useMemo(() => filterByGroup(habits), [habits, filterByGroup]);
+  const filteredEvents = useMemo(() => filterByGroup(events), [events, filterByGroup]);
+  const filteredTasks = useMemo(() => filterByGroup(tasks), [tasks, filterByGroup]);
+  const filteredWorkouts = useMemo(() => filterByGroup(workouts), [workouts, filterByGroup]);
+
   return (
     <AppContext.Provider value={{
-      habits, toggleHabit, addHabit, removeHabit, addSharedHabit,
-      events, addEvent, removeEvent,
-      tasks, toggleTask, addTask, removeTask, updateTask,
+      habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
+      events, filteredEvents, addEvent, removeEvent,
+      tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
-      workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
+      workouts, filteredWorkouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
       googleCalendarEvents,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
