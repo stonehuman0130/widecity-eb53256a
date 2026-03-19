@@ -583,38 +583,101 @@ const WorkoutsPage = () => {
         </div>
       )}
 
-      {/* Selected Date Workouts */}
-      <section className="mb-6">
-        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-          <CalIcon size={14} className="text-muted-foreground" />
-          {isViewingPartner
-            ? `${partnerName}'s Workouts`
-            : isToday ? "Today's Workouts" : isFuture ? "Upcoming" : "Past Workouts"}
-          <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
-        </h3>
+      {/* Workout Sections */}
+      {isViewingPartner ? (
+        <section className="mb-6">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <CalIcon size={14} className="text-muted-foreground" />
+            {partnerName}'s Workouts
+            <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
+          </h3>
 
-        {dateWorkouts.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">
-            {isViewingPartner
-              ? `${partnerName} has no workouts on this day`
-              : isToday ? "No workouts today. Add one above!" : isFuture ? "Nothing scheduled yet." : "No workouts on this day."}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {dateWorkouts.map((w) => (
-              <WorkoutCard
-                key={w.id}
-                workout={w}
-                onToggle={handleToggleWorkout}
-                onRemove={removeWorkout}
-                onSelectExercise={setSelectedExercise}
-                isToday={isToday}
-                readOnly={isViewingPartner}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+          {dateWorkouts.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              {partnerName} has no workouts on this day
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {dateWorkouts.map((w) => (
+                <WorkoutCard
+                  key={w.id}
+                  workout={w}
+                  onToggle={handleToggleWorkout}
+                  onRemove={removeWorkout}
+                  onSelectExercise={setSelectedExercise}
+                  isToday={isToday}
+                  readOnly={true}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
+          <section className="mb-6">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <CalIcon size={14} className="text-muted-foreground" />
+              Today's Workouts
+              <span className="text-muted-foreground text-xs">({todaysWorkouts.length})</span>
+            </h3>
+
+            {todaysWorkouts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No workouts today. Generate a plan or add one above.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {todaysWorkouts.map((w) => (
+                  <WorkoutCard
+                    key={w.id}
+                    workout={w}
+                    onToggle={handleToggleWorkout}
+                    onRemove={removeWorkout}
+                    onSelectExercise={setSelectedExercise}
+                    isToday={true}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="mb-6">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <CalIcon size={14} className="text-muted-foreground" />
+              Upcoming
+              <span className="text-muted-foreground text-xs">({upcomingWorkoutsByDate.reduce((sum, [, workouts]) => sum + workouts.length, 0)})</span>
+            </h3>
+
+            {upcomingWorkoutsByDate.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                Nothing scheduled in upcoming days yet.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {upcomingWorkoutsByDate.map(([date, workoutsForDay]) => (
+                  <div key={date} className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground px-1">
+                      {new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                    </p>
+                    <div className="space-y-3">
+                      {workoutsForDay.map((workout) => (
+                        <WorkoutCard
+                          key={workout.id}
+                          workout={workout}
+                          onToggle={handleToggleWorkout}
+                          onRemove={removeWorkout}
+                          onSelectExercise={setSelectedExercise}
+                          isToday={false}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
 
       {/* Exercise Detail Dialog */}
       <ExerciseDetailDialog
