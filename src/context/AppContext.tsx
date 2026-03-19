@@ -113,7 +113,7 @@ const todayStr = () => {
 };
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const { user, partner } = useAuth();
+  const { user, partner, activeGroup } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [events, setEvents] = useState<ScheduledEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
