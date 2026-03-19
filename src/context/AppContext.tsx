@@ -519,14 +519,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const addHabit = async (label: string, category: "morning" | "other") => {
     if (!user) return;
+    const groupId = activeGroup?.id ?? null;
     const { data, error } = await supabase
       .from("habits")
-      .insert({ user_id: user.id, label, category })
+      .insert({ user_id: user.id, label, category, group_id: groupId })
       .select()
       .single();
 
     if (data && !error) {
-      setHabits((h) => [...h, { id: data.id, label, done: false, category, completionDates: [] }]);
+      setHabits((h) => [...h, { id: data.id, label, done: false, category, completionDates: [], groupId }]);
     }
   };
 
