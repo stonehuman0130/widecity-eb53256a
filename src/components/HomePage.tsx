@@ -374,9 +374,6 @@ const HomePage = () => {
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
 
-  // Google Calendar events for the selected date
-  const gcalEventsForDay = googleCalendarEvents.filter((ge) => {
-    const startDate = ge.start?.split("T")[0] || ge.start;
   // Google Calendar events for the selected date (only in "All" mode, not group-specific)
   const gcalEventsForDay = showGoogleCalendar ? googleCalendarEvents.filter((ge) => {
     const startDate = ge.start?.split("T")[0] || ge.start;
