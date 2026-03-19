@@ -107,11 +107,16 @@ interface AppContextType {
   hideGcalEvent: (eventId: string) => Promise<void>;
   toggleEventVisibility: (eventId: string) => Promise<void>;
   designateGcalEvent: (eventId: string, assignee: "me" | "partner" | "both") => Promise<void>;
-  // Partner data
+  // Partner data (raw)
   partnerHabits: Habit[];
   partnerEvents: ScheduledEvent[];
   partnerTasks: Task[];
   partnerWorkouts: Workout[];
+  // Partner data (group-filtered, matching own data filtering)
+  filteredPartnerHabits: Habit[];
+  filteredPartnerEvents: ScheduledEvent[];
+  filteredPartnerTasks: Task[];
+  filteredPartnerWorkouts: Workout[];
   getPartnerWorkoutsForDate: (date: string) => Workout[];
   getPartnerHabitsForDate: (date: string) => Habit[];
   getPartnerHabitStreak: (id: string) => number;
