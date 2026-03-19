@@ -947,9 +947,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const filteredTasks = useMemo(() => filterByGroup(tasks), [tasks, filterByGroup]);
   const filteredWorkouts = useMemo(() => {
     if (!activeGroup) return workouts;
-    // Keep legacy ungrouped workouts visible while new inserts are correctly group-scoped
     return workouts.filter((workout) => workout.groupId === activeGroup.id || workout.groupId == null);
   }, [workouts, activeGroup]);
+
+  // Group-filtered partner data — applies the same activeGroup filter so cross-user views are consistent
+  const filteredPartnerHabits = useMemo(() => filterByGroup(partnerHabits), [partnerHabits, filterByGroup]);
+  const filteredPartnerEvents = useMemo(() => filterByGroup(partnerEvents), [partnerEvents, filterByGroup]);
+  const filteredPartnerTasks = useMemo(() => filterByGroup(partnerTasks), [partnerTasks, filterByGroup]);
+  const filteredPartnerWorkouts = useMemo(() => {
+    if (!activeGroup) return partnerWorkouts;
+    return partnerWorkouts.filter((w) => w.groupId === activeGroup.id || w.groupId == null);
+  }, [partnerWorkouts, activeGroup]);
 
   const hideGcalEvent = async (eventId: string) => {
     if (!user) return;
