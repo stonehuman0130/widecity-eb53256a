@@ -377,6 +377,15 @@ const HomePage = () => {
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
 
+  // Google Calendar events for the selected date
+  const gcalEventsForDay = googleCalendarEvents.filter((ge) => {
+    const startDate = ge.start?.split("T")[0] || ge.start;
+    const selDateStr = `${selYear}-${String(selMonth + 1).padStart(2, "0")}-${String(selDay).padStart(2, "0")}`;
+    return startDate === selDateStr;
+  });
+  const gcalTimed = gcalEventsForDay.filter((ge) => !ge.allDay);
+  const gcalAllDay = gcalEventsForDay.filter((ge) => ge.allDay);
+
   const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: userTimezone });
   const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
 
