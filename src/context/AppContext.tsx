@@ -113,10 +113,10 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const todayStr = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+const fmtDateCtx = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const todayStr = () => fmtDateCtx(new Date());
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { user, partner, activeGroup } = useAuth();
