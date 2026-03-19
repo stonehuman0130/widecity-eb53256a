@@ -437,6 +437,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             month: e.month,
             year: e.year,
             user: e.assignee as "me" | "partner" | "both",
+            hiddenFromPartner: e.hidden_from_partner || false,
+            groupId: e.group_id || null,
           })));
         }
 
@@ -458,6 +460,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             scheduledDate: w.scheduled_date,
             completedDate: w.completed_date,
             exercises: w.exercises || [],
+            hiddenFromPartner: w.hidden_from_partner || false,
+            groupId: w.group_id || null,
           })));
         }
       } catch (err) {
