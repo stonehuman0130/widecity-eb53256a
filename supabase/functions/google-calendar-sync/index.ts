@@ -45,8 +45,11 @@ Deno.serve(async (req) => {
     });
   }
 
-  const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!);
-  const { data: { user }, error: userError } = await supabaseUser.auth.getUser(authHeader.replace("Bearer ", ""));
+  const token = authHeader.replace("Bearer ", "");
+  const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token);
   
   if (userError || !user) {
     return new Response(JSON.stringify({ error: "Invalid token" }), {
