@@ -22,6 +22,13 @@ const SettingsPage = () => {
   const [gcalConnected, setGcalConnected] = useState<boolean | null>(null);
   const [gcalLoading, setGcalLoading] = useState(false);
 
+  // Settings should always be scoped to a specific group
+  useEffect(() => {
+    if (!activeGroup && groups.length > 0) {
+      setActiveGroup(groups[0]);
+    }
+  }, [activeGroup, groups, setActiveGroup]);
+
   // Check if Google Calendar is connected
   useEffect(() => {
     if (!user) return;
