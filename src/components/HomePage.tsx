@@ -676,7 +676,7 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {allDayEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {gcalAllDay.map((ge) => (
               <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} />
