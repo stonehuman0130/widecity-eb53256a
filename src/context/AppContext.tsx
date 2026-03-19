@@ -264,6 +264,53 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadData();
   }, [user]);
 
+  // Load Google Calendar events
+  useEffect(() => {
+    if (!user) {
+      setGoogleCalendarEvents([]);
+      return;
+    }
+    const loadGcalEvents = async () => {
+      try {
+        // Check if user has Google Calendar connected
+        const { data: tokenRow } = await supabase
+          .from("google_calendar_tokens")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!tokenRow) return;
+
+        const now = new Date();
+        const timeMin = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const timeMax = new Date(now.getFullYear(), now.getMonth() + 3, 0).toISOString();
+
+        const { data: session } = await supabase.auth.getSession();
+        if (!session?.session?.access_token) return;
+
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.session.access_token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          setGoogleCalendarEvents(data.events || []);
+        } else {
+          console.error("Failed to fetch Google Calendar events:", res.status);
+        }
+      } catch (err) {
+        console.error("Error loading Google Calendar events:", err);
+      }
+    };
+    loadGcalEvents();
+  }, [user]);
+
   // Load partner data separately
   useEffect(() => {
     if (!user || !partner) {
