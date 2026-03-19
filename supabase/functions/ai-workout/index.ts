@@ -46,18 +46,30 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, planType, startDate } = await req.json();
+    const { prompt, planType: explicitPlanType, startDate } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    // Auto-detect plan type from natural language if not explicitly provided
+    const lowerPrompt = prompt.toLowerCase();
+    let planType = explicitPlanType || "today";
+    if (!explicitPlanType) {
+      if (/\b(month|monthly|4[\s-]?week|30[\s-]?day)\b/.test(lowerPrompt)) {
+        planType = "month";
+      } else if (/\b(week|weekly|7[\s-]?day|5[\s-]?day|6[\s-]?day)\b/.test(lowerPrompt)) {
+        planType = "week";
+      }
+    }
+
     const isMultiDay = planType === "week" || planType === "month";
     const daysCount = planType === "month" ? 30 : planType === "week" ? 7 : 1;
+    const effectiveStartDate = startDate || new Date().toISOString().slice(0, 10);
 
-    // For monthly plans, compute all dates explicitly so the model doesn't guess
+    // For multi-day plans, compute all dates explicitly so the model doesn't guess
     let dateList = "";
-    if (isMultiDay && startDate) {
+    if (isMultiDay) {
       const dates: string[] = [];
-      const start = new Date(startDate + "T00:00:00");
+      const start = new Date(effectiveStartDate + "T00:00:00");
       for (let i = 0; i < daysCount; i++) {
         const d = new Date(start);
         d.setDate(d.getDate() + i);
@@ -67,7 +79,7 @@ serve(async (req) => {
     }
 
     const systemPrompt = isMultiDay
-      ? `You are a fitness coach. Generate a ${planType}ly workout plan starting from ${startDate || "today"}. The plan MUST cover exactly ${daysCount} days (one entry per day). ${dateList ? `The exact dates are: ${dateList}.` : ""} Include rest days where appropriate (typically 1-2 per week). For each day, provide: the date (YYYY-MM-DD format), dayLabel, isRest flag, and if not rest, a workout with title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. For a monthly plan, vary the focus across the weeks with progressive overload. Return using the provided tool.`
+      ? `You are a fitness coach. Generate a ${planType}ly workout plan starting from ${effectiveStartDate}. The plan MUST cover exactly ${daysCount} days (one entry per day). ${dateList ? `The exact dates are: ${dateList}.` : ""} Include rest days where appropriate (typically 1-2 per week). For each day, provide: the date (YYYY-MM-DD format), dayLabel, isRest flag, and if not rest, a workout with title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. For a monthly plan, vary the focus across the weeks with progressive overload. Return using the provided tool.`
       : "You are a fitness coach. Generate 2-3 workout plan options based on the user's request. Each plan should have a title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. Return using the provided tool.";
 
     const tools = isMultiDay

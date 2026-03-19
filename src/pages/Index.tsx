@@ -76,7 +76,7 @@ const Index = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: activeTab === "launcher" ? 20 : -20 }}
             transition={{ duration: 0.15 }}
-            className="flex-1 pb-24 overflow-y-auto"
+            className={`flex-1 overflow-y-auto ${isInnerPage ? "pb-24" : ""}`}
             drag={isInnerPage ? "x" : false}
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.2}
@@ -86,7 +86,9 @@ const Index = () => {
             {pages[activeTab]}
           </motion.div>
         </AnimatePresence>
-        <BottomNav activeTab={activeTab === "launcher" ? "home" : activeTab} onTabChange={handleTabChange} />
+        {isInnerPage && (
+          <BottomNav activeTab={activeTab as "home" | "workout" | "habits" | "calendar" | "settings"} onTabChange={handleTabChange} />
+        )}
       </div>
     </AppProvider>
   );

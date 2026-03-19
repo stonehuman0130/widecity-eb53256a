@@ -67,7 +67,7 @@ const WorkoutsPage = () => {
   });
   const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
   const [aiWeeklyPlan, setAiWeeklyPlan] = useState<AIDayPlan[] | null>(null);
-  const [planType, setPlanType] = useState<"today" | "week" | "month">("today");
+  // planType is now inferred by AI, not user-selected
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [showManualAdd, setShowManualAdd] = useState(false);
@@ -109,16 +109,12 @@ const WorkoutsPage = () => {
     if (!aiPrompt.trim()) return;
     setAiLoading(true);
     try {
-      const body: any = { prompt: aiPrompt };
-      if (planType !== "today") {
-        body.planType = planType;
-        body.startDate = today;
-      }
+      const body: any = { prompt: aiPrompt, startDate: today };
       const { data, error } = await supabase.functions.invoke("ai-workout", { body });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      if (planType !== "today" && data.days) {
+      if (data.days) {
         setAiWeeklyPlan(data.days);
         setAiPlans(null);
       } else {
@@ -274,34 +270,12 @@ const WorkoutsPage = () => {
             <span className="text-sm font-semibold">AI Workout Planner</span>
           </div>
 
-          <div className="flex gap-1.5 mb-3">
-            {(["today", "week", "month"] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setPlanType(type)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  planType === type
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {type === "today" ? "Today" : type === "week" ? "This Week" : "This Month"}
-              </button>
-            ))}
-          </div>
-
           <div className="flex gap-2">
             <input
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAiPlan()}
-              placeholder={
-                planType === "today"
-                  ? "e.g. Plan me a chest workout..."
-                  : planType === "week"
-                  ? "e.g. Build me a push/pull/legs week..."
-                  : "e.g. Give me a 4-week strength program..."
-              }
+              placeholder="e.g. Give me a chest workout, Build a weekly plan, Monthly strength program..."
               className="flex-1 bg-card rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground border border-border min-w-0"
             />
             {wSpeech && (
@@ -374,7 +348,7 @@ const WorkoutsPage = () => {
         {aiWeeklyPlan && !isViewingPartner && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">📅 {planType === "month" ? "Monthly" : "Weekly"} Plan</h3>
+              <h3 className="text-sm font-semibold">📅 {aiWeeklyPlan.length > 14 ? "Monthly" : "Weekly"} Plan</h3>
               <button onClick={() => setAiWeeklyPlan(null)} className="text-muted-foreground"><X size={16} /></button>
             </div>
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
