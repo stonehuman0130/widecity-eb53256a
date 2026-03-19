@@ -286,7 +286,7 @@ const CalendarPage = () => {
                   );
                 })}
                 {gcalDayEvents.filter(g => !g.allDay).map((ge) => (
-                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} />
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} onDesignate={(assignee) => { designateGcalEvent(ge.id, assignee); toast.success(`Assigned as ${assignee === "me" ? "Mine" : assignee === "partner" ? "Partner's" : "Together"}`); }} />
                 ))}
               </div>
             </div>
