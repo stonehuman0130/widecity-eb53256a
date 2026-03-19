@@ -8,6 +8,7 @@ import WaterSlider from "@/components/WaterSlider";
 import HabitDateViewer from "@/components/HabitDateViewer";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
+import { useGroupContext } from "@/hooks/useGroupContext";
 
 const todayStr = () => {
   const d = new Date();
