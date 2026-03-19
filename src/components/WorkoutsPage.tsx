@@ -734,6 +734,9 @@ const WorkoutCard = ({
   workout,
   onToggle,
   onRemove,
+  onReschedule,
+  onRescheduleCascade,
+  allWorkouts,
   onSelectExercise,
   onEditExercise,
   onDeleteExercise,
@@ -742,66 +745,127 @@ const WorkoutCard = ({
   workout: Workout;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
+  onReschedule: (id: string, toDate: string) => void;
+  onRescheduleCascade: (id: string, newDate: string, shiftFollowing: boolean) => Promise<void>;
+  allWorkouts: Workout[];
   onSelectExercise: (name: string) => void;
   onEditExercise: (workoutId: string, index: number, ex: { name: string; sets: number; reps: string }) => void;
   onDeleteExercise: (workoutId: string, index: number) => void;
   readOnly?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [cascadeConfirm, setCascadeConfirm] = useState<{ newDate: string; diffDays: number; followingCount: number } | null>(null);
+
+  const fmtD = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const handleMoveToDate = (date: Date) => {
+    const newDate = fmtD(date);
+    if (!workout.scheduledDate) {
+      onReschedule(workout.id, newDate);
+      return;
+    }
+    const oldMs = new Date(workout.scheduledDate + "T00:00:00").getTime();
+    const newMs = new Date(newDate + "T00:00:00").getTime();
+    const diffDays = Math.round((newMs - oldMs) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return;
+
+    // Check if there are following workouts that could be shifted
+    const following = allWorkouts.filter(
+      (w) => w.scheduledDate && w.scheduledDate > workout.scheduledDate! && !w.done && w.id !== workout.id
+    );
+
+    if (following.length > 0) {
+      setCascadeConfirm({ newDate, diffDays, followingCount: following.length });
+    } else {
+      onReschedule(workout.id, newDate);
+    }
+  };
+
+  const handleMoveToTomorrow = () => {
+    const base = workout.scheduledDate || fmtD(new Date());
+    const d = new Date(base + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    handleMoveToDate(d);
+  };
 
   return (
-    <motion.div layout className={`bg-card rounded-xl border shadow-card overflow-hidden ${workout.done ? "border-habit-green/50" : "border-border"}`}>
-      <div className="p-4">
-        <div className="flex items-center gap-3">
-          {/* Completion circle — always visible for own workouts */}
-          {!readOnly && (
-            <button
-              onClick={() => onToggle(workout.id)}
-              className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                workout.done ? "bg-habit-green border-habit-green" : "border-muted-foreground/30 hover:border-primary"
-              }`}
+    <>
+      {/* Cascade Confirmation Dialog */}
+      <AlertDialog open={!!cascadeConfirm} onOpenChange={(open) => { if (!open) setCascadeConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Shift following workouts?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're moving this workout by {cascadeConfirm ? Math.abs(cascadeConfirm.diffDays) : 0} day{cascadeConfirm && Math.abs(cascadeConfirm.diffDays) !== 1 ? "s" : ""} {cascadeConfirm && cascadeConfirm.diffDays > 0 ? "forward" : "back"}.
+              There {cascadeConfirm?.followingCount === 1 ? "is" : "are"} {cascadeConfirm?.followingCount} upcoming workout{cascadeConfirm?.followingCount !== 1 ? "s" : ""} after this one. Would you like to shift them too?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (cascadeConfirm) {
+                  onReschedule(workout.id, cascadeConfirm.newDate);
+                  setCascadeConfirm(null);
+                }
+              }}
+              className="bg-secondary text-foreground hover:bg-secondary/80"
             >
-              {workout.done && <Check size={14} className="text-primary-foreground" />}
-            </button>
-          )}
-          <span className="text-2xl">{workout.emoji}</span>
-          <div className="flex-1 min-w-0">
-            <p className={`text-[15px] font-semibold truncate ${workout.done ? "line-through text-muted-foreground" : ""}`}>{workout.title}</p>
-            <div className="flex items-center gap-3 mt-0.5">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock size={11} /> {workout.duration}
-              </span>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Flame size={11} /> {workout.cal} cal
-              </span>
-              {workout.tag && (
-                <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{workout.tag}</span>
-              )}
-            </div>
-          </div>
-          {!readOnly && (
-            <div className="relative">
-              <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 text-muted-foreground">
-                <MoreVertical size={16} />
+              Move only this one
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => {
+                if (cascadeConfirm) {
+                  onRescheduleCascade(workout.id, cascadeConfirm.newDate, true);
+                  setCascadeConfirm(null);
+                  toast.success(`Shifted ${cascadeConfirm.followingCount + 1} workouts`);
+                }
+              }}
+            >
+              Shift all following
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <motion.div layout className={`bg-card rounded-xl border shadow-card overflow-hidden ${workout.done ? "border-habit-green/50" : "border-border"}`}>
+        <div className="p-4">
+          <div className="flex items-center gap-3">
+            {!readOnly && (
+              <button
+                onClick={() => onToggle(workout.id)}
+                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                  workout.done ? "bg-habit-green border-habit-green" : "border-muted-foreground/30 hover:border-primary"
+                }`}
+              >
+                {workout.done && <Check size={14} className="text-primary-foreground" />}
               </button>
-              {menuOpen && (
-                <>
-                  <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute right-0 top-8 z-50 min-w-[120px] rounded-xl border border-border bg-card shadow-card overflow-hidden">
-                    <button
-                      onClick={() => { onRemove(workout.id); setMenuOpen(false); }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 size={14} /> Delete
-                    </button>
-                  </div>
-                </>
-              )}
+            )}
+            <span className="text-2xl">{workout.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <p className={`text-[15px] font-semibold truncate ${workout.done ? "line-through text-muted-foreground" : ""}`}>{workout.title}</p>
+              <div className="flex items-center gap-3 mt-0.5">
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock size={11} /> {workout.duration}
+                </span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Flame size={11} /> {workout.cal} cal
+                </span>
+                {workout.tag && (
+                  <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{workout.tag}</span>
+                )}
+              </div>
             </div>
-          )}
+            {!readOnly && (
+              <ItemActionMenu
+                onMoveToTomorrow={handleMoveToTomorrow}
+                onMoveToDate={handleMoveToDate}
+                onRemove={() => onRemove(workout.id)}
+              />
+            )}
+          </div>
         </div>
-      </div>
 
       {/* Exercises */}
       {workout.exercises && workout.exercises.length > 0 && (
