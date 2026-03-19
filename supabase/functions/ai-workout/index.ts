@@ -173,7 +173,8 @@ serve(async (req) => {
       try {
         parsed = JSON.parse(toolCall.function.arguments);
       } catch (e) {
-        console.error("Tool call parse failed:", e);
+        console.error("Tool call parse failed, attempting repair:", e);
+        parsed = tryRepairJson(toolCall.function.arguments);
       }
     }
 
@@ -189,7 +190,8 @@ serve(async (req) => {
         try {
           parsed = JSON.parse(jsonMatch[0]);
         } catch (e) {
-          console.error("Content JSON parse failed:", e);
+          console.error("Content JSON parse failed, attempting repair:", e);
+          parsed = tryRepairJson(jsonMatch[0]);
         }
       }
     }
