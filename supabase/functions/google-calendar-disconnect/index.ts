@@ -25,7 +25,10 @@ Deno.serve(async (req) => {
   const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token);
+  const {
+    data: { user },
+    error: userError,
+  } = await supabaseUser.auth.getUser(token);
 
   if (userError || !user) {
     return new Response(JSON.stringify({ error: "Invalid token" }), {
@@ -34,26 +37,42 @@ Deno.serve(async (req) => {
     });
   }
 
+  let groupId: string | undefined;
+  try {
+    const body = await req.json();
+    groupId = body?.group_id;
+  } catch {
+    // no-op
+  }
+
+  if (!groupId) {
+    return new Response(JSON.stringify({ error: "Missing group_id" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // Optionally revoke the Google token
   const { data: tokenRow } = await supabase
     .from("google_calendar_tokens")
     .select("access_token")
     .eq("user_id", user.id)
-    .single();
+    .eq("group_id", groupId)
+    .maybeSingle();
 
   if (tokenRow?.access_token) {
     await fetch(`https://oauth2.googleapis.com/revoke?token=${tokenRow.access_token}`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    }).catch(() => {}); // Best effort
+    }).catch(() => {});
   }
 
   const { error } = await supabase
     .from("google_calendar_tokens")
     .delete()
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("group_id", groupId);
 
   if (error) {
     return new Response(JSON.stringify({ error: "Failed to disconnect" }), {

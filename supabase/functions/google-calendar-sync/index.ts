@@ -60,12 +60,24 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // Get stored tokens
+  // Parse request params
+  const url = new URL(req.url);
+  const groupId = url.searchParams.get("groupId");
+
+  if (!groupId) {
+    return new Response(JSON.stringify({ error: "Missing groupId" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Get stored tokens for this group
   const { data: tokenRow, error: tokenErr } = await supabase
     .from("google_calendar_tokens")
     .select("*")
     .eq("user_id", user.id)
-    .single();
+    .eq("group_id", groupId)
+    .maybeSingle();
 
   if (tokenErr || !tokenRow) {
     return new Response(JSON.stringify({ error: "Google Calendar not connected" }), {
@@ -92,11 +104,11 @@ Deno.serve(async (req) => {
     await supabase
       .from("google_calendar_tokens")
       .update({ access_token: accessToken, expires_at: newExpiry, updated_at: new Date().toISOString() })
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .eq("group_id", groupId);
   }
 
   // Parse date range from query params
-  const url = new URL(req.url);
   const timeMin = url.searchParams.get("timeMin") || new Date().toISOString();
   const timeMax = url.searchParams.get("timeMax") || new Date(Date.now() + 30 * 86400000).toISOString();
 

@@ -5,8 +5,6 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import GroupManager from "@/components/GroupManager";
-import { useGroupContext } from "@/hooks/useGroupContext";
-import GroupSelector from "@/components/GroupSelector";
 
 const settingsItems = [
   { icon: Bell, label: "Notifications", desc: "Reminders & alerts" },
@@ -16,7 +14,7 @@ const settingsItems = [
 ];
 
 const SettingsPage = () => {
-  const { user, session, profile, partner, signOut, connectPartner, disconnectPartner, activeGroup } = useAuth();
+  const { user, session, profile, partner, groups, activeGroup, setActiveGroup, signOut, connectPartner, disconnectPartner } = useAuth();
   const [showPartnerDialog, setShowPartnerDialog] = useState(false);
   const [inviteInput, setInviteInput] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -24,14 +22,26 @@ const SettingsPage = () => {
   const [gcalConnected, setGcalConnected] = useState<boolean | null>(null);
   const [gcalLoading, setGcalLoading] = useState(false);
 
-  // Check if Google Calendar is connected
+  // Settings should always be scoped to a specific group
   useEffect(() => {
-    if (!user) return;
+    if (!activeGroup && groups.length > 0) {
+      setActiveGroup(groups[0]);
+    }
+  }, [activeGroup, groups, setActiveGroup]);
+
+  // Check if Google Calendar is connected for active group
+  useEffect(() => {
+    if (!user || !activeGroup) {
+      setGcalConnected(false);
+      return;
+    }
+
     const checkGcal = async () => {
       const { data } = await supabase
         .from("google_calendar_tokens")
         .select("id")
         .eq("user_id", user.id)
+        .eq("group_id", activeGroup.id)
         .maybeSingle();
       setGcalConnected(!!data);
     };
@@ -44,7 +54,7 @@ const SettingsPage = () => {
       toast.success("Google Calendar connected! 🎉");
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, [user]);
+  }, [user, activeGroup]);
 
   const handleCopyCode = () => {
     if (profile?.invite_code) {
@@ -79,11 +89,11 @@ const SettingsPage = () => {
   };
 
   const handleConnectGoogleCalendar = async () => {
-    if (!user) return;
+    if (!user || !activeGroup) return;
     setGcalLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("google-calendar-auth-url", {
-        body: { user_id: user.id },
+        body: { group_id: activeGroup.id },
       });
       if (error || !data?.url) throw error || new Error("No URL returned");
       window.location.href = data.url;
@@ -94,10 +104,12 @@ const SettingsPage = () => {
   };
 
   const handleDisconnectGoogleCalendar = async () => {
+    if (!activeGroup) return;
     setGcalLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("google-calendar-disconnect", {
+      const { error } = await supabase.functions.invoke("google-calendar-disconnect", {
         headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: { group_id: activeGroup.id },
       });
       if (error) throw error;
       setGcalConnected(false);
@@ -117,8 +129,6 @@ const SettingsPage = () => {
         <h1 className="text-[1.75rem] font-bold tracking-display">Settings</h1>
       </header>
 
-      {/* Group Selector */}
-      <GroupSelector />
 
       {/* Profile Card */}
       <div className="bg-card rounded-xl p-5 border border-border shadow-card mb-4 flex items-center gap-4">
@@ -145,125 +155,118 @@ const SettingsPage = () => {
         <GroupManager />
       </div>
 
-      {/* Partner Connection */}
+      {/* Selected Group Details */}
       <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
-        {partner ? (
-          <div className="p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Link2 size={16} className="text-primary" />
-              <span className="text-sm font-semibold">Connected Partner</span>
-            </div>
+        {activeGroup ? (
+          <div className="p-4 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-accent-foreground text-sm font-bold">
-                {partnerInitial}
+              <span className="text-2xl">{activeGroup.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{activeGroup.name}</p>
+                <p className="text-xs text-muted-foreground">{activeGroup.members.length} member{activeGroup.members.length !== 1 ? "s" : ""}</p>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">{partner.display_name}</p>
-                <p className="text-xs text-muted-foreground">{partner.email}</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-secondary rounded-lg px-3 py-2.5 text-center">
+                <span className="text-xs text-muted-foreground block">Group Invite Code</span>
+                <span className="text-lg font-bold tracking-widest">{activeGroup.invite_code || "..."}</span>
               </div>
               <button
-                onClick={handleDisconnect}
-                className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Disconnect"
+                onClick={() => {
+                  if (!activeGroup.invite_code) return;
+                  navigator.clipboard.writeText(activeGroup.invite_code);
+                  toast.success("Group invite code copied!");
+                }}
+                className="p-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
               >
-                <Unlink size={16} />
+                <Copy size={18} />
               </button>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Members</p>
+              <div className="space-y-2">
+                {activeGroup.members.map((member) => (
+                  <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg bg-secondary/40">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                      {member.display_name?.charAt(0)?.toUpperCase() || "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{member.display_name || "Member"}</p>
+                      <p className="text-xs text-muted-foreground truncate">{member.email || ""}</p>
+                    </div>
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase bg-card px-2 py-0.5 rounded">
+                      {member.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
           <div className="p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Link2 size={16} className="text-primary" />
-              <span className="text-sm font-semibold">Connect with Partner</span>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Share your invite code or enter your partner's code to connect and share schedules, habits, and workouts.
-            </p>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex-1 bg-secondary rounded-lg px-3 py-2.5 text-center">
-                <span className="text-xs text-muted-foreground block">Your Invite Code</span>
-                <span className="text-lg font-bold tracking-widest">{profile?.invite_code || "..."}</span>
-              </div>
-              <button
-                onClick={handleCopyCode}
-                className="p-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-              >
-                {codeCopied ? <Check size={18} /> : <Copy size={18} />}
-              </button>
-            </div>
-            <button
-              onClick={() => setShowPartnerDialog(true)}
-              className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
-            >
-              Enter Partner's Code
-            </button>
+            <p className="text-sm text-muted-foreground">Select a group above to view its settings.</p>
           </div>
         )}
       </div>
 
-      {/* Google Calendar Integration - only visible when no specific group is selected */}
-      {!activeGroup ? (
-        <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
-          <div className="p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Calendar size={16} className="text-primary" />
-              <span className="text-sm font-semibold">Google Calendar Sync</span>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Connect your Google Calendar for two-way sync. Events appear in the "All" consolidated view.
-            </p>
+      {/* Google Calendar Integration (group-specific) */}
+      <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Calendar size={16} className="text-primary" />
+            <span className="text-sm font-semibold">Google Calendar Sync</span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            {activeGroup
+              ? `Connect Google Calendar for ${activeGroup.name} only.`
+              : "Select a group in My Groups & Calendars to manage Google Calendar sync."}
+          </p>
 
-            {gcalConnected === null ? (
-              <div className="flex items-center justify-center py-3">
-                <Loader2 size={16} className="animate-spin text-muted-foreground" />
-              </div>
-            ) : gcalConnected ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
-                  <span className="text-xl">📅</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-primary">Connected</p>
-                    <p className="text-xs text-muted-foreground">Google Calendar is syncing</p>
-                  </div>
-                  <Check size={16} className="text-primary" />
-                </div>
-                <button
-                  onClick={handleDisconnectGoogleCalendar}
-                  disabled={gcalLoading}
-                  className="w-full py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {gcalLoading ? <Loader2 size={16} className="animate-spin" /> : <Unlink size={16} />}
-                  Disconnect Google Calendar
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleConnectGoogleCalendar}
-                className="w-full flex items-center gap-3 p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                <span className="text-xl">📅</span>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-semibold">Connect Google Calendar</p>
-                  <p className="text-xs opacity-80">Two-way sync with your schedule</p>
-                </div>
-                <ExternalLink size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
-          <div className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <Calendar size={16} className="text-muted-foreground" />
-              <span className="text-sm font-semibold">Calendar Integrations</span>
+          {!activeGroup ? (
+            <div className="p-3 rounded-xl bg-secondary text-xs text-muted-foreground">
+              Pick a group above to view integration status.
             </div>
-            <p className="text-xs text-muted-foreground">
-              Google Calendar sync is available in the "All" view. Switch to "All" in the group selector to manage integrations.
-            </p>
-          </div>
+          ) : gcalConnected === null ? (
+            <div className="flex items-center justify-center py-3">
+              <Loader2 size={16} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : gcalConnected ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <span className="text-xl">📅</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-primary">Connected</p>
+                  <p className="text-xs text-muted-foreground">Syncing for this group only</p>
+                </div>
+                <Check size={16} className="text-primary" />
+              </div>
+              <button
+                onClick={handleDisconnectGoogleCalendar}
+                disabled={gcalLoading}
+                className="w-full py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {gcalLoading ? <Loader2 size={16} className="animate-spin" /> : <Unlink size={16} />}
+                Disconnect Google Calendar
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleConnectGoogleCalendar}
+              disabled={gcalLoading}
+              className="w-full flex items-center gap-3 p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <span className="text-xl">📅</span>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold">Connect Google Calendar</p>
+                <p className="text-xs opacity-80">Enable sync for this selected group</p>
+              </div>
+              {gcalLoading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Settings List */}
       <div className="space-y-1">

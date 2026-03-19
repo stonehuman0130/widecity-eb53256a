@@ -14,7 +14,7 @@ const GROUP_TYPES = [
 ];
 
 const GroupManager = () => {
-  const { groups, createGroup, joinGroup, leaveGroup } = useAuth();
+  const { groups, activeGroup, setActiveGroup, createGroup, joinGroup, leaveGroup } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showGroupDetail, setShowGroupDetail] = useState<Group | null>(null);
@@ -119,8 +119,8 @@ const GroupManager = () => {
         {groups.map((group) => (
           <button
             key={group.id}
-            onClick={() => setShowGroupDetail(group)}
-            className="w-full flex items-center gap-3 p-4 bg-card rounded-xl border border-border shadow-card hover:bg-secondary/50 transition-colors text-left"
+            onClick={() => setActiveGroup(group)}
+            className={`w-full flex items-center gap-3 p-4 rounded-xl border shadow-card transition-colors text-left ${activeGroup?.id === group.id ? "bg-primary/5 border-primary" : "bg-card border-border hover:bg-secondary/50"}`}
           >
             <span className="text-2xl">{group.emoji}</span>
             <div className="flex-1 min-w-0">
@@ -128,6 +128,9 @@ const GroupManager = () => {
               <p className="text-xs text-muted-foreground">
                 {group.members.length} member{group.members.length !== 1 ? "s" : ""} · {group.type}
               </p>
+              {activeGroup?.id === group.id && (
+                <p className="text-[11px] font-semibold text-primary mt-1">Selected for Settings</p>
+              )}
             </div>
             <div className="flex -space-x-2">
               {group.members.slice(0, 3).map((m) => (

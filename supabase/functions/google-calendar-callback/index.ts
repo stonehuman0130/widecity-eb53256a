@@ -5,6 +5,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const decodeState = (state: string): { user_id: string; group_id: string } | null => {
+  try {
+    const normalized = state.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -12,10 +22,15 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state"); // user_id passed as state
+  const stateRaw = url.searchParams.get("state");
 
-  if (!code || !state) {
+  if (!code || !stateRaw) {
     return new Response("Missing code or state", { status: 400, headers: corsHeaders });
+  }
+
+  const state = decodeState(stateRaw);
+  if (!state?.user_id || !state?.group_id) {
+    return new Response("Invalid state", { status: 400, headers: corsHeaders });
   }
 
   const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID");
@@ -30,7 +45,6 @@ Deno.serve(async (req) => {
   const redirectUri = `${SUPABASE_URL}/functions/v1/google-calendar-callback`;
 
   try {
-    // Exchange authorization code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -56,20 +70,32 @@ Deno.serve(async (req) => {
     const { access_token, refresh_token, expires_in } = tokenData;
     const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString();
 
-    // Store tokens using service role (bypasses RLS)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const { data: existing } = await supabase
+      .from("google_calendar_tokens")
+      .select("refresh_token")
+      .eq("user_id", state.user_id)
+      .eq("group_id", state.group_id)
+      .maybeSingle();
+
+    const finalRefreshToken = refresh_token || existing?.refresh_token;
+    if (!finalRefreshToken) {
+      return new Response("Missing refresh token from Google", { status: 400, headers: corsHeaders });
+    }
 
     const { error } = await supabase
       .from("google_calendar_tokens")
       .upsert(
         {
-          user_id: state,
+          user_id: state.user_id,
+          group_id: state.group_id,
           access_token,
-          refresh_token,
+          refresh_token: finalRefreshToken,
           expires_at: expiresAt,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "user_id" }
+        { onConflict: "user_id,group_id" }
       );
 
     if (error) {
@@ -77,13 +103,12 @@ Deno.serve(async (req) => {
       return new Response("Failed to store tokens", { status: 500, headers: corsHeaders });
     }
 
-    // Redirect back to the app settings page
     const appUrl = req.headers.get("origin") || "https://widecity.lovable.app";
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders,
-        Location: `${appUrl}/?tab=settings&gcal=connected`,
+        Location: `${appUrl}/?tab=settings&gcal=connected&group=${state.group_id}`,
       },
     });
   } catch (err) {

@@ -278,20 +278,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Load Google Calendar events
   useEffect(() => {
-    if (!user) {
+    if (!user || !activeGroup) {
       setGoogleCalendarEvents([]);
       return;
     }
+
     const loadGcalEvents = async () => {
       try {
-        // Check if user has Google Calendar connected
+        // Check if user has Google Calendar connected for this group
         const { data: tokenRow } = await supabase
           .from("google_calendar_tokens")
           .select("id")
           .eq("user_id", user.id)
+          .eq("group_id", activeGroup.id)
           .maybeSingle();
 
-        if (!tokenRow) return;
+        if (!tokenRow) {
+          setGoogleCalendarEvents([]);
+          return;
+        }
 
         const now = new Date();
         const timeMin = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -301,7 +306,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (!session?.session?.access_token) return;
 
         const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`,
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}`,
           {
             headers: {
               Authorization: `Bearer ${session.session.access_token}`,
@@ -315,13 +320,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           setGoogleCalendarEvents(data.events || []);
         } else {
           console.error("Failed to fetch Google Calendar events:", res.status);
+          setGoogleCalendarEvents([]);
         }
       } catch (err) {
         console.error("Error loading Google Calendar events:", err);
+        setGoogleCalendarEvents([]);
       }
     };
+
     loadGcalEvents();
-  }, [user]);
+  }, [user, activeGroup]);
 
   // Load partner data separately
   useEffect(() => {
