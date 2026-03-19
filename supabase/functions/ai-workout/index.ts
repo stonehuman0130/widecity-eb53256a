@@ -62,7 +62,8 @@ serve(async (req) => {
     }
 
     const isMultiDay = planType === "week" || planType === "month";
-    const daysCount = planType === "month" ? 30 : planType === "week" ? 7 : 1;
+    const isMonthly = planType === "month";
+    const daysCount = isMonthly ? 28 : planType === "week" ? 7 : 1;
     const effectiveStartDate = startDate || new Date().toISOString().slice(0, 10);
 
     // For multi-day plans, compute all dates explicitly so the model doesn't guess
