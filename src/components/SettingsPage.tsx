@@ -187,6 +187,15 @@ const SettingsPage = () => {
         )}
       </div>
 
+      {/* Groups / Calendars */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-3 px-1">
+          <Users size={16} className="text-primary" />
+          <span className="text-sm font-semibold">My Groups & Calendars</span>
+        </div>
+        <GroupManager />
+      </div>
+
       {/* Google Calendar Integration */}
       <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
         <div className="p-4">
