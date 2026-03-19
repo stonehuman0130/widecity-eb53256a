@@ -348,7 +348,7 @@ const WorkoutsPage = () => {
         {aiWeeklyPlan && !isViewingPartner && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">📅 {planType === "month" ? "Monthly" : "Weekly"} Plan</h3>
+              <h3 className="text-sm font-semibold">📅 {aiWeeklyPlan.length > 14 ? "Monthly" : "Weekly"} Plan</h3>
               <button onClick={() => setAiWeeklyPlan(null)} className="text-muted-foreground"><X size={16} /></button>
             </div>
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
