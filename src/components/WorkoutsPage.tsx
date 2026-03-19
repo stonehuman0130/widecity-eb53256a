@@ -56,7 +56,7 @@ const MANUAL_ACTIVITIES = [
 type ViewFilter = "mine" | "partner";
 
 const WorkoutsPage = () => {
-  const { workouts, filteredWorkouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
+  const { workouts, filteredWorkouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
   const { partner } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -94,6 +94,31 @@ const WorkoutsPage = () => {
     return filteredWorkouts.filter((w) => w.scheduledDate === selectedDate || w.completedDate === selectedDate);
   }, [selectedDate, filteredWorkouts, getPartnerWorkoutsForDate, isViewingPartner]);
 
+  const todaysWorkouts = useMemo(() => {
+    if (isViewingPartner) return [];
+    return filteredWorkouts
+      .filter((w) => w.scheduledDate === today || w.completedDate === today)
+      .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+  }, [filteredWorkouts, today, isViewingPartner]);
+
+  const upcomingWorkoutsByDate = useMemo(() => {
+    if (isViewingPartner) return [] as [string, Workout[]][];
+
+    const upcoming = filteredWorkouts
+      .filter((w) => Boolean(w.scheduledDate) && (w.scheduledDate as string) > today)
+      .sort((a, b) => (a.scheduledDate as string).localeCompare(b.scheduledDate as string));
+
+    const grouped = new Map<string, Workout[]>();
+    for (const workout of upcoming) {
+      const key = workout.scheduledDate as string;
+      const list = grouped.get(key) || [];
+      list.push(workout);
+      grouped.set(key, list);
+    }
+
+    return Array.from(grouped.entries());
+  }, [filteredWorkouts, today, isViewingPartner]);
+
   const activeWorkouts = isViewingPartner ? partnerWorkouts : filteredWorkouts;
 
   const missedWorkouts = useMemo(() => {
@@ -102,8 +127,6 @@ const WorkoutsPage = () => {
   }, [filteredWorkouts, today, isViewingPartner]);
 
   const isToday = selectedDate === today;
-  const isPast = selectedDate < today;
-  const isFuture = selectedDate > today;
 
   const handleAiPlan = async () => {
     if (!aiPrompt.trim()) return;
