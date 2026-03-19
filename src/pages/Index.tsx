@@ -87,7 +87,7 @@ const Index = () => {
           </motion.div>
         </AnimatePresence>
         {isInnerPage && (
-          <BottomNav activeTab={activeTab === "launcher" ? "home" : activeTab} onTabChange={handleTabChange} />
+          <BottomNav activeTab={activeTab as "home" | "workout" | "habits" | "calendar" | "settings"} onTabChange={handleTabChange} />
         )}
       </div>
     </AppProvider>
