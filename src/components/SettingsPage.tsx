@@ -14,7 +14,7 @@ const settingsItems = [
 ];
 
 const SettingsPage = () => {
-  const { user, session, profile, partner, signOut, connectPartner, disconnectPartner, activeGroup } = useAuth();
+  const { user, session, profile, partner, groups, activeGroup, setActiveGroup, signOut, connectPartner, disconnectPartner } = useAuth();
   const [showPartnerDialog, setShowPartnerDialog] = useState(false);
   const [inviteInput, setInviteInput] = useState("");
   const [connecting, setConnecting] = useState(false);
