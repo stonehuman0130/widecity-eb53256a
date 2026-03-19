@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users } from "lucide-react";
+import GroupSelector from "@/components/GroupSelector";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
@@ -35,7 +36,7 @@ const HomePage = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
-    habits, toggleHabit, addHabit, removeHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent, removeTask,
+    habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, addTask, addEvent, removeEvent, removeTask,
     partnerHabits, partnerEvents, partnerTasks, googleCalendarEvents,
   } = useAppContext();
 
@@ -318,7 +319,7 @@ const HomePage = () => {
   };
 
   // Morning habits: show own when "mine", partner's when "partner"
-  const myMorningHabits = habits.filter((h) => h.category === "morning");
+  const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
   const partnerMorningHabits = partnerHabits.filter((h) => h.category === "morning");
   const displayMorningHabits = filter === "partner" ? partnerMorningHabits : myMorningHabits;
 
@@ -348,30 +349,29 @@ const HomePage = () => {
   };
 
   // Partner filter: show PARTNER's data, not own data with assignee="partner"
-  let filteredTasks: Task[];
+  let dayTasks: Task[];
   let visibleEvents: ScheduledEvent[];
 
   if (filter === "mine") {
-    filteredTasks = tasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    visibleEvents = events.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
+    dayTasks = filteredTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    visibleEvents = filteredEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
   } else if (filter === "partner") {
-    filteredTasks = partnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    dayTasks = partnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
     visibleEvents = partnerEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
   } else {
-    // Household: own household items + partner household items
-    const myHousehold = tasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    const myHousehold = filteredTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
     const partnerHousehold = partnerTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    filteredTasks = [...myHousehold, ...partnerHousehold];
+    dayTasks = [...myHousehold, ...partnerHousehold];
 
-    const myHouseholdEvents = events.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
+    const myHouseholdEvents = filteredEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
     const partnerHouseholdEvents = partnerEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
     visibleEvents = [...myHouseholdEvents, ...partnerHouseholdEvents];
   }
 
   const hasSpecificTime = (time?: string) => Boolean(time) && time !== "" && time !== "All day";
   const isTaskScheduled = (t: Task) => hasSpecificTime(t.time);
-  const scheduledTasks = filteredTasks.filter((t) => isTaskScheduled(t));
-  const justDoIt = filteredTasks.filter((t) => !isTaskScheduled(t));
+  const scheduledTasks = dayTasks.filter((t) => isTaskScheduled(t));
+  const justDoIt = dayTasks.filter((t) => !isTaskScheduled(t));
 
   // Split events: timed events go to Scheduled, all-day events go to Just Do It
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
@@ -437,25 +437,7 @@ const HomePage = () => {
       </div>
 
       {/* Group Selector */}
-      {groups.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide -mx-1 px-1">
-          {groups.map((group) => (
-            <button
-              key={group.id}
-              onClick={() => setActiveGroup(activeGroup?.id === group.id ? null : group)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border whitespace-nowrap text-sm font-medium transition-all flex-shrink-0 ${
-                activeGroup?.id === group.id
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground"
-              }`}
-            >
-              <span>{group.emoji}</span>
-              <span>{group.name}</span>
-              <span className="text-[10px] opacity-60">{group.members.length}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <GroupSelector />
 
       <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
         {filters.map((f) => (

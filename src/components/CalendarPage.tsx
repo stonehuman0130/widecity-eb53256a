@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Check, MoreVertical, Trash2, Clock } from "lucide-react";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import UserBadge from "@/components/UserBadge";
 import TaskTag from "@/components/TaskTag";
+import GroupSelector from "@/components/GroupSelector";
 import { formatTime } from "@/lib/formatTime";
 import { toast } from "sonner";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const { events, addEvent, addTask, removeEvent, tasks, toggleTask, removeTask, googleCalendarEvents } = useAppContext();
+  const { events, filteredEvents, addEvent, addTask, removeEvent, tasks, filteredTasks, toggleTask, removeTask, googleCalendarEvents } = useAppContext();
+  const { activeGroup } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [showAddForm, setShowAddForm] = useState(false);
@@ -27,10 +30,10 @@ const CalendarPage = () => {
   const today = new Date();
   const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
 
-  const monthEvents = events.filter((e) => e.month === month && e.year === year);
+  const monthEvents = filteredEvents.filter((e) => e.month === month && e.year === year);
   const dayEvents = monthEvents.filter((e) => e.day === selectedDay);
 
-  const dayTasks = tasks.filter(
+  const dayTasks = filteredTasks.filter(
     (t) => t.scheduledDay === selectedDay && t.scheduledMonth === month && t.scheduledYear === year
   );
 
@@ -48,7 +51,7 @@ const CalendarPage = () => {
   const dayHasItems = (day: number) => {
     const dayDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     return monthEvents.some((e) => e.day === day) ||
-      tasks.some((t) => t.scheduledDay === day && t.scheduledMonth === month && t.scheduledYear === year) ||
+      filteredTasks.some((t) => t.scheduledDay === day && t.scheduledMonth === month && t.scheduledYear === year) ||
       googleCalendarEvents.some((ge) => (ge.start?.split("T")[0] || ge.start) === dayDateStr);
   };
 
@@ -106,6 +109,9 @@ const CalendarPage = () => {
         </div>
         <p className="text-sm text-muted-foreground mt-1 font-medium">{monthName} {year}</p>
       </header>
+
+      {/* Group Selector */}
+      <GroupSelector />
 
       {/* Calendar Grid */}
       <div className="bg-card rounded-xl p-4 border border-border shadow-card mb-6">

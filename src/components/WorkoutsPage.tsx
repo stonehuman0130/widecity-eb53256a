@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import CongratsPopup from "@/components/CongratsPopup";
+import GroupSelector from "@/components/GroupSelector";
 
 interface AIPlan {
   title: string;
@@ -54,7 +55,7 @@ const MANUAL_ACTIVITIES = [
 type ViewFilter = "mine" | "partner";
 
 const WorkoutsPage = () => {
-  const { workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
+  const { workouts, filteredWorkouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
   const { partner } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -89,15 +90,15 @@ const WorkoutsPage = () => {
 
   const dateWorkouts = useMemo(() => {
     if (isViewingPartner) return getPartnerWorkoutsForDate(selectedDate);
-    return getWorkoutsForDate(selectedDate);
-  }, [selectedDate, getWorkoutsForDate, getPartnerWorkoutsForDate, isViewingPartner]);
+    return filteredWorkouts.filter((w) => w.scheduledDate === selectedDate || w.completedDate === selectedDate);
+  }, [selectedDate, filteredWorkouts, getPartnerWorkoutsForDate, isViewingPartner]);
 
-  const activeWorkouts = isViewingPartner ? partnerWorkouts : workouts;
+  const activeWorkouts = isViewingPartner ? partnerWorkouts : filteredWorkouts;
 
   const missedWorkouts = useMemo(() => {
     if (isViewingPartner) return [];
-    return workouts.filter((w) => w.scheduledDate && w.scheduledDate < today && !w.done);
-  }, [workouts, today, isViewingPartner]);
+    return filteredWorkouts.filter((w) => w.scheduledDate && w.scheduledDate < today && !w.done);
+  }, [filteredWorkouts, today, isViewingPartner]);
 
   const isToday = selectedDate === today;
   const isPast = selectedDate < today;
@@ -242,6 +243,9 @@ const WorkoutsPage = () => {
         <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Stay active and healthy together</p>
       </header>
+
+      {/* Group Selector */}
+      <GroupSelector />
 
       {/* Mine / Partner Toggle */}
       {partner && (

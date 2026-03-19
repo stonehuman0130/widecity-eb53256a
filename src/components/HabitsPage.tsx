@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import WaterSlider from "@/components/WaterSlider";
 import HabitDateViewer from "@/components/HabitDateViewer";
 import CongratsPopup from "@/components/CongratsPopup";
+import GroupSelector from "@/components/GroupSelector";
 
 const todayStr = () => {
   const d = new Date();
@@ -16,7 +17,7 @@ const todayStr = () => {
 type ViewFilter = "mine" | "partner";
 
 const HabitsPage = () => {
-  const { habits, toggleHabit, addHabit, removeHabit, addSharedHabit, getHabitStreak, partnerHabits, getPartnerHabitStreak } = useAppContext();
+  const { habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit, getHabitStreak, partnerHabits, getPartnerHabitStreak } = useAppContext();
   const { user, partner } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
   const [addingTo, setAddingTo] = useState<"morning" | "other" | null>(null);
@@ -25,7 +26,7 @@ const HabitsPage = () => {
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
 
   const isViewingPartner = viewFilter === "partner";
-  const displayHabits = isViewingPartner ? partnerHabits : habits;
+  const displayHabits = isViewingPartner ? partnerHabits : filteredHabits;
 
   const morningHabits = displayHabits.filter((h) => h.category === "morning");
   const otherHabits = displayHabits.filter((h) => h.category === "other");
@@ -112,7 +113,9 @@ const HabitsPage = () => {
         </div>
       </header>
 
-      {/* Mine / Partner Toggle */}
+      {/* Group Selector */}
+      <GroupSelector />
+
       {partner && (
         <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
           <button

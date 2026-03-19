@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 
@@ -9,6 +9,7 @@ export interface Habit {
   category: "morning" | "other";
   completionDates: string[];
   hiddenFromPartner?: boolean;
+  groupId?: string | null;
 }
 
 export interface ScheduledEvent {
@@ -21,6 +22,7 @@ export interface ScheduledEvent {
   year: number;
   user: "me" | "partner" | "both";
   hiddenFromPartner?: boolean;
+  groupId?: string | null;
 }
 
 export interface Task {
@@ -34,6 +36,7 @@ export interface Task {
   scheduledMonth?: number;
   scheduledYear?: number;
   hiddenFromPartner?: boolean;
+  groupId?: string | null;
 }
 
 export interface Workout {
@@ -48,6 +51,7 @@ export interface Workout {
   completedDate?: string;
   exercises?: { name: string; sets: number; reps: string }[];
   hiddenFromPartner?: boolean;
+  groupId?: string | null;
 }
 
 export interface GoogleCalendarEvent {
@@ -63,14 +67,17 @@ export interface GoogleCalendarEvent {
 
 interface AppContextType {
   habits: Habit[];
+  filteredHabits: Habit[];
   toggleHabit: (id: string) => void;
   addHabit: (label: string, category: "morning" | "other") => void;
   removeHabit: (id: string) => void;
   addSharedHabit: (label: string, category: "morning" | "other") => Promise<void>;
   events: ScheduledEvent[];
+  filteredEvents: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
   removeEvent: (id: string) => void;
   tasks: Task[];
+  filteredTasks: Task[];
   toggleTask: (id: string) => void;
   addTask: (task: Omit<Task, "id" | "done">) => void;
   removeTask: (id: string) => void;
@@ -81,6 +88,7 @@ interface AppContextType {
   setWaterGoal: (goal: number) => void;
   resetWater: () => void;
   workouts: Workout[];
+  filteredWorkouts: Workout[];
   toggleWorkout: (id: string) => void;
   removeWorkout: (id: string) => void;
   setWorkouts: (workouts: Workout[]) => void;
@@ -109,7 +117,7 @@ const todayStr = () => {
 };
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const { user, partner } = useAuth();
+  const { user, partner, activeGroup } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [events, setEvents] = useState<ScheduledEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -172,6 +180,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               done: completionDates.includes(todayDate),
               completionDates,
               hiddenFromPartner: h.hidden_from_partner || false,
+              groupId: h.group_id || null,
             };
           }));
         }
@@ -194,6 +203,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             scheduledMonth: t.scheduled_month,
             scheduledYear: t.scheduled_year,
             hiddenFromPartner: t.hidden_from_partner || false,
+            groupId: t.group_id || null,
           })));
         }
 
@@ -214,6 +224,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             year: e.year,
             user: e.assignee as "me" | "partner" | "both",
             hiddenFromPartner: e.hidden_from_partner || false,
+            groupId: e.group_id || null,
           })));
         }
 
@@ -236,6 +247,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             completedDate: w.completed_date,
             exercises: w.exercises || [],
             hiddenFromPartner: w.hidden_from_partner || false,
+            groupId: w.group_id || null,
           })));
         }
 
@@ -767,13 +779,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return partnerWorkouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
   }, [partnerWorkouts]);
 
+  // Group-filtered data
+  const filterByGroup = useCallback(<T extends { groupId?: string | null }>(items: T[]): T[] => {
+    if (!activeGroup) return items; // "All" mode
+    return items.filter((item) => item.groupId === activeGroup.id);
+  }, [activeGroup]);
+
+  const filteredHabits = useMemo(() => filterByGroup(habits), [habits, filterByGroup]);
+  const filteredEvents = useMemo(() => filterByGroup(events), [events, filterByGroup]);
+  const filteredTasks = useMemo(() => filterByGroup(tasks), [tasks, filterByGroup]);
+  const filteredWorkouts = useMemo(() => filterByGroup(workouts), [workouts, filterByGroup]);
+
   return (
     <AppContext.Provider value={{
-      habits, toggleHabit, addHabit, removeHabit, addSharedHabit,
-      events, addEvent, removeEvent,
-      tasks, toggleTask, addTask, removeTask, updateTask,
+      habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
+      events, filteredEvents, addEvent, removeEvent,
+      tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
-      workouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
+      workouts, filteredWorkouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
       googleCalendarEvents,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
