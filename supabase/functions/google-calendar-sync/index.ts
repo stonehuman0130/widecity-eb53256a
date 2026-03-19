@@ -63,101 +63,113 @@ Deno.serve(async (req) => {
   // Parse request params
   const url = new URL(req.url);
   const groupId = url.searchParams.get("groupId");
+  const allGroups = url.searchParams.get("allGroups") === "true";
+  const timeMin = url.searchParams.get("timeMin") || new Date().toISOString();
+  const timeMax = url.searchParams.get("timeMax") || new Date(Date.now() + 30 * 86400000).toISOString();
 
-  if (!groupId) {
-    return new Response(JSON.stringify({ error: "Missing groupId" }), {
+  if (!groupId && !allGroups) {
+    return new Response(JSON.stringify({ error: "Missing groupId or allGroups" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  // Get stored tokens for this group
-  const { data: tokenRow, error: tokenErr } = await supabase
-    .from("google_calendar_tokens")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("group_id", groupId)
-    .maybeSingle();
-
-  if (tokenErr || !tokenRow) {
-    return new Response(JSON.stringify({ error: "Google Calendar not connected" }), {
-      status: 404,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  let accessToken = tokenRow.access_token;
-
-  // Refresh if expired
-  if (new Date(tokenRow.expires_at) <= new Date()) {
-    const refreshed = await refreshAccessToken(tokenRow.refresh_token);
-    if (!refreshed) {
-      return new Response(JSON.stringify({ error: "Failed to refresh token. Please reconnect Google Calendar." }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    accessToken = refreshed.access_token;
-    const newExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
-
-    await supabase
+  // Fetch token rows — either one group or all groups
+  let tokenRows: any[] = [];
+  if (allGroups) {
+    const { data, error: tokenErr } = await supabase
       .from("google_calendar_tokens")
-      .update({ access_token: accessToken, expires_at: newExpiry, updated_at: new Date().toISOString() })
+      .select("*")
+      .eq("user_id", user.id);
+    if (!tokenErr && data) tokenRows = data;
+  } else {
+    const { data, error: tokenErr } = await supabase
+      .from("google_calendar_tokens")
+      .select("*")
       .eq("user_id", user.id)
-      .eq("group_id", groupId);
+      .eq("group_id", groupId!)
+      .maybeSingle();
+    if (!tokenErr && data) tokenRows = [data];
   }
 
-  // Parse date range from query params
-  const timeMin = url.searchParams.get("timeMin") || new Date().toISOString();
-  const timeMax = url.searchParams.get("timeMax") || new Date(Date.now() + 30 * 86400000).toISOString();
+  if (tokenRows.length === 0) {
+    return new Response(JSON.stringify({ events: [] }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
-  try {
-    const calRes = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-        new URLSearchParams({
-          timeMin,
-          timeMax,
-          singleEvents: "true",
-          orderBy: "startTime",
-          maxResults: "250",
-        }),
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
+  // Deduplicate by refresh_token to avoid fetching same Google account twice
+  const seenRefreshTokens = new Set<string>();
+  const uniqueTokenRows: any[] = [];
+  for (const row of tokenRows) {
+    if (!seenRefreshTokens.has(row.refresh_token)) {
+      seenRefreshTokens.add(row.refresh_token);
+      uniqueTokenRows.push(row);
+    }
+  }
 
-    if (!calRes.ok) {
-      const errText = await calRes.text();
-      console.error("Google Calendar API error:", errText);
-      return new Response(JSON.stringify({ error: "Failed to fetch calendar events" }), {
-        status: calRes.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+  const allEvents: any[] = [];
+  const seenEventIds = new Set<string>();
+
+  for (const tokenRow of uniqueTokenRows) {
+    let accessToken = tokenRow.access_token;
+
+    // Refresh if expired
+    if (new Date(tokenRow.expires_at) <= new Date()) {
+      const refreshed = await refreshAccessToken(tokenRow.refresh_token);
+      if (!refreshed) continue;
+
+      accessToken = refreshed.access_token;
+      const newExpiry = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
+
+      await supabase
+        .from("google_calendar_tokens")
+        .update({ access_token: accessToken, expires_at: newExpiry, updated_at: new Date().toISOString() })
+        .eq("id", tokenRow.id);
     }
 
-    const calData = await calRes.json();
+    try {
+      const calRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+          new URLSearchParams({
+            timeMin,
+            timeMax,
+            singleEvents: "true",
+            orderBy: "startTime",
+            maxResults: "250",
+          }),
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
 
-    // Map to simplified format
-    const events = (calData.items || []).map((item: any) => ({
-      id: item.id,
-      title: item.summary || "(No title)",
-      description: item.description || null,
-      start: item.start?.dateTime || item.start?.date,
-      end: item.end?.dateTime || item.end?.date,
-      allDay: !item.start?.dateTime,
-      location: item.location || null,
-      htmlLink: item.htmlLink,
-    }));
+      if (!calRes.ok) {
+        console.error("Google Calendar API error for group", tokenRow.group_id, ":", await calRes.text());
+        continue;
+      }
 
-    return new Response(JSON.stringify({ events }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    console.error("Sync error:", err);
-    return new Response(JSON.stringify({ error: "Internal error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      const calData = await calRes.json();
+
+      for (const item of (calData.items || [])) {
+        if (seenEventIds.has(item.id)) continue;
+        seenEventIds.add(item.id);
+        allEvents.push({
+          id: item.id,
+          title: item.summary || "(No title)",
+          description: item.description || null,
+          start: item.start?.dateTime || item.start?.date,
+          end: item.end?.dateTime || item.end?.date,
+          allDay: !item.start?.dateTime,
+          location: item.location || null,
+          htmlLink: item.htmlLink,
+        });
+      }
+    } catch (err) {
+      console.error("Sync error for group", tokenRow.group_id, ":", err);
+    }
   }
+
+  return new Response(JSON.stringify({ events: allEvents }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 });

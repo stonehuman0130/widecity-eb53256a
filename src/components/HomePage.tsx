@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft } from "lucide-react";
 import GroupSelector from "@/components/GroupSelector";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
@@ -25,7 +25,7 @@ interface ClarificationState {
   conversationHistory: { role: string; content: string }[];
 }
 
-const HomePage = () => {
+const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
   const { profile, partner, groups, activeGroup, setActiveGroup } = useAuth();
   const [filter, setFilter] = useState<Filter>("mine");
   const [input, setInput] = useState("");
@@ -405,9 +405,19 @@ const HomePage = () => {
       )}
 
       <header className="pt-12 pb-4 flex items-start justify-between">
-        <div>
-          <h1 className="text-[1.75rem] font-bold tracking-display">{greeting} 👋</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, {profile?.display_name || "there"}</p>
+        <div className="flex items-center gap-2">
+          {onBackToLauncher && (
+            <button
+              onClick={onBackToLauncher}
+              className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors -ml-1"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <div>
+            <h1 className="text-[1.75rem] font-bold tracking-display">{greeting} 👋</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, {profile?.display_name || "there"}</p>
+          </div>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
