@@ -90,15 +90,15 @@ const WorkoutsPage = () => {
 
   const dateWorkouts = useMemo(() => {
     if (isViewingPartner) return getPartnerWorkoutsForDate(selectedDate);
-    return getWorkoutsForDate(selectedDate);
-  }, [selectedDate, getWorkoutsForDate, getPartnerWorkoutsForDate, isViewingPartner]);
+    return filteredWorkouts.filter((w) => w.scheduledDate === selectedDate || w.completedDate === selectedDate);
+  }, [selectedDate, filteredWorkouts, getPartnerWorkoutsForDate, isViewingPartner]);
 
-  const activeWorkouts = isViewingPartner ? partnerWorkouts : workouts;
+  const activeWorkouts = isViewingPartner ? partnerWorkouts : filteredWorkouts;
 
   const missedWorkouts = useMemo(() => {
     if (isViewingPartner) return [];
-    return workouts.filter((w) => w.scheduledDate && w.scheduledDate < today && !w.done);
-  }, [workouts, today, isViewingPartner]);
+    return filteredWorkouts.filter((w) => w.scheduledDate && w.scheduledDate < today && !w.done);
+  }, [filteredWorkouts, today, isViewingPartner]);
 
   const isToday = selectedDate === today;
   const isPast = selectedDate < today;
