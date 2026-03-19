@@ -249,25 +249,20 @@ const WorkoutsPage = () => {
       {/* Group Selector */}
       <GroupSelector />
 
-      {/* Mine / Partner Toggle */}
-      {partner && (
+      {/* Mine / Member Toggle */}
+      {hasOther && (
         <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
-          <button
-            onClick={() => setViewFilter("mine")}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-              viewFilter === "mine" ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
-            }`}
-          >
-            Mine
-          </button>
-          <button
-            onClick={() => setViewFilter("partner")}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-              viewFilter === "partner" ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
-            }`}
-          >
-            {partnerName}'s
-          </button>
+          {twoTabFilters.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setViewFilter(f.id as ViewFilter)}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                viewFilter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       )}
 
