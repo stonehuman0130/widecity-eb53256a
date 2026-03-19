@@ -14,7 +14,7 @@ const GROUP_TYPES = [
 ];
 
 const GroupManager = () => {
-  const { groups, createGroup, joinGroup, leaveGroup } = useAuth();
+  const { groups, activeGroup, setActiveGroup, createGroup, joinGroup, leaveGroup } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showGroupDetail, setShowGroupDetail] = useState<Group | null>(null);
