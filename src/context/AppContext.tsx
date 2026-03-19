@@ -120,6 +120,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [partnerEvents, setPartnerEvents] = useState<ScheduledEvent[]>([]);
   const [partnerTasks, setPartnerTasks] = useState<Task[]>([]);
   const [partnerWorkouts, setPartnerWorkouts] = useState<Workout[]>([]);
+  const [googleCalendarEvents, setGoogleCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load all data from database on mount
