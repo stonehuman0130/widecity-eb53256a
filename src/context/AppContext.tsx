@@ -694,26 +694,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const removeWorkoutsByFilter = async (filter: "all" | "week" | "month" | "date", date?: string): Promise<number> => {
     if (!user) return 0;
     const today = todayStr();
+    // Base: only incomplete workouts scheduled today or in the future (never past completed ones)
+    const eligible = workouts.filter((w) => !w.done && w.scheduledDate && w.scheduledDate >= today);
     let toRemove: Workout[] = [];
 
     if (filter === "all") {
-      toRemove = workouts.filter((w) => w.groupId === (activeGroup?.id ?? null) || !activeGroup);
+      toRemove = eligible;
     } else if (filter === "date" && date) {
-      toRemove = workouts.filter((w) => w.scheduledDate === date);
+      toRemove = eligible.filter((w) => w.scheduledDate === date);
     } else if (filter === "week") {
-      const start = new Date();
       const end = new Date();
       end.setDate(end.getDate() + 7);
-      const startStr = fmtDateCtx(start);
       const endStr = fmtDateCtx(end);
-      toRemove = workouts.filter((w) => w.scheduledDate && w.scheduledDate >= startStr && w.scheduledDate <= endStr);
+      toRemove = eligible.filter((w) => w.scheduledDate! <= endStr);
     } else if (filter === "month") {
-      const start = new Date();
       const end = new Date();
       end.setDate(end.getDate() + 30);
-      const startStr = fmtDateCtx(start);
       const endStr = fmtDateCtx(end);
-      toRemove = workouts.filter((w) => w.scheduledDate && w.scheduledDate >= startStr && w.scheduledDate <= endStr);
+      toRemove = eligible.filter((w) => w.scheduledDate! <= endStr);
     }
 
     if (toRemove.length === 0) return 0;
