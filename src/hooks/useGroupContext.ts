@@ -30,11 +30,11 @@ export function useGroupContext() {
     return partner?.display_name || "Partner";
   }, [activeGroup, otherMembers, partner]);
 
-  // Whether we have someone else to show (group member or partner)
+  // In "All" mode (no active group), don't show partner/household filters
   const hasOther = useMemo(() => {
-    if (activeGroup) return otherMembers.length > 0;
-    return !!partner;
-  }, [activeGroup, otherMembers, partner]);
+    if (!activeGroup) return false;
+    return otherMembers.length > 0;
+  }, [activeGroup, otherMembers]);
 
   // The shared/household label
   const sharedLabel = useMemo(() => {
