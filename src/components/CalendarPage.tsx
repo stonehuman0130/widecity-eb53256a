@@ -30,10 +30,10 @@ const CalendarPage = () => {
   const today = new Date();
   const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
 
-  const monthEvents = events.filter((e) => e.month === month && e.year === year);
+  const monthEvents = filteredEvents.filter((e) => e.month === month && e.year === year);
   const dayEvents = monthEvents.filter((e) => e.day === selectedDay);
 
-  const dayTasks = tasks.filter(
+  const dayTasks = filteredTasks.filter(
     (t) => t.scheduledDay === selectedDay && t.scheduledMonth === month && t.scheduledYear === year
   );
 
