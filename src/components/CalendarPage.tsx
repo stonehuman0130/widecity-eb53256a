@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Check, MoreVertical, Trash2, Clock } from "lucide-react";
-import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
+import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import UserBadge from "@/components/UserBadge";
 import TaskTag from "@/components/TaskTag";
 import { formatTime } from "@/lib/formatTime";
