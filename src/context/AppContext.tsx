@@ -176,6 +176,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               done: completionDates.includes(todayDate),
               completionDates,
               hiddenFromPartner: h.hidden_from_partner || false,
+              groupId: h.group_id || null,
             };
           }));
         }
