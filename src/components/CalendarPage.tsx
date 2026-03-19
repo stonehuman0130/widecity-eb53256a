@@ -13,7 +13,7 @@ import { toast } from "sonner";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const { events, filteredEvents, addEvent, addTask, removeEvent, rescheduleEvent, tasks, filteredTasks, toggleTask, removeTask, updateTask, googleCalendarEvents, hideGcalEvent, toggleEventVisibility } = useAppContext();
+  const { events, filteredEvents, addEvent, addTask, removeEvent, rescheduleEvent, tasks, filteredTasks, toggleTask, removeTask, updateTask, googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent } = useAppContext();
   const { activeGroup } = useAuth();
   const { showGoogleCalendar } = useGroupContext();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -286,7 +286,7 @@ const CalendarPage = () => {
                   );
                 })}
                 {gcalDayEvents.filter(g => !g.allDay).map((ge) => (
-                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} />
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} onDesignate={(assignee) => { designateGcalEvent(ge.id, assignee); toast.success(`Assigned as ${assignee === "me" ? "Mine" : assignee === "partner" ? "Partner's" : "Together"}`); }} />
                 ))}
               </div>
             </div>
@@ -300,7 +300,7 @@ const CalendarPage = () => {
               </div>
               <div className="space-y-3">
                 {gcalDayEvents.filter(g => g.allDay).map((ge) => (
-                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} />
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} onDesignate={(assignee) => { designateGcalEvent(ge.id, assignee); toast.success(`Assigned as ${assignee === "me" ? "Mine" : assignee === "partner" ? "Partner's" : "Together"}`); }} />
                 ))}
               </div>
             </div>
@@ -407,7 +407,8 @@ const CalendarItemCard = ({
   );
 };
 
-const GCalCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: () => void }) => {
+const GCalCard = ({ event, onHide, onDesignate }: { event: GoogleCalendarEvent; onHide?: () => void; onDesignate?: (assignee: "me" | "partner" | "both") => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
   const timeStr = event.allDay
     ? "All day"
     : event.start
@@ -426,15 +427,49 @@ const GCalCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: () =
       <div className="flex items-center gap-3">
         <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
         <span className="flex-1 text-[15px] font-medium">{event.title}</span>
+        <UserBadge user={event.assignee || "me"} />
         {event.htmlLink && (
           <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium">
             Open
           </a>
         )}
-        {onHide && (
-          <ItemActionMenu
-            onToggleVisibility={onHide}
-          />
+        {(onHide || onDesignate) && (
+          <div className="relative">
+            <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+              <MoreVertical size={16} />
+            </button>
+            {menuOpen && (
+              <>
+                <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+                <div className="absolute right-0 top-8 z-50 min-w-[180px] rounded-xl border border-border bg-card shadow-card overflow-hidden">
+                  {onDesignate && (
+                    <>
+                      <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Assign to</div>
+                      {(["me", "partner", "both"] as const).map((opt) => (
+                        <button
+                          key={opt}
+                          onClick={() => { onDesignate(opt); setMenuOpen(false); }}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-secondary ${event.assignee === opt ? "text-primary font-semibold" : "text-foreground"}`}
+                        >
+                          <UserBadge user={opt} />
+                          {opt === "me" ? "Mine" : opt === "partner" ? "Partner's" : "Together"}
+                          {event.assignee === opt && <Check size={14} className="ml-auto text-primary" />}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {onHide && (
+                    <button
+                      onClick={() => { onHide(); setMenuOpen(false); }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-destructive hover:bg-destructive/10"
+                    >
+                      <EyeOff size={14} /> Hide from others
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
       {timeStr === "All day" && (

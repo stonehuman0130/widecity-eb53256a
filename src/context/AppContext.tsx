@@ -64,6 +64,7 @@ export interface GoogleCalendarEvent {
   location: string | null;
   htmlLink: string;
   ownerUserId?: string;
+  assignee?: "me" | "partner" | "both";
 }
 
 interface AppContextType {
@@ -105,6 +106,7 @@ interface AppContextType {
   googleCalendarEvents: GoogleCalendarEvent[];
   hideGcalEvent: (eventId: string) => Promise<void>;
   toggleEventVisibility: (eventId: string) => Promise<void>;
+  designateGcalEvent: (eventId: string, assignee: "me" | "partner" | "both") => Promise<void>;
   // Partner data
   partnerHabits: Habit[];
   partnerEvents: ScheduledEvent[];
@@ -301,10 +303,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         let url: string;
         if (activeGroup) {
-          // Fetch group-shared events (from all members who connected their calendar for this group)
           url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}&groupShared=true`;
         } else {
-          // "All" mode
           url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&allGroups=true`;
         }
 
@@ -315,13 +315,33 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           },
         });
 
-        if (res.ok) {
-          const data = await res.json();
-          setGoogleCalendarEvents(data.events || []);
-        } else {
+        if (!res.ok) {
           console.error("Failed to fetch Google Calendar events:", res.status);
           setGoogleCalendarEvents([]);
+          return;
         }
+
+        const data = await res.json();
+        const rawEvents: GoogleCalendarEvent[] = data.events || [];
+
+        // Load designations to apply assignee overrides
+        const { data: designations } = await supabase
+          .from("gcal_event_designations")
+          .select("gcal_event_id, assignee")
+          .eq("user_id", user.id);
+
+        const designationMap = new Map<string, string>();
+        (designations || []).forEach((d: any) => designationMap.set(d.gcal_event_id, d.assignee));
+
+        const enriched = rawEvents.map((ge) => {
+          const override = designationMap.get(ge.id);
+          // Default: if ownerUserId matches current user -> "me", else -> "partner"
+          let assignee: "me" | "partner" | "both" = ge.ownerUserId === user.id ? "me" : "partner";
+          if (override) assignee = override as "me" | "partner" | "both";
+          return { ...ge, assignee };
+        });
+
+        setGoogleCalendarEvents(enriched);
       } catch (err) {
         console.error("Error loading Google Calendar events:", err);
         setGoogleCalendarEvents([]);
@@ -948,6 +968,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("events").update({ hidden_from_partner: newHidden }).eq("id", eventId);
   };
 
+  const designateGcalEvent = async (eventId: string, assignee: "me" | "partner" | "both") => {
+    if (!user) return;
+    setGoogleCalendarEvents((prev) =>
+      prev.map((e) => e.id === eventId ? { ...e, assignee } : e)
+    );
+    await supabase.from("gcal_event_designations").upsert({
+      user_id: user.id,
+      gcal_event_id: eventId,
+      assignee,
+    }, { onConflict: "user_id,gcal_event_id" });
+  };
+
   return (
     <AppContext.Provider value={{
       habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
@@ -956,7 +988,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
-      googleCalendarEvents, hideGcalEvent, toggleEventVisibility,
+      googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
       getPartnerWorkoutsForDate, getPartnerHabitsForDate, getPartnerHabitStreak,
       loading,
