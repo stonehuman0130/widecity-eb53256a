@@ -98,6 +98,7 @@ interface AppContextType {
   setWorkouts: (workouts: Workout[]) => void;
   addWorkouts: (workouts: Workout[]) => void;
   rescheduleWorkout: (id: string, newDate: string) => void;
+  rescheduleWorkoutCascade: (id: string, newDate: string, shiftFollowing: boolean) => Promise<void>;
   getHabitStreak: (id: string) => number;
   getHabitsForDate: (date: string) => Habit[];
   getWorkoutsForDate: (date: string) => Workout[];
@@ -802,6 +803,52 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("workouts").update({ scheduled_date: newDate }).eq("id", id);
   };
 
+  const rescheduleWorkoutCascade = async (id: string, newDate: string, shiftFollowing: boolean) => {
+    const workout = workouts.find((w) => w.id === id);
+    if (!workout?.scheduledDate) {
+      await rescheduleWorkout(id, newDate);
+      return;
+    }
+
+    const oldDate = workout.scheduledDate;
+    const oldMs = new Date(oldDate + "T00:00:00").getTime();
+    const newMs = new Date(newDate + "T00:00:00").getTime();
+    const diffDays = Math.round((newMs - oldMs) / (1000 * 60 * 60 * 24));
+
+    if (!shiftFollowing || diffDays === 0) {
+      await rescheduleWorkout(id, newDate);
+      return;
+    }
+
+    // Find all future workouts after oldDate (including the target) that are not done
+    const toShift = workouts.filter(
+      (w) => w.scheduledDate && w.scheduledDate >= oldDate && !w.done && w.id !== id
+    );
+
+    // Shift the target workout
+    const updates: { id: string; newDate: string }[] = [{ id, newDate }];
+
+    for (const w of toShift) {
+      const d = new Date(w.scheduledDate! + "T00:00:00");
+      d.setDate(d.getDate() + diffDays);
+      const shifted = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      updates.push({ id: w.id, newDate: shifted });
+    }
+
+    // Optimistic update
+    setWorkoutsState((prev) => {
+      const map = new Map(updates.map((u) => [u.id, u.newDate]));
+      return prev.map((w) => map.has(w.id) ? { ...w, scheduledDate: map.get(w.id)! } : w);
+    });
+
+    // Persist all
+    await Promise.all(
+      updates.map((u) =>
+        supabase.from("workouts").update({ scheduled_date: u.newDate }).eq("id", u.id)
+      )
+    );
+  };
+
   const getHabitStreak = useCallback((id: string) => {
     const habit = habits.find((h) => h.id === id);
     if (!habit) return 0;
@@ -907,7 +954,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
       tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
-      workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
+      workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
       googleCalendarEvents, hideGcalEvent, toggleEventVisibility,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
