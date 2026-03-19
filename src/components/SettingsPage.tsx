@@ -115,8 +115,6 @@ const SettingsPage = () => {
         <h1 className="text-[1.75rem] font-bold tracking-display">Settings</h1>
       </header>
 
-      {/* Group Selector */}
-      <GroupSelector />
 
       {/* Profile Card */}
       <div className="bg-card rounded-xl p-5 border border-border shadow-card mb-4 flex items-center gap-4">
