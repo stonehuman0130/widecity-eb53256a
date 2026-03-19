@@ -349,7 +349,7 @@ const HomePage = () => {
   };
 
   // Partner filter: show PARTNER's data, not own data with assignee="partner"
-  let filteredTasks: Task[];
+  let dayTasks: Task[];
   let visibleEvents: ScheduledEvent[];
 
   if (filter === "mine") {
