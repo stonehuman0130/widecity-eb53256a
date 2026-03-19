@@ -79,7 +79,7 @@ serve(async (req) => {
     }
 
     const systemPrompt = isMultiDay
-      ? `You are a fitness coach. Generate a ${planType}ly workout plan starting from ${startDate || "today"}. The plan MUST cover exactly ${daysCount} days (one entry per day). ${dateList ? `The exact dates are: ${dateList}.` : ""} Include rest days where appropriate (typically 1-2 per week). For each day, provide: the date (YYYY-MM-DD format), dayLabel, isRest flag, and if not rest, a workout with title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. For a monthly plan, vary the focus across the weeks with progressive overload. Return using the provided tool.`
+      ? `You are a fitness coach. Generate a ${planType}ly workout plan starting from ${effectiveStartDate}. The plan MUST cover exactly ${daysCount} days (one entry per day). ${dateList ? `The exact dates are: ${dateList}.` : ""} Include rest days where appropriate (typically 1-2 per week). For each day, provide: the date (YYYY-MM-DD format), dayLabel, isRest flag, and if not rest, a workout with title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. For a monthly plan, vary the focus across the weeks with progressive overload. Return using the provided tool.`
       : "You are a fitness coach. Generate 2-3 workout plan options based on the user's request. Each plan should have a title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. Return using the provided tool.";
 
     const tools = isMultiDay
