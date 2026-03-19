@@ -314,20 +314,29 @@ const CalendarPage = () => {
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Just Do It</h3>
               </div>
               <div className="space-y-3">
-                {justDoItTasks.map((task) => (
-                  <CalendarItemCard
-                    key={`tk-${task.id}`}
-                    title={task.title}
-                    user={task.assignee}
-                    done={task.done}
-                    tag={task.tag}
-                    onToggle={() => {
-                      if (!task.done) toast.success("🎉 Task complete!");
-                      toggleTask(task.id);
-                    }}
-                    onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
-                  />
-                ))}
+                {justDoItTasks.map((task) => {
+                  const tDay = task.scheduledDay ?? selectedDay;
+                  const tMonth = task.scheduledMonth ?? month;
+                  const tYear = task.scheduledYear ?? year;
+                  const tmrw = new Date(tYear, tMonth, tDay);
+                  tmrw.setDate(tmrw.getDate() + 1);
+                  return (
+                    <CalendarItemCard
+                      key={`tk-${task.id}`}
+                      title={task.title}
+                      user={task.assignee}
+                      done={task.done}
+                      tag={task.tag}
+                      onToggle={() => {
+                        if (!task.done) toast.success("🎉 Task complete!");
+                        toggleTask(task.id);
+                      }}
+                      onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
+                      onMoveToTomorrow={() => { updateTask(task.id, { scheduledDay: tmrw.getDate(), scheduledMonth: tmrw.getMonth(), scheduledYear: tmrw.getFullYear() }); toast.success("Moved to tomorrow"); }}
+                      onMoveToDate={(d) => { updateTask(task.id, { scheduledDay: d.getDate(), scheduledMonth: d.getMonth(), scheduledYear: d.getFullYear() }); toast.success("Task rescheduled"); }}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
