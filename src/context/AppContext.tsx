@@ -22,6 +22,7 @@ export interface ScheduledEvent {
   year: number;
   user: "me" | "partner" | "both";
   hiddenFromPartner?: boolean;
+  groupId?: string | null;
 }
 
 export interface Task {
