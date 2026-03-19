@@ -91,6 +91,8 @@ interface AppContextType {
   filteredWorkouts: Workout[];
   toggleWorkout: (id: string) => void;
   removeWorkout: (id: string) => void;
+  removeWorkoutsByFilter: (filter: "all" | "week" | "month" | "date", date?: string) => Promise<number>;
+  updateWorkout: (id: string, updates: Partial<Workout>) => void;
   setWorkouts: (workouts: Workout[]) => void;
   addWorkouts: (workouts: Workout[]) => void;
   rescheduleWorkout: (id: string, newDate: string) => void;
