@@ -101,6 +101,8 @@ interface AppContextType {
   getHabitsForDate: (date: string) => Habit[];
   getWorkoutsForDate: (date: string) => Workout[];
   googleCalendarEvents: GoogleCalendarEvent[];
+  hideGcalEvent: (eventId: string) => Promise<void>;
+  toggleEventVisibility: (eventId: string) => Promise<void>;
   // Partner data
   partnerHabits: Habit[];
   partnerEvents: ScheduledEvent[];
