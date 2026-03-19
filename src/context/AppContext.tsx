@@ -220,6 +220,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             year: e.year,
             user: e.assignee as "me" | "partner" | "both",
             hiddenFromPartner: e.hidden_from_partner || false,
+            groupId: e.group_id || null,
           })));
         }
 
