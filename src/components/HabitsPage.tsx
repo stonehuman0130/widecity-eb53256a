@@ -113,7 +113,9 @@ const HabitsPage = () => {
         </div>
       </header>
 
-      {/* Mine / Partner Toggle */}
+      {/* Group Selector */}
+      <GroupSelector />
+
       {partner && (
         <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
           <button
