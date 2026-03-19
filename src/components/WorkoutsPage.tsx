@@ -109,16 +109,12 @@ const WorkoutsPage = () => {
     if (!aiPrompt.trim()) return;
     setAiLoading(true);
     try {
-      const body: any = { prompt: aiPrompt };
-      if (planType !== "today") {
-        body.planType = planType;
-        body.startDate = today;
-      }
+      const body: any = { prompt: aiPrompt, startDate: today };
       const { data, error } = await supabase.functions.invoke("ai-workout", { body });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      if (planType !== "today" && data.days) {
+      if (data.days) {
         setAiWeeklyPlan(data.days);
         setAiPlans(null);
       } else {
