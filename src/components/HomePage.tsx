@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft, EyeOff, Eye } from "lucide-react";
 import GroupSelector from "@/components/GroupSelector";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
@@ -38,7 +38,7 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, addTask, addEvent, removeEvent, removeTask,
-    partnerHabits, partnerEvents, partnerTasks, googleCalendarEvents,
+    partnerHabits, partnerEvents, partnerTasks, googleCalendarEvents, hideGcalEvent, toggleEventVisibility,
   } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
@@ -653,10 +653,10 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {timedEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {gcalTimed.map((ge) => (
-              <GCalEventCard key={`gcal-${ge.id}`} event={ge} />
+              <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} />
             ))}
           </div>
         ) : (
@@ -676,10 +676,10 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {allDayEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {gcalAllDay.map((ge) => (
-              <GCalEventCard key={`gcal-${ge.id}`} event={ge} />
+              <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} />
             ))}
           </div>
         ) : (
@@ -741,7 +741,7 @@ const TaskCard = ({ task, onToggle, onCongrats, readOnly }: { task: Task; onTogg
   );
 };
 
-const EventCard = ({ event, onRemove, onCongrats, readOnly }: { event: ScheduledEvent; onRemove?: (id: string) => void; onCongrats: () => void; readOnly?: boolean }) => {
+const EventCard = ({ event, onRemove, onToggleVisibility, onCongrats, readOnly }: { event: ScheduledEvent; onRemove?: (id: string) => void; onToggleVisibility?: (id: string) => void; onCongrats: () => void; readOnly?: boolean }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [done, setDone] = useState(false);
   const dateLabel = new Date(event.year, event.month, event.day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -749,13 +749,14 @@ const EventCard = ({ event, onRemove, onCongrats, readOnly }: { event: Scheduled
   return (
     <motion.div
       layout
-      className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${done ? "border-habit-green/50" : "border-border"}`}
+      className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${done ? "border-habit-green/50" : event.hiddenFromPartner ? "border-muted/50 opacity-70" : "border-border"}`}
     >
       {(event.time && event.time !== "All day") && (
         <div className="flex items-center gap-2 mb-2">
           <Clock size={13} className="text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground">{formatTime(event.time)}</span>
           <span className="text-xs text-muted-foreground">· {dateLabel}</span>
+          {event.hiddenFromPartner && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
         </div>
       )}
       <div className="flex items-center gap-3">
@@ -776,7 +777,7 @@ const EventCard = ({ event, onRemove, onCongrats, readOnly }: { event: Scheduled
           {event.title}
         </span>
         <UserBadge user={event.user} />
-        {!readOnly && onRemove && (
+        {!readOnly && (onRemove || onToggleVisibility) && (
           <div className="relative">
             <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
               <MoreVertical size={16} />
@@ -784,17 +785,32 @@ const EventCard = ({ event, onRemove, onCongrats, readOnly }: { event: Scheduled
             {menuOpen && (
               <>
                 <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-                <div className="absolute right-0 top-8 z-50 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
-                  <button
-                    onClick={() => {
-                      onRemove(event.id);
-                      setMenuOpen(false);
-                      toast.success("Event deleted");
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 size={14} /> Delete
-                  </button>
+                <div className="absolute right-0 top-8 z-50 min-w-[160px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
+                  {onToggleVisibility && (
+                    <button
+                      onClick={() => {
+                        onToggleVisibility(event.id);
+                        setMenuOpen(false);
+                        toast.success(event.hiddenFromPartner ? "Now visible to others" : "Hidden from others");
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-secondary"
+                    >
+                      {event.hiddenFromPartner ? <Eye size={14} /> : <EyeOff size={14} />}
+                      {event.hiddenFromPartner ? "Show to others" : "Hide from others"}
+                    </button>
+                  )}
+                  {onRemove && (
+                    <button
+                      onClick={() => {
+                        onRemove(event.id);
+                        setMenuOpen(false);
+                        toast.success("Event deleted");
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -802,15 +818,17 @@ const EventCard = ({ event, onRemove, onCongrats, readOnly }: { event: Scheduled
         )}
       </div>
       {(!event.time || event.time === "All day") && (
-        <div className="mt-2 ml-9">
+        <div className="mt-2 ml-9 flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{dateLabel} · All day</span>
+          {event.hiddenFromPartner && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
         </div>
       )}
     </motion.div>
   );
 };
 
-const GCalEventCard = ({ event }: { event: GoogleCalendarEvent }) => {
+const GCalEventCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: (eventId: string) => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
   const timeStr = event.allDay
     ? "All day"
     : event.start
@@ -836,6 +854,26 @@ const GCalEventCard = ({ event }: { event: GoogleCalendarEvent }) => {
           <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium">
             Open
           </a>
+        )}
+        {onHide && (
+          <div className="relative">
+            <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+              <MoreVertical size={16} />
+            </button>
+            {menuOpen && (
+              <>
+                <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+                <div className="absolute right-0 top-8 z-50 min-w-[160px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
+                  <button
+                    onClick={() => { onHide(event.id); setMenuOpen(false); toast.success("Hidden from others"); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-secondary"
+                  >
+                    <EyeOff size={14} /> Hide from others
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
       {timeStr === "All day" && (
