@@ -8,6 +8,7 @@ import WaterSlider from "@/components/WaterSlider";
 import HabitDateViewer from "@/components/HabitDateViewer";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
+import { useGroupContext } from "@/hooks/useGroupContext";
 
 const todayStr = () => {
   const d = new Date();
@@ -98,7 +99,8 @@ const HabitsPage = () => {
     }
   };
 
-  const partnerName = partner?.display_name || "Partner";
+  const { twoTabFilters, hasOther, otherName } = useGroupContext();
+  const partnerName = otherName;
 
   return (
     <div className="px-5">
@@ -116,24 +118,19 @@ const HabitsPage = () => {
       {/* Group Selector */}
       <GroupSelector />
 
-      {partner && (
+      {hasOther && (
         <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
-          <button
-            onClick={() => setViewFilter("mine")}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-              viewFilter === "mine" ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
-            }`}
-          >
-            Mine
-          </button>
-          <button
-            onClick={() => setViewFilter("partner")}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-              viewFilter === "partner" ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
-            }`}
-          >
-            {partnerName}'s
-          </button>
+          {twoTabFilters.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setViewFilter(f.id as ViewFilter)}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                viewFilter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       )}
 

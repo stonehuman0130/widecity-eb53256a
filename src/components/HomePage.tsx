@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { speak, stopSpeaking } from "@/lib/speak";
+import { useGroupContext } from "@/hooks/useGroupContext";
 
 type Filter = "mine" | "partner" | "household";
 
@@ -331,12 +332,8 @@ const HomePage = () => {
     toggleHabit(id);
   }, [myMorningHabits, toggleHabit]);
 
-  const partnerName = partner?.display_name || "Partner";
-  const filters: { id: Filter; label: string }[] = [
-    { id: "mine", label: "Mine" },
-    { id: "partner", label: `${partnerName}'s` },
-    { id: "household", label: "Household" },
-  ];
+  const { filters: groupFilters, otherName, hasOther, showGoogleCalendar } = useGroupContext();
+  const partnerName = otherName;
 
   const sd = selectedDate;
   const selDay = sd.getDate();
@@ -377,12 +374,12 @@ const HomePage = () => {
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
 
-  // Google Calendar events for the selected date
-  const gcalEventsForDay = googleCalendarEvents.filter((ge) => {
+  // Google Calendar events for the selected date (only in "All" mode, not group-specific)
+  const gcalEventsForDay = showGoogleCalendar ? googleCalendarEvents.filter((ge) => {
     const startDate = ge.start?.split("T")[0] || ge.start;
     const selDateStr = `${selYear}-${String(selMonth + 1).padStart(2, "0")}-${String(selDay).padStart(2, "0")}`;
     return startDate === selDateStr;
-  });
+  }) : [];
   const gcalTimed = gcalEventsForDay.filter((ge) => !ge.allDay);
   const gcalAllDay = gcalEventsForDay.filter((ge) => ge.allDay);
 
@@ -439,19 +436,21 @@ const HomePage = () => {
       {/* Group Selector */}
       <GroupSelector />
 
-      <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
-        {filters.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-              filter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {groupFilters.length > 1 && (
+        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
+          {groupFilters.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id as Filter)}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                filter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Voice Mode Overlay */}
       <AnimatePresence>

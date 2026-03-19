@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import UserBadge from "@/components/UserBadge";
 import TaskTag from "@/components/TaskTag";
 import GroupSelector from "@/components/GroupSelector";
+import { useGroupContext } from "@/hooks/useGroupContext";
 import { formatTime } from "@/lib/formatTime";
 import { toast } from "sonner";
 
@@ -13,6 +14,7 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CalendarPage = () => {
   const { events, filteredEvents, addEvent, addTask, removeEvent, tasks, filteredTasks, toggleTask, removeTask, googleCalendarEvents } = useAppContext();
   const { activeGroup } = useAuth();
+  const { showGoogleCalendar } = useGroupContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [showAddForm, setShowAddForm] = useState(false);
@@ -37,12 +39,12 @@ const CalendarPage = () => {
     (t) => t.scheduledDay === selectedDay && t.scheduledMonth === month && t.scheduledYear === year
   );
 
-  // Google Calendar events for the selected day
+  // Google Calendar events for the selected day (only in "All" mode)
   const selDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
-  const gcalDayEvents = googleCalendarEvents.filter((ge) => {
+  const gcalDayEvents = showGoogleCalendar ? googleCalendarEvents.filter((ge) => {
     const startDate = ge.start?.split("T")[0] || ge.start;
     return startDate === selDateStr;
-  });
+  }) : [];
 
   // Split into Scheduled (has time) vs Just Do It (no time)
   const scheduledTasks = dayTasks.filter((t) => Boolean(t.time));
@@ -52,7 +54,7 @@ const CalendarPage = () => {
     const dayDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     return monthEvents.some((e) => e.day === day) ||
       filteredTasks.some((t) => t.scheduledDay === day && t.scheduledMonth === month && t.scheduledYear === year) ||
-      googleCalendarEvents.some((ge) => (ge.start?.split("T")[0] || ge.start) === dayDateStr);
+      (showGoogleCalendar && googleCalendarEvents.some((ge) => (ge.start?.split("T")[0] || ge.start) === dayDateStr));
   };
 
   const prevMonth = () => {
