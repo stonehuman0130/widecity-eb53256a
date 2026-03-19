@@ -7,7 +7,7 @@ import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
 import AddItemModal from "@/components/AddItemModal";
 import CongratsPopup from "@/components/CongratsPopup";
-import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
+import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
