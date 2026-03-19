@@ -119,8 +119,8 @@ const GroupManager = () => {
         {groups.map((group) => (
           <button
             key={group.id}
-            onClick={() => setShowGroupDetail(group)}
-            className="w-full flex items-center gap-3 p-4 bg-card rounded-xl border border-border shadow-card hover:bg-secondary/50 transition-colors text-left"
+            onClick={() => setActiveGroup(group)}
+            className={`w-full flex items-center gap-3 p-4 rounded-xl border shadow-card transition-colors text-left ${activeGroup?.id === group.id ? "bg-primary/5 border-primary" : "bg-card border-border hover:bg-secondary/50"}`}
           >
             <span className="text-2xl">{group.emoji}</span>
             <div className="flex-1 min-w-0">
