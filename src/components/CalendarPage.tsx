@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, Check, MoreVertical, Trash2, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, Check, MoreVertical, Trash2, Clock, EyeOff, Eye } from "lucide-react";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import UserBadge from "@/components/UserBadge";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const { events, filteredEvents, addEvent, addTask, removeEvent, tasks, filteredTasks, toggleTask, removeTask, googleCalendarEvents } = useAppContext();
+  const { events, filteredEvents, addEvent, addTask, removeEvent, tasks, filteredTasks, toggleTask, removeTask, googleCalendarEvents, hideGcalEvent, toggleEventVisibility } = useAppContext();
   const { activeGroup } = useAuth();
   const { showGoogleCalendar } = useGroupContext();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -249,7 +249,9 @@ const CalendarPage = () => {
                     title={event.title}
                     time={event.time}
                     user={event.user}
+                    hidden={event.hiddenFromPartner}
                     onRemove={() => { removeEvent(event.id); toast.success("Event deleted"); }}
+                    onToggleVisibility={() => { toggleEventVisibility(event.id); toast.success(event.hiddenFromPartner ? "Now visible to others" : "Hidden from others"); }}
                   />
                 ))}
                 {scheduledTasks.map((task) => (
@@ -268,7 +270,7 @@ const CalendarPage = () => {
                   />
                 ))}
                 {gcalDayEvents.filter(g => !g.allDay).map((ge) => (
-                  <GCalCard key={`gcal-${ge.id}`} event={ge} />
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} />
                 ))}
               </div>
             </div>
@@ -282,7 +284,7 @@ const CalendarPage = () => {
               </div>
               <div className="space-y-3">
                 {gcalDayEvents.filter(g => g.allDay).map((ge) => (
-                  <GCalCard key={`gcal-${ge.id}`} event={ge} />
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} />
                 ))}
               </div>
             </div>
@@ -321,24 +323,27 @@ const CalendarPage = () => {
 
 /** Unified card for both events and tasks on the calendar page */
 const CalendarItemCard = ({
-  title, time, user, done, tag, onToggle, onRemove,
+  title, time, user, done, tag, hidden, onToggle, onRemove, onToggleVisibility,
 }: {
   title: string;
   time?: string;
   user: "me" | "partner" | "both";
   done?: boolean;
   tag?: string;
+  hidden?: boolean;
   onToggle?: () => void;
   onRemove: () => void;
+  onToggleVisibility?: () => void;
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className={`bg-card rounded-xl p-4 shadow-card border transition-all ${done ? "border-habit-green/50" : "border-border"}`}>
+    <div className={`bg-card rounded-xl p-4 shadow-card border transition-all ${done ? "border-habit-green/50" : hidden ? "border-muted/50 opacity-70" : "border-border"}`}>
       {time && time !== "All day" && (
         <div className="flex items-center gap-2 mb-2">
           <Clock size={13} className="text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground">{formatTime(time)}</span>
+          {hidden && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
         </div>
       )}
       <div className="flex items-center gap-3">
@@ -361,7 +366,16 @@ const CalendarItemCard = ({
           {menuOpen && (
             <>
               <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-              <div className="absolute right-0 top-8 z-50 min-w-[140px] rounded-xl border border-border bg-card shadow-card">
+              <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-card">
+                {onToggleVisibility && (
+                  <button
+                    onClick={() => { onToggleVisibility(); setMenuOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-secondary"
+                  >
+                    {hidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                    {hidden ? "Show to others" : "Hide from others"}
+                  </button>
+                )}
                 <button
                   onClick={() => { onRemove(); setMenuOpen(false); }}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
@@ -379,15 +393,16 @@ const CalendarItemCard = ({
         </div>
       )}
       {(!time || time === "All day") && (
-        <div className="mt-1 ml-9">
+        <div className="mt-1 ml-9 flex items-center gap-2">
           <span className="text-xs text-muted-foreground">All day</span>
+          {hidden && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
         </div>
       )}
     </div>
   );
 };
-
-const GCalCard = ({ event }: { event: GoogleCalendarEvent }) => {
+const GCalCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: () => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
   const timeStr = event.allDay
     ? "All day"
     : event.start
@@ -411,6 +426,26 @@ const GCalCard = ({ event }: { event: GoogleCalendarEvent }) => {
             Open
           </a>
         )}
+        <div className="relative">
+          <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+            <MoreVertical size={16} />
+          </button>
+          {menuOpen && (
+            <>
+              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+              <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-card">
+                {onHide && (
+                  <button
+                    onClick={() => { onHide(); setMenuOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-secondary"
+                  >
+                    <EyeOff size={14} /> Hide from others
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
       {timeStr === "All day" && (
         <div className="mt-1 ml-9 flex items-center gap-2">

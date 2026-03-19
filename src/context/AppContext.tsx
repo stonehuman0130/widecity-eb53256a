@@ -63,6 +63,7 @@ export interface GoogleCalendarEvent {
   allDay: boolean;
   location: string | null;
   htmlLink: string;
+  ownerUserId?: string;
 }
 
 interface AppContextType {
@@ -100,6 +101,8 @@ interface AppContextType {
   getHabitsForDate: (date: string) => Habit[];
   getWorkoutsForDate: (date: string) => Workout[];
   googleCalendarEvents: GoogleCalendarEvent[];
+  hideGcalEvent: (eventId: string) => Promise<void>;
+  toggleEventVisibility: (eventId: string) => Promise<void>;
   // Partner data
   partnerHabits: Habit[];
   partnerEvents: ScheduledEvent[];
@@ -296,31 +299,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         let url: string;
         if (activeGroup) {
-          // Check if connected for this specific group
-          const { data: tokenRow } = await supabase
-            .from("google_calendar_tokens")
-            .select("id")
-            .eq("user_id", user.id)
-            .eq("group_id", activeGroup.id)
-            .maybeSingle();
-
-          if (!tokenRow) {
-            setGoogleCalendarEvents([]);
-            return;
-          }
-          url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}`;
+          // Fetch group-shared events (from all members who connected their calendar for this group)
+          url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}&groupShared=true`;
         } else {
-          // "All" mode — check if any tokens exist
-          const { data: anyTokens } = await supabase
-            .from("google_calendar_tokens")
-            .select("id")
-            .eq("user_id", user.id)
-            .limit(1);
-
-          if (!anyTokens || anyTokens.length === 0) {
-            setGoogleCalendarEvents([]);
-            return;
-          }
+          // "All" mode
           url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&allGroups=true`;
         }
 
@@ -343,7 +325,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setGoogleCalendarEvents([]);
       }
     };
-
     loadGcalEvents();
   }, [user, activeGroup]);
 
@@ -890,6 +871,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return workouts.filter((workout) => workout.groupId === activeGroup.id || workout.groupId == null);
   }, [workouts, activeGroup]);
 
+  const hideGcalEvent = async (eventId: string) => {
+    if (!user) return;
+    // Remove from local state immediately
+    setGoogleCalendarEvents((prev) => prev.filter((e) => e.id !== eventId));
+    await supabase.from("hidden_gcal_events").upsert({
+      user_id: user.id,
+      gcal_event_id: eventId,
+      group_id: activeGroup?.id || null,
+    }, { onConflict: "user_id,gcal_event_id" });
+  };
+
+  const toggleEventVisibility = async (eventId: string) => {
+    if (!user) return;
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+    const newHidden = !event.hiddenFromPartner;
+    setEvents((prev) =>
+      prev.map((e) => e.id === eventId ? { ...e, hiddenFromPartner: newHidden } : e)
+    );
+    await supabase.from("events").update({ hidden_from_partner: newHidden }).eq("id", eventId);
+  };
+
   return (
     <AppContext.Provider value={{
       habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
@@ -898,7 +901,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
-      googleCalendarEvents,
+      googleCalendarEvents, hideGcalEvent, toggleEventVisibility,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
       getPartnerWorkoutsForDate, getPartnerHabitsForDate, getPartnerHabitStreak,
       loading,

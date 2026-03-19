@@ -5,6 +5,7 @@ import HomePage from "@/components/HomePage";
 import WorkoutsPage from "@/components/WorkoutsPage";
 import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
+import ChatPage from "@/components/ChatPage";
 import SettingsPage from "@/components/SettingsPage";
 import LauncherPage from "@/components/LauncherPage";
 import AuthPage from "@/components/AuthPage";
@@ -12,7 +13,7 @@ import { AppProvider } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 
-type Tab = "launcher" | "home" | "workout" | "habits" | "calendar" | "settings";
+type Tab = "launcher" | "home" | "workout" | "habits" | "calendar" | "chat" | "settings";
 
 const Index = () => {
   const { user, loading, groups, setActiveGroup } = useAuth();
@@ -44,7 +45,7 @@ const Index = () => {
     setActiveTab("launcher");
   };
 
-  const handleTabChange = (tab: "home" | "workout" | "habits" | "calendar" | "settings") => {
+  const handleTabChange = (tab: "home" | "workout" | "habits" | "calendar" | "chat" | "settings") => {
     setActiveTab(tab);
   };
 
@@ -61,6 +62,7 @@ const Index = () => {
     workout: <WorkoutsPage />,
     habits: <HabitsPage />,
     calendar: <CalendarPage />,
+    chat: <ChatPage />,
     settings: <SettingsPage />,
   };
 
@@ -87,7 +89,7 @@ const Index = () => {
           </motion.div>
         </AnimatePresence>
         {isInnerPage && (
-          <BottomNav activeTab={activeTab as "home" | "workout" | "habits" | "calendar" | "settings"} onTabChange={handleTabChange} />
+          <BottomNav activeTab={activeTab as "home" | "workout" | "habits" | "calendar" | "chat" | "settings"} onTabChange={handleTabChange} />
         )}
       </div>
     </AppProvider>

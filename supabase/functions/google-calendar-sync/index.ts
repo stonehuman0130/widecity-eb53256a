@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const groupId = url.searchParams.get("groupId");
   const allGroups = url.searchParams.get("allGroups") === "true";
+  const groupShared = url.searchParams.get("groupShared") === "true";
   const timeMin = url.searchParams.get("timeMin") || new Date().toISOString();
   const timeMax = url.searchParams.get("timeMax") || new Date(Date.now() + 30 * 86400000).toISOString();
 
@@ -77,13 +78,52 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Fetch token rows — either one group or all groups
+  // Fetch token rows
   let tokenRows: any[] = [];
+
   if (allGroups) {
-    const { data, error: tokenErr } = await supabase
+    // "All" mode: fetch tokens from the user AND from all groups the user belongs to
+    const { data: userTokens } = await supabase
       .from("google_calendar_tokens")
       .select("*")
       .eq("user_id", userId);
+    if (userTokens) tokenRows = userTokens;
+
+    // Also fetch tokens from group members for groups the user belongs to
+    const { data: memberships } = await supabase
+      .from("group_members")
+      .select("group_id")
+      .eq("user_id", userId);
+
+    if (memberships && memberships.length > 0) {
+      const groupIds = memberships.map((m: any) => m.group_id);
+      const { data: groupTokens } = await supabase
+        .from("google_calendar_tokens")
+        .select("*")
+        .in("group_id", groupIds)
+        .neq("user_id", userId);
+      if (groupTokens) tokenRows = [...tokenRows, ...groupTokens];
+    }
+  } else if (groupShared && groupId) {
+    // Fetch ALL tokens for this group (from all members), not just the requesting user
+    const { data: isMember } = await supabase
+      .from("group_members")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("group_id", groupId)
+      .maybeSingle();
+
+    if (!isMember) {
+      return new Response(JSON.stringify({ error: "Not a group member" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data, error: tokenErr } = await supabase
+      .from("google_calendar_tokens")
+      .select("*")
+      .eq("group_id", groupId);
     if (!tokenErr && data) tokenRows = data;
   } else {
     const { data, error: tokenErr } = await supabase
@@ -101,6 +141,13 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Load hidden gcal events for the requesting user
+  const { data: hiddenRows } = await supabase
+    .from("hidden_gcal_events")
+    .select("gcal_event_id")
+    .eq("user_id", userId);
+  const hiddenEventIds = new Set((hiddenRows || []).map((r: any) => r.gcal_event_id));
+
   // Deduplicate by refresh_token to avoid fetching same Google account twice
   const seenRefreshTokens = new Set<string>();
   const uniqueTokenRows: any[] = [];
@@ -116,6 +163,7 @@ Deno.serve(async (req) => {
 
   for (const tokenRow of uniqueTokenRows) {
     let accessToken = tokenRow.access_token;
+    const isOwnToken = tokenRow.user_id === userId;
 
     // Refresh if expired
     if (new Date(tokenRow.expires_at) <= new Date()) {
@@ -156,6 +204,21 @@ Deno.serve(async (req) => {
       for (const item of (calData.items || [])) {
         if (seenEventIds.has(item.id)) continue;
         seenEventIds.add(item.id);
+
+        // If this event was hidden by the requesting user, skip it
+        if (hiddenEventIds.has(item.id)) continue;
+
+        // If this token belongs to another user, check if they hid this event from group
+        if (!isOwnToken) {
+          const { data: ownerHidden } = await supabase
+            .from("hidden_gcal_events")
+            .select("id")
+            .eq("user_id", tokenRow.user_id)
+            .eq("gcal_event_id", item.id)
+            .maybeSingle();
+          if (ownerHidden) continue;
+        }
+
         allEvents.push({
           id: item.id,
           title: item.summary || "(No title)",
@@ -165,6 +228,7 @@ Deno.serve(async (req) => {
           allDay: !item.start?.dateTime,
           location: item.location || null,
           htmlLink: item.htmlLink,
+          ownerUserId: tokenRow.user_id,
         });
       }
     } catch (err) {

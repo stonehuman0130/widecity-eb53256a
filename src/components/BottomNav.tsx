@@ -1,6 +1,6 @@
-import { Home, Dumbbell, Heart, CalendarDays, Settings } from "lucide-react";
+import { Home, Dumbbell, Heart, CalendarDays, Settings, MessageCircle } from "lucide-react";
 
-type Tab = "home" | "workout" | "habits" | "calendar" | "settings";
+type Tab = "home" | "workout" | "habits" | "calendar" | "chat" | "settings";
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -12,6 +12,7 @@ const tabs: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "workout", label: "Workout", icon: Dumbbell },
   { id: "habits", label: "Habits", icon: Heart },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
+  { id: "chat", label: "Chat", icon: MessageCircle },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -25,12 +26,12 @@ const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
                 isActive ? "text-nav-active" : "text-nav-inactive"
               }`}
             >
-              <tab.icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <tab.icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+              <span className="text-[9px] font-medium">{tab.label}</span>
             </button>
           );
         })}
