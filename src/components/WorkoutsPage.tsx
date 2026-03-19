@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Mic, Copy, Pencil, Replace } from "lucide-react";
+import GroupBadge from "@/components/GroupBadge";
 import { useAppContext, Workout } from "@/context/AppContext";
 import ItemActionMenu from "@/components/ItemActionMenu";
 import { useAuth } from "@/context/AuthContext";
