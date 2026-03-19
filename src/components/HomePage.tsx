@@ -24,7 +24,7 @@ interface ClarificationState {
 }
 
 const HomePage = () => {
-  const { profile, partner } = useAuth();
+  const { profile, partner, groups, activeGroup, setActiveGroup } = useAuth();
   const [filter, setFilter] = useState<Filter>("mine");
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
