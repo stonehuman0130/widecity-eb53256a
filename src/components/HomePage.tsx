@@ -653,10 +653,10 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {timedEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {gcalTimed.map((ge) => (
-              <GCalEventCard key={`gcal-${ge.id}`} event={ge} />
+              <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} />
             ))}
           </div>
         ) : (
