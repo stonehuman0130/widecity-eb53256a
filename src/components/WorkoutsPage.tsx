@@ -495,7 +495,7 @@ const WorkoutsPage = () => {
             const isT = date === today;
             const hasWorkouts = isViewingPartner
               ? getPartnerWorkoutsForDate(date).length > 0
-              : getWorkoutsForDate(date).length > 0;
+              : filteredWorkouts.some((w) => w.scheduledDate === date || w.completedDate === date);
 
             return (
               <button
