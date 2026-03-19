@@ -348,7 +348,7 @@ const CalendarPage = () => {
 
 /** Unified card for both events and tasks on the calendar page */
 const CalendarItemCard = ({
-  title, time, user, done, tag, hidden, onToggle, onRemove, onToggleVisibility,
+  title, time, user, done, tag, hidden, onToggle, onRemove, onToggleVisibility, onMoveToTomorrow, onMoveToDate,
 }: {
   title: string;
   time?: string;
@@ -359,9 +359,9 @@ const CalendarItemCard = ({
   onToggle?: () => void;
   onRemove: () => void;
   onToggleVisibility?: () => void;
+  onMoveToTomorrow?: () => void;
+  onMoveToDate?: (date: Date) => void;
 }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   return (
     <div className={`bg-card rounded-xl p-4 shadow-card border transition-all ${done ? "border-habit-green/50" : hidden ? "border-muted/50 opacity-70" : "border-border"}`}>
       {time && time !== "All day" && (
@@ -384,33 +384,13 @@ const CalendarItemCard = ({
           {title}
         </span>
         <UserBadge user={user} />
-        <div className="relative">
-          <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
-            <MoreVertical size={16} />
-          </button>
-          {menuOpen && (
-            <>
-              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-              <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-card">
-                {onToggleVisibility && (
-                  <button
-                    onClick={() => { onToggleVisibility(); setMenuOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-secondary"
-                  >
-                    {hidden ? <Eye size={14} /> : <EyeOff size={14} />}
-                    {hidden ? "Show to others" : "Hide from others"}
-                  </button>
-                )}
-                <button
-                  onClick={() => { onRemove(); setMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        <ItemActionMenu
+          hidden={hidden}
+          onToggleVisibility={onToggleVisibility}
+          onMoveToTomorrow={onMoveToTomorrow}
+          onMoveToDate={onMoveToDate}
+          onRemove={onRemove}
+        />
       </div>
       {tag && (
         <div className="mt-2 ml-9">
@@ -426,60 +406,4 @@ const CalendarItemCard = ({
     </div>
   );
 };
-const GCalCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: () => void }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const timeStr = event.allDay
-    ? "All day"
-    : event.start
-    ? new Date(event.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-    : "";
-
-  return (
-    <div className="bg-card rounded-xl p-4 shadow-card border border-primary/20">
-      {timeStr && timeStr !== "All day" && (
-        <div className="flex items-center gap-2 mb-2">
-          <Clock size={13} className="text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground">{timeStr}</span>
-          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google</span>
-        </div>
-      )}
-      <div className="flex items-center gap-3">
-        <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
-        <span className="flex-1 text-[15px] font-medium">{event.title}</span>
-        {event.htmlLink && (
-          <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium">
-            Open
-          </a>
-        )}
-        <div className="relative">
-          <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
-            <MoreVertical size={16} />
-          </button>
-          {menuOpen && (
-            <>
-              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-              <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-card">
-                {onHide && (
-                  <button
-                    onClick={() => { onHide(); setMenuOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-secondary"
-                  >
-                    <EyeOff size={14} /> Hide from others
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-      {timeStr === "All day" && (
-        <div className="mt-1 ml-9 flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">All day</span>
-          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google</span>
-        </div>
-      )}
-    </div>
-  );
-};
-
 export default CalendarPage;
