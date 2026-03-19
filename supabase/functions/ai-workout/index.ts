@@ -62,7 +62,8 @@ serve(async (req) => {
     }
 
     const isMultiDay = planType === "week" || planType === "month";
-    const daysCount = planType === "month" ? 30 : planType === "week" ? 7 : 1;
+    const isMonthly = planType === "month";
+    const daysCount = isMonthly ? 28 : planType === "week" ? 7 : 1;
     const effectiveStartDate = startDate || new Date().toISOString().slice(0, 10);
 
     // For multi-day plans, compute all dates explicitly so the model doesn't guess
@@ -79,7 +80,7 @@ serve(async (req) => {
     }
 
     const systemPrompt = isMultiDay
-      ? `You are a fitness coach. Generate a ${planType}ly workout plan starting from ${effectiveStartDate}. The plan MUST cover exactly ${daysCount} days (one entry per day). ${dateList ? `The exact dates are: ${dateList}.` : ""} Include rest days where appropriate (typically 1-2 per week). For each day, provide: the date (YYYY-MM-DD format), dayLabel, isRest flag, and if not rest, a workout with title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. For a monthly plan, vary the focus across the weeks with progressive overload. Return using the provided tool.`
+      ? `You are a fitness coach. Generate a ${planType === "month" ? "4-week" : "weekly"} workout plan starting from ${effectiveStartDate}. The plan MUST cover exactly ${daysCount} days (one entry per day). ${dateList ? `The exact dates are: ${dateList}.` : ""} Include rest days where appropriate (1-2 per week). For each day provide: date (YYYY-MM-DD), dayLabel (weekday name), isRest (boolean). For workout days provide: title, emoji, duration, cal, tag (e.g. Chest, Legs, Cardio, Full Body), and ${isMonthly ? "3-4" : "4-6"} exercises with sets and reps. ${isMonthly ? "Keep exercise lists concise (max 4 per day). Vary focus across weeks." : ""} Return using the provided tool.`
       : "You are a fitness coach. Generate 2-3 workout plan options based on the user's request. Each plan should have a title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. Return using the provided tool.";
 
     const tools = isMultiDay
@@ -186,6 +187,9 @@ serve(async (req) => {
       ? { type: "function", function: { name: "suggest_weekly_plan" } }
       : { type: "function", function: { name: "suggest_workouts" } };
 
+    // Use flash-lite for monthly plans (faster), flash for others
+    const model = isMonthly ? "google/gemini-2.5-flash-lite" : "google/gemini-2.5-flash";
+    
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -193,8 +197,8 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        max_tokens: 16000,
+        model,
+        max_tokens: isMonthly ? 12000 : 8000,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
