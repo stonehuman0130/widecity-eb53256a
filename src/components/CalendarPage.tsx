@@ -349,7 +349,7 @@ const CalendarPage = () => {
 
 /** Unified card for both events and tasks on the calendar page */
 const CalendarItemCard = ({
-  title, time, user, done, tag, hidden, onToggle, onRemove, onToggleVisibility, onMoveToTomorrow, onMoveToDate,
+  title, time, user, done, tag, hidden, groupId, onToggle, onRemove, onToggleVisibility, onMoveToTomorrow, onMoveToDate,
 }: {
   title: string;
   time?: string;
@@ -357,6 +357,7 @@ const CalendarItemCard = ({
   done?: boolean;
   tag?: string;
   hidden?: boolean;
+  groupId?: string | null;
   onToggle?: () => void;
   onRemove: () => void;
   onToggleVisibility?: () => void;
