@@ -244,32 +244,47 @@ const CalendarPage = () => {
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Scheduled</h3>
               </div>
               <div className="space-y-3">
-                {dayEvents.map((event) => (
-                  <CalendarItemCard
-                    key={`ev-${event.id}`}
-                    title={event.title}
-                    time={event.time}
-                    user={event.user}
-                    hidden={event.hiddenFromPartner}
-                    onRemove={() => { removeEvent(event.id); toast.success("Event deleted"); }}
-                    onToggleVisibility={() => { toggleEventVisibility(event.id); toast.success(event.hiddenFromPartner ? "Now visible to others" : "Hidden from others"); }}
-                  />
-                ))}
-                {scheduledTasks.map((task) => (
-                  <CalendarItemCard
-                    key={`tk-${task.id}`}
-                    title={task.title}
-                    time={task.time}
-                    user={task.assignee}
-                    done={task.done}
-                    tag={task.tag}
-                    onToggle={() => {
-                      if (!task.done) toast.success("🎉 Task complete!");
-                      toggleTask(task.id);
-                    }}
-                    onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
-                  />
-                ))}
+                {dayEvents.map((event) => {
+                  const tomorrow = new Date(event.year, event.month, event.day);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  return (
+                    <CalendarItemCard
+                      key={`ev-${event.id}`}
+                      title={event.title}
+                      time={event.time}
+                      user={event.user}
+                      hidden={event.hiddenFromPartner}
+                      onRemove={() => { removeEvent(event.id); toast.success("Event deleted"); }}
+                      onToggleVisibility={() => { toggleEventVisibility(event.id); toast.success(event.hiddenFromPartner ? "Now visible to others" : "Hidden from others"); }}
+                      onMoveToTomorrow={() => { rescheduleEvent(event.id, tomorrow.getDate(), tomorrow.getMonth(), tomorrow.getFullYear()); toast.success("Moved to tomorrow"); }}
+                      onMoveToDate={(d) => { rescheduleEvent(event.id, d.getDate(), d.getMonth(), d.getFullYear()); toast.success("Event rescheduled"); }}
+                    />
+                  );
+                })}
+                {scheduledTasks.map((task) => {
+                  const tDay = task.scheduledDay ?? new Date().getDate();
+                  const tMonth = task.scheduledMonth ?? new Date().getMonth();
+                  const tYear = task.scheduledYear ?? new Date().getFullYear();
+                  const tmrw = new Date(tYear, tMonth, tDay);
+                  tmrw.setDate(tmrw.getDate() + 1);
+                  return (
+                    <CalendarItemCard
+                      key={`tk-${task.id}`}
+                      title={task.title}
+                      time={task.time}
+                      user={task.assignee}
+                      done={task.done}
+                      tag={task.tag}
+                      onToggle={() => {
+                        if (!task.done) toast.success("🎉 Task complete!");
+                        toggleTask(task.id);
+                      }}
+                      onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
+                      onMoveToTomorrow={() => { updateTask(task.id, { scheduledDay: tmrw.getDate(), scheduledMonth: tmrw.getMonth(), scheduledYear: tmrw.getFullYear() }); toast.success("Moved to tomorrow"); }}
+                      onMoveToDate={(d) => { updateTask(task.id, { scheduledDay: d.getDate(), scheduledMonth: d.getMonth(), scheduledYear: d.getFullYear() }); toast.success("Task rescheduled"); }}
+                    />
+                  );
+                })}
                 {gcalDayEvents.filter(g => !g.allDay).map((ge) => (
                   <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} />
                 ))}
