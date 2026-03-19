@@ -51,6 +51,7 @@ export interface Workout {
   completedDate?: string;
   exercises?: { name: string; sets: number; reps: string }[];
   hiddenFromPartner?: boolean;
+  groupId?: string | null;
 }
 
 export interface GoogleCalendarEvent {
