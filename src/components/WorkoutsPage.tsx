@@ -928,6 +928,7 @@ const WorkoutCard = ({
         </>
       )}
     </motion.div>
+    </>
   );
 };
 
