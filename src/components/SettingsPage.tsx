@@ -104,10 +104,12 @@ const SettingsPage = () => {
   };
 
   const handleDisconnectGoogleCalendar = async () => {
+    if (!activeGroup) return;
     setGcalLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("google-calendar-disconnect", {
+      const { error } = await supabase.functions.invoke("google-calendar-disconnect", {
         headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: { group_id: activeGroup.id },
       });
       if (error) throw error;
       setGcalConnected(false);
