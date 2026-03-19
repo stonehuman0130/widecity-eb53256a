@@ -77,6 +77,7 @@ interface AppContextType {
   filteredEvents: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
   removeEvent: (id: string) => void;
+  rescheduleEvent: (id: string, day: number, month: number, year: number) => Promise<void>;
   tasks: Task[];
   filteredTasks: Task[];
   toggleTask: (id: string) => void;
