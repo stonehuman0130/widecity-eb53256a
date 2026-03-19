@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import UserBadge from "@/components/UserBadge";
 import TaskTag from "@/components/TaskTag";
 import GroupSelector from "@/components/GroupSelector";
+import ItemActionMenu from "@/components/ItemActionMenu";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { formatTime } from "@/lib/formatTime";
 import { toast } from "sonner";
@@ -12,7 +13,7 @@ import { toast } from "sonner";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const { events, filteredEvents, addEvent, addTask, removeEvent, tasks, filteredTasks, toggleTask, removeTask, googleCalendarEvents, hideGcalEvent, toggleEventVisibility } = useAppContext();
+  const { events, filteredEvents, addEvent, addTask, removeEvent, rescheduleEvent, tasks, filteredTasks, toggleTask, removeTask, updateTask, googleCalendarEvents, hideGcalEvent, toggleEventVisibility } = useAppContext();
   const { activeGroup } = useAuth();
   const { showGoogleCalendar } = useGroupContext();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -243,32 +244,47 @@ const CalendarPage = () => {
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Scheduled</h3>
               </div>
               <div className="space-y-3">
-                {dayEvents.map((event) => (
-                  <CalendarItemCard
-                    key={`ev-${event.id}`}
-                    title={event.title}
-                    time={event.time}
-                    user={event.user}
-                    hidden={event.hiddenFromPartner}
-                    onRemove={() => { removeEvent(event.id); toast.success("Event deleted"); }}
-                    onToggleVisibility={() => { toggleEventVisibility(event.id); toast.success(event.hiddenFromPartner ? "Now visible to others" : "Hidden from others"); }}
-                  />
-                ))}
-                {scheduledTasks.map((task) => (
-                  <CalendarItemCard
-                    key={`tk-${task.id}`}
-                    title={task.title}
-                    time={task.time}
-                    user={task.assignee}
-                    done={task.done}
-                    tag={task.tag}
-                    onToggle={() => {
-                      if (!task.done) toast.success("🎉 Task complete!");
-                      toggleTask(task.id);
-                    }}
-                    onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
-                  />
-                ))}
+                {dayEvents.map((event) => {
+                  const tomorrow = new Date(event.year, event.month, event.day);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  return (
+                    <CalendarItemCard
+                      key={`ev-${event.id}`}
+                      title={event.title}
+                      time={event.time}
+                      user={event.user}
+                      hidden={event.hiddenFromPartner}
+                      onRemove={() => { removeEvent(event.id); toast.success("Event deleted"); }}
+                      onToggleVisibility={() => { toggleEventVisibility(event.id); toast.success(event.hiddenFromPartner ? "Now visible to others" : "Hidden from others"); }}
+                      onMoveToTomorrow={() => { rescheduleEvent(event.id, tomorrow.getDate(), tomorrow.getMonth(), tomorrow.getFullYear()); toast.success("Moved to tomorrow"); }}
+                      onMoveToDate={(d) => { rescheduleEvent(event.id, d.getDate(), d.getMonth(), d.getFullYear()); toast.success("Event rescheduled"); }}
+                    />
+                  );
+                })}
+                {scheduledTasks.map((task) => {
+                  const tDay = task.scheduledDay ?? new Date().getDate();
+                  const tMonth = task.scheduledMonth ?? new Date().getMonth();
+                  const tYear = task.scheduledYear ?? new Date().getFullYear();
+                  const tmrw = new Date(tYear, tMonth, tDay);
+                  tmrw.setDate(tmrw.getDate() + 1);
+                  return (
+                    <CalendarItemCard
+                      key={`tk-${task.id}`}
+                      title={task.title}
+                      time={task.time}
+                      user={task.assignee}
+                      done={task.done}
+                      tag={task.tag}
+                      onToggle={() => {
+                        if (!task.done) toast.success("🎉 Task complete!");
+                        toggleTask(task.id);
+                      }}
+                      onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
+                      onMoveToTomorrow={() => { updateTask(task.id, { scheduledDay: tmrw.getDate(), scheduledMonth: tmrw.getMonth(), scheduledYear: tmrw.getFullYear() }); toast.success("Moved to tomorrow"); }}
+                      onMoveToDate={(d) => { updateTask(task.id, { scheduledDay: d.getDate(), scheduledMonth: d.getMonth(), scheduledYear: d.getFullYear() }); toast.success("Task rescheduled"); }}
+                    />
+                  );
+                })}
                 {gcalDayEvents.filter(g => !g.allDay).map((ge) => (
                   <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} />
                 ))}
@@ -298,20 +314,29 @@ const CalendarPage = () => {
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Just Do It</h3>
               </div>
               <div className="space-y-3">
-                {justDoItTasks.map((task) => (
-                  <CalendarItemCard
-                    key={`tk-${task.id}`}
-                    title={task.title}
-                    user={task.assignee}
-                    done={task.done}
-                    tag={task.tag}
-                    onToggle={() => {
-                      if (!task.done) toast.success("🎉 Task complete!");
-                      toggleTask(task.id);
-                    }}
-                    onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
-                  />
-                ))}
+                {justDoItTasks.map((task) => {
+                  const tDay = task.scheduledDay ?? selectedDay;
+                  const tMonth = task.scheduledMonth ?? month;
+                  const tYear = task.scheduledYear ?? year;
+                  const tmrw = new Date(tYear, tMonth, tDay);
+                  tmrw.setDate(tmrw.getDate() + 1);
+                  return (
+                    <CalendarItemCard
+                      key={`tk-${task.id}`}
+                      title={task.title}
+                      user={task.assignee}
+                      done={task.done}
+                      tag={task.tag}
+                      onToggle={() => {
+                        if (!task.done) toast.success("🎉 Task complete!");
+                        toggleTask(task.id);
+                      }}
+                      onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
+                      onMoveToTomorrow={() => { updateTask(task.id, { scheduledDay: tmrw.getDate(), scheduledMonth: tmrw.getMonth(), scheduledYear: tmrw.getFullYear() }); toast.success("Moved to tomorrow"); }}
+                      onMoveToDate={(d) => { updateTask(task.id, { scheduledDay: d.getDate(), scheduledMonth: d.getMonth(), scheduledYear: d.getFullYear() }); toast.success("Task rescheduled"); }}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
@@ -323,7 +348,7 @@ const CalendarPage = () => {
 
 /** Unified card for both events and tasks on the calendar page */
 const CalendarItemCard = ({
-  title, time, user, done, tag, hidden, onToggle, onRemove, onToggleVisibility,
+  title, time, user, done, tag, hidden, onToggle, onRemove, onToggleVisibility, onMoveToTomorrow, onMoveToDate,
 }: {
   title: string;
   time?: string;
@@ -334,9 +359,9 @@ const CalendarItemCard = ({
   onToggle?: () => void;
   onRemove: () => void;
   onToggleVisibility?: () => void;
+  onMoveToTomorrow?: () => void;
+  onMoveToDate?: (date: Date) => void;
 }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   return (
     <div className={`bg-card rounded-xl p-4 shadow-card border transition-all ${done ? "border-habit-green/50" : hidden ? "border-muted/50 opacity-70" : "border-border"}`}>
       {time && time !== "All day" && (
@@ -359,33 +384,13 @@ const CalendarItemCard = ({
           {title}
         </span>
         <UserBadge user={user} />
-        <div className="relative">
-          <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
-            <MoreVertical size={16} />
-          </button>
-          {menuOpen && (
-            <>
-              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-              <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-card">
-                {onToggleVisibility && (
-                  <button
-                    onClick={() => { onToggleVisibility(); setMenuOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-secondary"
-                  >
-                    {hidden ? <Eye size={14} /> : <EyeOff size={14} />}
-                    {hidden ? "Show to others" : "Hide from others"}
-                  </button>
-                )}
-                <button
-                  onClick={() => { onRemove(); setMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+        <ItemActionMenu
+          hidden={hidden}
+          onToggleVisibility={onToggleVisibility}
+          onMoveToTomorrow={onMoveToTomorrow}
+          onMoveToDate={onMoveToDate}
+          onRemove={onRemove}
+        />
       </div>
       {tag && (
         <div className="mt-2 ml-9">
@@ -401,8 +406,8 @@ const CalendarItemCard = ({
     </div>
   );
 };
+
 const GCalCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: () => void }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
   const timeStr = event.allDay
     ? "All day"
     : event.start
@@ -426,26 +431,11 @@ const GCalCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: () =
             Open
           </a>
         )}
-        <div className="relative">
-          <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
-            <MoreVertical size={16} />
-          </button>
-          {menuOpen && (
-            <>
-              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-              <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-card">
-                {onHide && (
-                  <button
-                    onClick={() => { onHide(); setMenuOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-secondary"
-                  >
-                    <EyeOff size={14} /> Hide from others
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+        {onHide && (
+          <ItemActionMenu
+            onToggleVisibility={onHide}
+          />
+        )}
       </div>
       {timeStr === "All day" && (
         <div className="mt-1 ml-9 flex items-center gap-2">

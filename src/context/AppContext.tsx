@@ -77,6 +77,7 @@ interface AppContextType {
   filteredEvents: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
   removeEvent: (id: string) => void;
+  rescheduleEvent: (id: string, day: number, month: number, year: number) => Promise<void>;
   tasks: Task[];
   filteredTasks: Task[];
   toggleTask: (id: string) => void;
@@ -574,6 +575,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("events").delete().eq("id", id);
   };
 
+  const rescheduleEvent = async (id: string, day: number, month: number, year: number) => {
+    setEvents((e) =>
+      e.map((item) => item.id === id ? { ...item, day, month, year } : item)
+    );
+    await supabase.from("events").update({ day, month, year }).eq("id", id);
+  };
+
   const toggleTask = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
@@ -896,7 +904,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AppContext.Provider value={{
       habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
-      events, filteredEvents, addEvent, removeEvent,
+      events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
       tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
