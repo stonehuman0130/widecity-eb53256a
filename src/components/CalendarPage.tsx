@@ -284,7 +284,7 @@ const CalendarPage = () => {
               </div>
               <div className="space-y-3">
                 {gcalDayEvents.filter(g => g.allDay).map((ge) => (
-                  <GCalCard key={`gcal-${ge.id}`} event={ge} />
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} />
                 ))}
               </div>
             </div>
