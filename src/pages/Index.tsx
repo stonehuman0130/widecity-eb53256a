@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BottomNav from "@/components/BottomNav";
 import HomePage from "@/components/HomePage";
@@ -6,16 +6,18 @@ import WorkoutsPage from "@/components/WorkoutsPage";
 import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
 import SettingsPage from "@/components/SettingsPage";
+import LauncherPage from "@/components/LauncherPage";
 import AuthPage from "@/components/AuthPage";
 import { AppProvider } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 
-type Tab = "home" | "workout" | "habits" | "calendar" | "settings";
+type Tab = "launcher" | "home" | "workout" | "habits" | "calendar" | "settings";
 
 const Index = () => {
-  const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const { user, loading, groups, setActiveGroup } = useAuth();
+  const [activeTab, setActiveTab] = useState<Tab>("launcher");
+  const [aiPrefill, setAiPrefill] = useState("");
 
   if (loading) {
     return (
@@ -29,7 +31,22 @@ const Index = () => {
     return <AuthPage />;
   }
 
-  const pages: Record<Tab, React.ReactNode> = {
+  const handleEnterGroup = (groupId: string | null) => {
+    if (groupId) {
+      const group = groups.find((g) => g.id === groupId);
+      if (group) setActiveGroup(group);
+    } else {
+      setActiveGroup(null);
+    }
+    setActiveTab("home");
+  };
+
+  const handleTabChange = (tab: "home" | "workout" | "habits" | "calendar" | "settings") => {
+    setActiveTab(tab);
+  };
+
+  const pages: Record<string, React.ReactNode> = {
+    launcher: <LauncherPage onEnterGroup={handleEnterGroup} />,
     home: <HomePage />,
     workout: <WorkoutsPage />,
     habits: <HabitsPage />,
@@ -52,7 +69,7 @@ const Index = () => {
             {pages[activeTab]}
           </motion.div>
         </AnimatePresence>
-        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <BottomNav activeTab={activeTab === "launcher" ? "home" : activeTab} onTabChange={handleTabChange} />
       </div>
     </AppProvider>
   );
