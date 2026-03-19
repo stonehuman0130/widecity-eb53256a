@@ -353,18 +353,17 @@ const HomePage = () => {
   let visibleEvents: ScheduledEvent[];
 
   if (filter === "mine") {
-    filteredTasks = tasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    visibleEvents = events.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
+    filteredTasksForDay = filteredTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    visibleEvents = filteredEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
   } else if (filter === "partner") {
-    filteredTasks = partnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    filteredTasksForDay = partnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
     visibleEvents = partnerEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
   } else {
-    // Household: own household items + partner household items
-    const myHousehold = tasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    const myHousehold = filteredTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
     const partnerHousehold = partnerTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    filteredTasks = [...myHousehold, ...partnerHousehold];
+    filteredTasksForDay = [...myHousehold, ...partnerHousehold];
 
-    const myHouseholdEvents = events.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
+    const myHouseholdEvents = filteredEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
     const partnerHouseholdEvents = partnerEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
     visibleEvents = [...myHouseholdEvents, ...partnerHouseholdEvents];
   }
