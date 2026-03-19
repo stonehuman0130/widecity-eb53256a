@@ -437,25 +437,7 @@ const HomePage = () => {
       </div>
 
       {/* Group Selector */}
-      {groups.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide -mx-1 px-1">
-          {groups.map((group) => (
-            <button
-              key={group.id}
-              onClick={() => setActiveGroup(activeGroup?.id === group.id ? null : group)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border whitespace-nowrap text-sm font-medium transition-all flex-shrink-0 ${
-                activeGroup?.id === group.id
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground"
-              }`}
-            >
-              <span>{group.emoji}</span>
-              <span>{group.name}</span>
-              <span className="text-[10px] opacity-60">{group.members.length}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <GroupSelector />
 
       <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
         {filters.map((f) => (

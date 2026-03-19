@@ -30,7 +30,7 @@ const HabitsPage = () => {
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
 
   const isViewingPartner = viewFilter === "partner";
-  const displayHabits = isViewingPartner ? partnerHabits : habits;
+  const displayHabits = isViewingPartner ? partnerHabits : filteredHabits;
 
   const morningHabits = displayHabits.filter((h) => h.category === "morning");
   const otherHabits = displayHabits.filter((h) => h.category === "other");
