@@ -519,14 +519,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const addHabit = async (label: string, category: "morning" | "other") => {
     if (!user) return;
+    const groupId = activeGroup?.id ?? null;
     const { data, error } = await supabase
       .from("habits")
-      .insert({ user_id: user.id, label, category })
+      .insert({ user_id: user.id, label, category, group_id: groupId })
       .select()
       .single();
 
     if (data && !error) {
-      setHabits((h) => [...h, { id: data.id, label, done: false, category, completionDates: [] }]);
+      setHabits((h) => [...h, { id: data.id, label, done: false, category, completionDates: [], groupId }]);
     }
   };
 
@@ -594,6 +595,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     if (existingRows && existingRows.length > 0) return;
 
+    const groupId = activeGroup?.id ?? null;
     const { data, error } = await supabase
       .from("events")
       .insert({
@@ -605,12 +607,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         month: event.month,
         year: event.year,
         assignee: event.user,
+        group_id: groupId,
       })
       .select()
       .single();
 
     if (data && !error) {
-      setEvents((e) => [...e, { ...event, time: event.time || "All day", id: data.id }]);
+      setEvents((e) => [...e, { ...event, time: event.time || "All day", id: data.id, groupId }]);
     }
   };
 
@@ -636,6 +639,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const addTask = async (task: Omit<Task, "id" | "done">) => {
     if (!user) return;
+    const groupId = activeGroup?.id ?? null;
     const { data, error } = await supabase
       .from("tasks")
       .insert({
@@ -648,12 +652,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         scheduled_day: task.scheduledDay,
         scheduled_month: task.scheduledMonth,
         scheduled_year: task.scheduledYear,
+        group_id: groupId,
       })
       .select()
       .single();
 
     if (data && !error) {
-      setTasks((t) => [...t, { ...task, id: data.id, done: false }]);
+      setTasks((t) => [...t, { ...task, id: data.id, done: false, groupId }]);
     }
   };
 
