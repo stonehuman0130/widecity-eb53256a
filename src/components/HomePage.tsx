@@ -332,12 +332,8 @@ const HomePage = () => {
     toggleHabit(id);
   }, [myMorningHabits, toggleHabit]);
 
-  const partnerName = partner?.display_name || "Partner";
-  const filters: { id: Filter; label: string }[] = [
-    { id: "mine", label: "Mine" },
-    { id: "partner", label: `${partnerName}'s` },
-    { id: "household", label: "Household" },
-  ];
+  const { filters: groupFilters, otherName, hasOther, showGoogleCalendar } = useGroupContext();
+  const partnerName = otherName;
 
   const sd = selectedDate;
   const selDay = sd.getDate();
