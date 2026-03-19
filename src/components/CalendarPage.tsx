@@ -228,7 +228,7 @@ const CalendarPage = () => {
       ) : (
         <div className="space-y-5 pb-4">
           {/* Scheduled section (events + tasks with time) */}
-          {(dayEvents.length > 0 || scheduledTasks.length > 0) && (
+          {(dayEvents.length > 0 || scheduledTasks.length > 0 || gcalDayEvents.filter(g => !g.allDay).length > 0) && (
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <Clock size={16} className="text-muted-foreground" />
@@ -259,9 +259,26 @@ const CalendarPage = () => {
                     onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
                   />
                 ))}
+                {gcalDayEvents.filter(g => !g.allDay).map((ge) => (
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} />
+                ))}
               </div>
             </div>
           )}
+
+          {/* Google Calendar all-day events */}
+          {gcalDayEvents.filter(g => g.allDay).length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google Calendar</span>
+              </div>
+              <div className="space-y-3">
+                {gcalDayEvents.filter(g => g.allDay).map((ge) => (
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} />
+                ))}
+              </div>
+            </div>
+          )
 
           {/* Just Do It section (tasks without time) */}
           {justDoItTasks.length > 0 && (
