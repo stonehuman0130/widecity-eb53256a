@@ -575,6 +575,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("events").delete().eq("id", id);
   };
 
+  const rescheduleEvent = async (id: string, day: number, month: number, year: number) => {
+    setEvents((e) =>
+      e.map((item) => item.id === id ? { ...item, day, month, year } : item)
+    );
+    await supabase.from("events").update({ day, month, year }).eq("id", id);
+  };
+
   const toggleTask = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
