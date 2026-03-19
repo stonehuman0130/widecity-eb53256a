@@ -75,7 +75,42 @@ const WorkoutsPage = () => {
   const { workouts, filteredWorkouts, filteredPartnerWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, getPartnerWorkoutsForDate } = useAppContext();
   const { partner } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
-...
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showCongrats, setShowCongrats] = useState(false);
+  const { listening: wListen, start: wStart, stop: wStop, isSupported: wSpeech } = useSpeechToText({
+    onResult: (t) => setAiPrompt((p) => (p ? p + " " + t : t)),
+  });
+  const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
+  const [aiWeeklyPlan, setAiWeeklyPlan] = useState<AIDayPlan[] | null>(null);
+  const [selectedDate, setSelectedDate] = useState(todayStr());
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [customTitle, setCustomTitle] = useState("");
+  const [customDuration, setCustomDuration] = useState("30");
+  const [customCal, setCustomCal] = useState("200");
+  // Delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState<{ filter: "all" | "week" | "month" | "date" | "tomorrow"; message: string } | null>(null);
+  // Exercise editing
+  const [editingWorkout, setEditingWorkout] = useState<{ workoutId: string; exerciseIndex: number } | null>(null);
+  const [editExName, setEditExName] = useState("");
+  const [editExSets, setEditExSets] = useState("");
+  const [editExReps, setEditExReps] = useState("");
+
+  const isViewingPartner = viewFilter === "partner";
+  const today = todayStr();
+
+  const dateRange = useMemo(() => {
+    const dates: string[] = [];
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    for (let i = 0; i < 28; i++) {
+      dates.push(fmtDate(d));
+      d.setDate(d.getDate() + 1);
+    }
+    return dates;
+  }, []);
+
   const dateWorkouts = useMemo(() => {
     if (isViewingPartner) return getPartnerWorkoutsForDate(selectedDate);
     return filteredWorkouts.filter((w) => w.scheduledDate === selectedDate || w.completedDate === selectedDate);
