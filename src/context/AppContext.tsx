@@ -98,6 +98,7 @@ interface AppContextType {
   setWorkouts: (workouts: Workout[]) => void;
   addWorkouts: (workouts: Workout[]) => void;
   rescheduleWorkout: (id: string, newDate: string) => void;
+  rescheduleWorkoutCascade: (id: string, newDate: string, shiftFollowing: boolean) => Promise<void>;
   getHabitStreak: (id: string) => number;
   getHabitsForDate: (date: string) => Habit[];
   getWorkoutsForDate: (date: string) => Workout[];
