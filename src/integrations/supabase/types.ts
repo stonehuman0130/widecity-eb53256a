@@ -475,6 +475,17 @@ export type Database = {
       }
       join_group: { Args: { _code: string }; Returns: Json }
       leave_group: { Args: { _group_id: string }; Returns: Json }
+      migrate_group_items: {
+        Args: {
+          _copy_events?: boolean
+          _copy_habits?: boolean
+          _copy_tasks?: boolean
+          _copy_workouts?: boolean
+          _source_group_id: string
+          _target_group_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
