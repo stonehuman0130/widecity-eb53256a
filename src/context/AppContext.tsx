@@ -36,6 +36,7 @@ export interface Task {
   scheduledMonth?: number;
   scheduledYear?: number;
   hiddenFromPartner?: boolean;
+  groupId?: string | null;
 }
 
 export interface Workout {
