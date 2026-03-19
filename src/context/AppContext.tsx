@@ -9,6 +9,7 @@ export interface Habit {
   category: "morning" | "other";
   completionDates: string[];
   hiddenFromPartner?: boolean;
+  groupId?: string | null;
 }
 
 export interface ScheduledEvent {
