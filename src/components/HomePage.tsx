@@ -354,15 +354,15 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
     dayTasks = filteredTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
     visibleEvents = filteredEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
   } else if (filter === "partner") {
-    dayTasks = partnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    visibleEvents = partnerEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
+    dayTasks = filteredPartnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    visibleEvents = filteredPartnerEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
   } else {
     const myHousehold = filteredTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    const partnerHousehold = partnerTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    const partnerHousehold = filteredPartnerTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
     dayTasks = [...myHousehold, ...partnerHousehold];
 
     const myHouseholdEvents = filteredEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
-    const partnerHouseholdEvents = partnerEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
+    const partnerHouseholdEvents = filteredPartnerEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
     visibleEvents = [...myHouseholdEvents, ...partnerHouseholdEvents];
   }
 
