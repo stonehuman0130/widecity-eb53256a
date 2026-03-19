@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import UserBadge from "@/components/UserBadge";
 import TaskTag from "@/components/TaskTag";
 import GroupSelector from "@/components/GroupSelector";
+import ItemActionMenu from "@/components/ItemActionMenu";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { formatTime } from "@/lib/formatTime";
 import { toast } from "sonner";
