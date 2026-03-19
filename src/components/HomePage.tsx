@@ -375,11 +375,16 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
 
-  // Google Calendar events for the selected date (only in "All" mode, not group-specific)
+  // Google Calendar events for the selected date — filtered by assignee like regular events
   const gcalEventsForDay = showGoogleCalendar ? googleCalendarEvents.filter((ge) => {
     const startDate = ge.start?.split("T")[0] || ge.start;
     const selDateStr = `${selYear}-${String(selMonth + 1).padStart(2, "0")}-${String(selDay).padStart(2, "0")}`;
-    return startDate === selDateStr;
+    if (startDate !== selDateStr) return false;
+    const assignee = ge.assignee || "me";
+    if (filter === "mine") return assignee === "me";
+    if (filter === "partner") return assignee === "partner";
+    if (filter === "household") return assignee === "both";
+    return true;
   }) : [];
   const gcalTimed = gcalEventsForDay.filter((ge) => !ge.allDay);
   const gcalAllDay = gcalEventsForDay.filter((ge) => ge.allDay);
