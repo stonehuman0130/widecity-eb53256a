@@ -14,6 +14,7 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CalendarPage = () => {
   const { events, filteredEvents, addEvent, addTask, removeEvent, tasks, filteredTasks, toggleTask, removeTask, googleCalendarEvents } = useAppContext();
   const { activeGroup } = useAuth();
+  const { showGoogleCalendar } = useGroupContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [showAddForm, setShowAddForm] = useState(false);
