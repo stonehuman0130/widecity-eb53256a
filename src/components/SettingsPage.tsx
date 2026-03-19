@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { User, Bell, Shield, Palette, HelpCircle, LogOut, ChevronRight, Link2, Copy, Check, Unlink, Loader2, Calendar, ExternalLink } from "lucide-react";
+import { User, Bell, Shield, Palette, HelpCircle, LogOut, ChevronRight, Link2, Copy, Check, Unlink, Loader2, Calendar, ExternalLink, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import GroupManager from "@/components/GroupManager";
 
 const settingsItems = [
   { icon: Bell, label: "Notifications", desc: "Reminders & alerts" },
