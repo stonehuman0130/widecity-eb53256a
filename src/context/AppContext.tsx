@@ -804,7 +804,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const rescheduleWorkoutCascade = async (id: string, newDate: string, shiftFollowing: boolean) => {
-    const workout = workoutsState.find((w) => w.id === id);
+    const workout = workouts.find((w) => w.id === id);
     if (!workout?.scheduledDate) {
       await rescheduleWorkout(id, newDate);
       return;
