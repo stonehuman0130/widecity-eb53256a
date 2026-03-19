@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Loader2, Mic, ChevronRight, Plus } from "lucide-react";
+import { Sparkles, Mic, ChevronRight, Plus, Settings } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 interface LauncherPageProps {
   onEnterGroup: (groupId: string | null) => void;
   onCreateGroup?: () => void;
+  onOpenSettings?: () => void;
 }
 
-const LauncherPage = ({ onEnterGroup, onCreateGroup }: LauncherPageProps) => {
+const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherPageProps) => {
   const { profile, groups } = useAuth();
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);

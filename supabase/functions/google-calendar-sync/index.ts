@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type Assignee = "me" | "partner" | "both";
+
 async function refreshAccessToken(refreshToken: string): Promise<{ access_token: string; expires_in: number } | null> {
   const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
   const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
@@ -26,6 +28,13 @@ async function refreshAccessToken(refreshToken: string): Promise<{ access_token:
   }
 
   return await res.json();
+}
+
+function toViewerPerspective(assignee: Assignee, isOwnerView: boolean): Assignee {
+  if (isOwnerView) return assignee;
+  if (assignee === "me") return "partner";
+  if (assignee === "partner") return "me";
+  return "both";
 }
 
 Deno.serve(async (req) => {
