@@ -808,6 +808,7 @@ const EventCard = ({ event, onRemove, onToggleVisibility, onReschedule, onCongra
         <div className="mt-2 ml-9 flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{dateLabel} · All day</span>
           {event.hiddenFromPartner && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
+          <GroupBadge groupId={event.groupId} />
         </div>
       )}
     </motion.div>
