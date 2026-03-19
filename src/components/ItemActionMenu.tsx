@@ -70,12 +70,14 @@ const ItemActionMenu = ({ hidden, onToggleVisibility, onMoveToTomorrow, onMoveTo
                 </PopoverContent>
               </Popover>
             )}
-            <button
-              onClick={() => { onRemove(); setMenuOpen(false); }}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 size={14} /> Delete
-            </button>
+            {onRemove && (
+              <button
+                onClick={() => { onRemove(); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            )}
           </div>
         </>
       )}
