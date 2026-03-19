@@ -98,6 +98,26 @@ const HabitDateViewer = () => {
           <p className="text-sm text-muted-foreground text-center py-2">No habits tracked on this date</p>
         )}
 
+        {/* Water intake for this date */}
+        {historicalWater && (
+          <div className="mt-3 pt-3 border-t border-border">
+            <div className="flex items-center gap-2 mb-1">
+              <Droplets size={14} className="text-primary" />
+              <span className="text-sm font-medium">Water Intake</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-bold">{historicalWater.intake.toFixed(1)}L</span>
+              <span className="text-muted-foreground">/ {historicalWater.goal}L</span>
+            </div>
+            <div className="mt-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all"
+                style={{ width: `${historicalWater.goal > 0 ? Math.min((historicalWater.intake / historicalWater.goal) * 100, 100) : 0}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         <button
           onClick={() => setViewingDate(null)}
           className="mt-3 text-xs text-muted-foreground font-medium w-full text-center"

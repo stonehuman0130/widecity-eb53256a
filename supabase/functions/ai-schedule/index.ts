@@ -254,8 +254,8 @@ serve(async (req) => {
     if (intent === "create" && timeMention) {
       if (!dateSignals.hasDate) {
         return askClarification({
-          question: `I caught "${timeMention.raw}". What date is this for, and is it work, personal, or household?`,
-          suggestions: ["Today · Work", "Today · Personal", "Tomorrow · Work", "Tomorrow · Personal"],
+          question: `I caught "${timeMention.raw}". What date is this for?`,
+          suggestions: ["Today", "Tomorrow"],
           spokenResponse: `I heard ${timeMention.raw}. What day is that for?`,
           context: `Detected a timed request (${timeMention.raw}) but no date was provided.`,
         });
