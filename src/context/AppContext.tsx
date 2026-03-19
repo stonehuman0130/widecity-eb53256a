@@ -50,6 +50,17 @@ export interface Workout {
   hiddenFromPartner?: boolean;
 }
 
+export interface GoogleCalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location: string | null;
+  htmlLink: string;
+}
+
 interface AppContextType {
   habits: Habit[];
   toggleHabit: (id: string) => void;
@@ -78,6 +89,7 @@ interface AppContextType {
   getHabitStreak: (id: string) => number;
   getHabitsForDate: (date: string) => Habit[];
   getWorkoutsForDate: (date: string) => Workout[];
+  googleCalendarEvents: GoogleCalendarEvent[];
   // Partner data
   partnerHabits: Habit[];
   partnerEvents: ScheduledEvent[];
