@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
-import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Mic } from "lucide-react";
+import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Mic, Copy, Pencil, Replace } from "lucide-react";
 import { useAppContext, Workout } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import CongratsPopup from "@/components/CongratsPopup";
@@ -53,10 +54,24 @@ const MANUAL_ACTIVITIES = [
   { emoji: "⚽", title: "Sports", tag: "Full Body", defaultDuration: "60 min", defaultCal: 500 },
 ];
 
+// Detect delete/management intent from natural language
+function detectManagementIntent(prompt: string): { type: "delete"; filter: "all" | "week" | "month" | "date" | "tomorrow"; } | null {
+  const lower = prompt.toLowerCase().trim();
+  const deletePatterns = /\b(delete|remove|clear|wipe|erase|get rid of|cancel)\b/;
+  if (!deletePatterns.test(lower)) return null;
+
+  if (/\b(all|every|everything)\b/.test(lower)) return { type: "delete", filter: "all" };
+  if (/\b(month|monthly|30.day|4.week)\b/.test(lower)) return { type: "delete", filter: "month" };
+  if (/\b(week|weekly|7.day|this week|next week)\b/.test(lower)) return { type: "delete", filter: "week" };
+  if (/\btomorrow\b/.test(lower)) return { type: "delete", filter: "tomorrow" };
+  // Default broad delete = all
+  return { type: "delete", filter: "all" };
+}
+
 type ViewFilter = "mine" | "partner";
 
 const WorkoutsPage = () => {
-  const { workouts, filteredWorkouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
+  const { workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
   const { partner } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -67,13 +82,19 @@ const WorkoutsPage = () => {
   });
   const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
   const [aiWeeklyPlan, setAiWeeklyPlan] = useState<AIDayPlan[] | null>(null);
-  // planType is now inferred by AI, not user-selected
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
   const [customDuration, setCustomDuration] = useState("30");
   const [customCal, setCustomCal] = useState("200");
+  // Delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState<{ filter: "all" | "week" | "month" | "date" | "tomorrow"; message: string } | null>(null);
+  // Exercise editing
+  const [editingWorkout, setEditingWorkout] = useState<{ workoutId: string; exerciseIndex: number } | null>(null);
+  const [editExName, setEditExName] = useState("");
+  const [editExSets, setEditExSets] = useState("");
+  const [editExReps, setEditExReps] = useState("");
 
   const isViewingPartner = viewFilter === "partner";
   const today = todayStr();
@@ -94,7 +115,6 @@ const WorkoutsPage = () => {
     return filteredWorkouts.filter((w) => w.scheduledDate === selectedDate || w.completedDate === selectedDate);
   }, [selectedDate, filteredWorkouts, getPartnerWorkoutsForDate, isViewingPartner]);
 
-
   const activeWorkouts = isViewingPartner ? partnerWorkouts : filteredWorkouts;
 
   const missedWorkouts = useMemo(() => {
@@ -102,10 +122,26 @@ const WorkoutsPage = () => {
     return filteredWorkouts.filter((w) => w.scheduledDate && w.scheduledDate < today && !w.done);
   }, [filteredWorkouts, today, isViewingPartner]);
 
-  const isToday = selectedDate === today;
-
   const handleAiPlan = async () => {
     if (!aiPrompt.trim()) return;
+
+    // Check for management commands first
+    const mgmt = detectManagementIntent(aiPrompt);
+    if (mgmt) {
+      const labels: Record<string, string> = {
+        all: "all your workouts",
+        week: "this week's workouts",
+        month: "this month's workouts",
+        tomorrow: "tomorrow's workout",
+        date: "workout for the selected date",
+      };
+      setDeleteConfirm({
+        filter: mgmt.filter,
+        message: `Are you sure you want to delete ${labels[mgmt.filter]}? This cannot be undone.`,
+      });
+      return;
+    }
+
     setAiLoading(true);
     try {
       const body: any = { prompt: aiPrompt, startDate: today };
@@ -126,6 +162,22 @@ const WorkoutsPage = () => {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    let filter = deleteConfirm.filter;
+    let date: string | undefined;
+    if (filter === "tomorrow") {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      date = fmtDate(d);
+      filter = "date";
+    }
+    const count = await removeWorkoutsByFilter(filter as any, date);
+    toast.success(`Deleted ${count} workout${count !== 1 ? "s" : ""}`);
+    setDeleteConfirm(null);
+    setAiPrompt("");
   };
 
   const selectPlan = (plan: AIPlan, scheduledDate?: string) => {
@@ -224,6 +276,56 @@ const WorkoutsPage = () => {
     toggleWorkout(id);
   };
 
+  // Copy partner workouts for the selected date to own schedule
+  const copyPartnerWorkouts = () => {
+    const partnerDateWorkouts = getPartnerWorkoutsForDate(selectedDate);
+    if (partnerDateWorkouts.length === 0) {
+      toast.error("No workouts to copy for this date");
+      return;
+    }
+    const newWorkouts: Workout[] = partnerDateWorkouts.map((w) => ({
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+      title: w.title,
+      duration: w.duration,
+      cal: w.cal,
+      tag: w.tag,
+      emoji: w.emoji,
+      done: false,
+      scheduledDate: w.scheduledDate || selectedDate,
+      exercises: w.exercises ? [...w.exercises] : undefined,
+    }));
+    addWorkouts(newWorkouts);
+    toast.success(`Copied ${newWorkouts.length} workout${newWorkouts.length > 1 ? "s" : ""} to your schedule`);
+    setViewFilter("mine");
+  };
+
+  // Exercise editing handlers
+  const startEditExercise = (workoutId: string, index: number, ex: { name: string; sets: number; reps: string }) => {
+    setEditingWorkout({ workoutId, exerciseIndex: index });
+    setEditExName(ex.name);
+    setEditExSets(String(ex.sets));
+    setEditExReps(ex.reps);
+  };
+
+  const saveExerciseEdit = () => {
+    if (!editingWorkout) return;
+    const workout = workouts.find((w) => w.id === editingWorkout.workoutId);
+    if (!workout?.exercises) return;
+    const updated = [...workout.exercises];
+    updated[editingWorkout.exerciseIndex] = { name: editExName, sets: parseInt(editExSets) || 1, reps: editExReps };
+    updateWorkout(editingWorkout.workoutId, { exercises: updated });
+    setEditingWorkout(null);
+    toast.success("Exercise updated");
+  };
+
+  const deleteExercise = (workoutId: string, index: number) => {
+    const workout = workouts.find((w) => w.id === workoutId);
+    if (!workout?.exercises) return;
+    const updated = workout.exercises.filter((_, i) => i !== index);
+    updateWorkout(workoutId, { exercises: updated });
+    toast.success("Exercise removed");
+  };
+
   const completedCount = activeWorkouts.filter((w) => w.done).length;
   const totalCal = activeWorkouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
   const todayCal = activeWorkouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
@@ -236,12 +338,53 @@ const WorkoutsPage = () => {
         <CongratsPopup type="workout" show={true} onClose={() => setShowCongrats(false)} />
       )}
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Workouts</AlertDialogTitle>
+            <AlertDialogDescription>{deleteConfirm?.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Exercise Edit Dialog */}
+      <Dialog open={!!editingWorkout} onOpenChange={(open) => { if (!open) setEditingWorkout(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Pencil size={16} /> Edit Exercise</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Exercise Name</label>
+              <input value={editExName} onChange={(e) => setEditExName(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none mt-1 border border-border" />
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-xs font-medium text-muted-foreground">Sets</label>
+                <input type="number" value={editExSets} onChange={(e) => setEditExSets(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none mt-1 border border-border" />
+              </div>
+              <div className="flex-1">
+                <label className="text-xs font-medium text-muted-foreground">Reps</label>
+                <input value={editExReps} onChange={(e) => setEditExReps(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none mt-1 border border-border" />
+              </div>
+            </div>
+            <button onClick={saveExerciseEdit} disabled={!editExName.trim()} className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
+              Save Changes
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <header className="pt-12 pb-4">
         <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Stay active and healthy together</p>
       </header>
 
-      {/* Group Selector */}
       <GroupSelector />
 
       {/* Mine / Member Toggle */}
@@ -261,20 +404,21 @@ const WorkoutsPage = () => {
         </div>
       )}
 
-      {/* AI Workout Planner - only for own view */}
+      {/* AI Workout Planner */}
       {!isViewingPartner && (
         <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={16} className="text-purple-500" />
-            <span className="text-sm font-semibold">AI Workout Planner</span>
+            <span className="text-sm font-semibold">AI Workout Assistant</span>
           </div>
+          <p className="text-xs text-muted-foreground mb-2">Generate plans, delete workouts, or manage your schedule with natural language</p>
 
           <div className="flex gap-2">
             <input
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAiPlan()}
-              placeholder="e.g. Give me a chest workout, Build a weekly plan, Monthly strength program..."
+              placeholder="e.g. Weekly push/pull plan, Delete all workouts, Monthly program..."
               className="flex-1 bg-card rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground border border-border min-w-0"
             />
             {wSpeech && (
@@ -352,10 +496,7 @@ const WorkoutsPage = () => {
             </div>
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
               {aiWeeklyPlan.map((day, i) => (
-                <div
-                  key={i}
-                  className={`bg-card rounded-xl border p-3 ${day.isRest ? "border-border opacity-60" : "border-border"}`}
-                >
+                <div key={i} className={`bg-card rounded-xl border p-3 ${day.isRest ? "border-border opacity-60" : "border-border"}`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-xs font-semibold text-muted-foreground">{day.dayLabel}</span>
@@ -380,16 +521,10 @@ const WorkoutsPage = () => {
               ))}
             </div>
             <div className="flex gap-2 mt-3">
-              <button
-                onClick={acceptWeeklyPlan}
-                className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
-              >
+              <button onClick={acceptWeeklyPlan} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold">
                 ✅ Add All to Schedule
               </button>
-              <button
-                onClick={() => setAiWeeklyPlan(null)}
-                className="px-4 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-medium"
-              >
+              <button onClick={() => setAiWeeklyPlan(null)} className="px-4 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-medium">
                 Cancel
               </button>
             </div>
@@ -413,7 +548,7 @@ const WorkoutsPage = () => {
       </div>
 
       {/* Missed Workouts Banner */}
-      {missedWorkouts.length > 0 && isToday && !isViewingPartner && (
+      {missedWorkouts.length > 0 && selectedDate === today && !isViewingPartner && (
         <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 mb-5">
           <h3 className="text-sm font-semibold text-destructive flex items-center gap-2 mb-3">
             <AlertTriangle size={14} />
@@ -430,16 +565,10 @@ const WorkoutsPage = () => {
                   </p>
                 </div>
                 <div className="flex gap-1.5">
-                  <button
-                    onClick={() => handleReschedule(w.id, today)}
-                    className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium flex items-center gap-1"
-                  >
+                  <button onClick={() => handleReschedule(w.id, today)} className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium flex items-center gap-1">
                     <RotateCcw size={10} /> Today
                   </button>
-                  <button
-                    onClick={() => handleReschedule(w.id, getNextDay(today))}
-                    className="px-2.5 py-1.5 rounded-lg bg-secondary text-foreground text-xs font-medium flex items-center gap-1"
-                  >
+                  <button onClick={() => handleReschedule(w.id, getNextDay(today))} className="px-2.5 py-1.5 rounded-lg bg-secondary text-foreground text-xs font-medium flex items-center gap-1">
                     <ArrowRight size={10} /> Tomorrow
                   </button>
                 </div>
@@ -493,52 +622,30 @@ const WorkoutsPage = () => {
         </div>
       </div>
 
-      {/* Quick Add Activities - only for own view */}
+      {/* Quick Add Activities */}
       {!isViewingPartner && (
         <div className="mb-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">Quick Add</h3>
-            <button
-              onClick={() => setShowManualAdd(!showManualAdd)}
-              className="text-xs text-primary font-semibold flex items-center gap-1"
-            >
+            <button onClick={() => setShowManualAdd(!showManualAdd)} className="text-xs text-primary font-semibold flex items-center gap-1">
               <Plus size={12} /> Custom
             </button>
           </div>
 
           {showManualAdd && (
             <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
-              <input
-                value={customTitle}
-                onChange={(e) => setCustomTitle(e.target.value)}
-                placeholder="Activity name..."
-                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
-              />
+              <input value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="Activity name..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground" />
               <div className="flex gap-2">
                 <div className="flex-1">
                   <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
-                  <input
-                    type="number"
-                    value={customDuration}
-                    onChange={(e) => setCustomDuration(e.target.value)}
-                    className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5"
-                  />
+                  <input type="number" value={customDuration} onChange={(e) => setCustomDuration(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
                 </div>
                 <div className="flex-1">
                   <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
-                  <input
-                    type="number"
-                    value={customCal}
-                    onChange={(e) => setCustomCal(e.target.value)}
-                    className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5"
-                  />
+                  <input type="number" value={customCal} onChange={(e) => setCustomCal(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
                 </div>
               </div>
-              <button
-                onClick={addCustomActivity}
-                disabled={!customTitle.trim()}
-                className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
-              >
+              <button onClick={addCustomActivity} disabled={!customTitle.trim()} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
                 Add Activity
               </button>
             </div>
@@ -559,19 +666,30 @@ const WorkoutsPage = () => {
         </div>
       )}
 
-      {/* Workout Section — single selected date only */}
+      {/* Workout Section */}
       <section className="mb-6">
-        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-          <CalIcon size={14} className="text-muted-foreground" />
-          {isViewingPartner
-            ? `${partnerName}'s Workouts`
-            : selectedDate === today
-              ? "Today's Workouts"
-              : selectedDate > today
-                ? "Upcoming Workout"
-                : `Workout for ${new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
-          <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <CalIcon size={14} className="text-muted-foreground" />
+            {isViewingPartner
+              ? `${partnerName}'s Workouts`
+              : selectedDate === today
+                ? "Today's Workouts"
+                : selectedDate > today
+                  ? "Upcoming Workout"
+                  : `Workout for ${new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+            <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
+          </h3>
+          {/* Copy partner's plan button */}
+          {isViewingPartner && dateWorkouts.length > 0 && (
+            <button
+              onClick={copyPartnerWorkouts}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
+            >
+              <Copy size={12} /> Copy to Mine
+            </button>
+          )}
+        </div>
 
         {dateWorkouts.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">
@@ -590,7 +708,8 @@ const WorkoutsPage = () => {
                 onToggle={handleToggleWorkout}
                 onRemove={removeWorkout}
                 onSelectExercise={setSelectedExercise}
-                isToday={selectedDate === today}
+                onEditExercise={startEditExercise}
+                onDeleteExercise={deleteExercise}
                 readOnly={isViewingPartner}
               />
             ))}
@@ -612,14 +731,16 @@ const WorkoutCard = ({
   onToggle,
   onRemove,
   onSelectExercise,
-  isToday,
+  onEditExercise,
+  onDeleteExercise,
   readOnly,
 }: {
   workout: Workout;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onSelectExercise: (name: string) => void;
-  isToday: boolean;
+  onEditExercise: (workoutId: string, index: number, ex: { name: string; sets: number; reps: string }) => void;
+  onDeleteExercise: (workoutId: string, index: number) => void;
   readOnly?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -629,9 +750,20 @@ const WorkoutCard = ({
     <motion.div layout className={`bg-card rounded-xl border shadow-card overflow-hidden ${workout.done ? "border-habit-green/50" : "border-border"}`}>
       <div className="p-4">
         <div className="flex items-center gap-3">
+          {/* Completion circle — always visible for own workouts */}
+          {!readOnly && (
+            <button
+              onClick={() => onToggle(workout.id)}
+              className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                workout.done ? "bg-habit-green border-habit-green" : "border-muted-foreground/30 hover:border-primary"
+              }`}
+            >
+              {workout.done && <Check size={14} className="text-primary-foreground" />}
+            </button>
+          )}
           <span className="text-2xl">{workout.emoji}</span>
           <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-semibold truncate">{workout.title}</p>
+            <p className={`text-[15px] font-semibold truncate ${workout.done ? "line-through text-muted-foreground" : ""}`}>{workout.title}</p>
             <div className="flex items-center gap-3 mt-0.5">
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Clock size={11} /> {workout.duration}
@@ -644,38 +776,26 @@ const WorkoutCard = ({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            {isToday && !readOnly && (
-              <button
-                onClick={() => onToggle(workout.id)}
-                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  workout.done ? "bg-habit-green border-habit-green" : "border-muted hover:border-primary"
-                }`}
-              >
-                {workout.done && <Check size={14} className="text-primary-foreground" />}
+          {!readOnly && (
+            <div className="relative">
+              <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 text-muted-foreground">
+                <MoreVertical size={16} />
               </button>
-            )}
-            {!readOnly && (
-              <div className="relative">
-                <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 text-muted-foreground">
-                  <MoreVertical size={16} />
-                </button>
-                {menuOpen && (
-                  <>
-                    <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} />
-                    <div className="absolute right-0 top-8 z-50 min-w-[120px] rounded-xl border border-border bg-card shadow-card overflow-hidden">
-                      <button
-                        onClick={() => { onRemove(workout.id); setMenuOpen(false); }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+              {menuOpen && (
+                <>
+                  <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-8 z-50 min-w-[120px] rounded-xl border border-border bg-card shadow-card overflow-hidden">
+                    <button
+                      onClick={() => { onRemove(workout.id); setMenuOpen(false); }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -699,20 +819,39 @@ const WorkoutCard = ({
               >
                 <div className="px-4 pb-3 space-y-2">
                   {workout.exercises.map((ex, i) => (
-                    <button
-                      key={i}
-                      onClick={() => onSelectExercise(ex.name)}
-                      className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
-                    >
-                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{ex.name}</p>
-                        <p className="text-xs text-muted-foreground">{ex.sets} sets × {ex.reps}</p>
-                      </div>
-                      <Target size={14} className="text-muted-foreground flex-shrink-0" />
-                    </button>
+                    <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary group">
+                      <button
+                        onClick={() => onSelectExercise(ex.name)}
+                        className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                      >
+                        <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{ex.name}</p>
+                          <p className="text-xs text-muted-foreground">{ex.sets} sets × {ex.reps}</p>
+                        </div>
+                        <Target size={14} className="text-muted-foreground flex-shrink-0" />
+                      </button>
+                      {!readOnly && (
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => onEditExercise(workout.id, i, ex)}
+                            className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                            title="Edit exercise"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            onClick={() => onDeleteExercise(workout.id, i)}
+                            className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                            title="Remove exercise"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </motion.div>
