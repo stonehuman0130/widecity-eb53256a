@@ -91,6 +91,8 @@ interface AppContextType {
   filteredWorkouts: Workout[];
   toggleWorkout: (id: string) => void;
   removeWorkout: (id: string) => void;
+  removeWorkoutsByFilter: (filter: "all" | "week" | "month" | "date", date?: string) => Promise<number>;
+  updateWorkout: (id: string, updates: Partial<Workout>) => void;
   setWorkouts: (workouts: Workout[]) => void;
   addWorkouts: (workouts: Workout[]) => void;
   rescheduleWorkout: (id: string, newDate: string) => void;
@@ -111,10 +113,10 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const todayStr = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
+const fmtDateCtx = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const todayStr = () => fmtDateCtx(new Date());
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { user, partner, activeGroup } = useAuth();
@@ -689,6 +691,56 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("workouts").delete().eq("id", id);
   };
 
+  const removeWorkoutsByFilter = async (filter: "all" | "week" | "month" | "date", date?: string): Promise<number> => {
+    if (!user) return 0;
+    const today = todayStr();
+    let toRemove: Workout[] = [];
+
+    if (filter === "all") {
+      toRemove = workouts.filter((w) => w.groupId === (activeGroup?.id ?? null) || !activeGroup);
+    } else if (filter === "date" && date) {
+      toRemove = workouts.filter((w) => w.scheduledDate === date);
+    } else if (filter === "week") {
+      const start = new Date();
+      const end = new Date();
+      end.setDate(end.getDate() + 7);
+      const startStr = fmtDateCtx(start);
+      const endStr = fmtDateCtx(end);
+      toRemove = workouts.filter((w) => w.scheduledDate && w.scheduledDate >= startStr && w.scheduledDate <= endStr);
+    } else if (filter === "month") {
+      const start = new Date();
+      const end = new Date();
+      end.setDate(end.getDate() + 30);
+      const startStr = fmtDateCtx(start);
+      const endStr = fmtDateCtx(end);
+      toRemove = workouts.filter((w) => w.scheduledDate && w.scheduledDate >= startStr && w.scheduledDate <= endStr);
+    }
+
+    if (toRemove.length === 0) return 0;
+    const ids = toRemove.map((w) => w.id);
+    setWorkoutsState((w) => w.filter((item) => !ids.includes(item.id)));
+    for (const id of ids) {
+      await supabase.from("workouts").delete().eq("id", id);
+    }
+    return ids.length;
+  };
+
+  const updateWorkout = async (id: string, updates: Partial<Workout>) => {
+    setWorkoutsState((w) =>
+      w.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    );
+    const dbUpdates: any = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.exercises !== undefined) dbUpdates.exercises = updates.exercises;
+    if (updates.duration !== undefined) dbUpdates.duration = updates.duration;
+    if (updates.cal !== undefined) dbUpdates.cal = updates.cal;
+    if (updates.tag !== undefined) dbUpdates.tag = updates.tag;
+    if (updates.emoji !== undefined) dbUpdates.emoji = updates.emoji;
+    if (Object.keys(dbUpdates).length > 0) {
+      await supabase.from("workouts").update(dbUpdates).eq("id", id);
+    }
+  };
+
   const setWorkouts = (newWorkouts: Workout[]) => {
     setWorkoutsState(newWorkouts);
   };
@@ -846,7 +898,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       events, filteredEvents, addEvent, removeEvent,
       tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
-      workouts, filteredWorkouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
+      workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
       googleCalendarEvents,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
