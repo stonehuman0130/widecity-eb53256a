@@ -249,7 +249,9 @@ const CalendarPage = () => {
                     title={event.title}
                     time={event.time}
                     user={event.user}
+                    hidden={event.hiddenFromPartner}
                     onRemove={() => { removeEvent(event.id); toast.success("Event deleted"); }}
+                    onToggleVisibility={() => { toggleEventVisibility(event.id); toast.success(event.hiddenFromPartner ? "Now visible to others" : "Hidden from others"); }}
                   />
                 ))}
                 {scheduledTasks.map((task) => (
@@ -268,7 +270,7 @@ const CalendarPage = () => {
                   />
                 ))}
                 {gcalDayEvents.filter(g => !g.allDay).map((ge) => (
-                  <GCalCard key={`gcal-${ge.id}`} event={ge} />
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} onHide={() => { hideGcalEvent(ge.id); toast.success("Hidden from others"); }} />
                 ))}
               </div>
             </div>
