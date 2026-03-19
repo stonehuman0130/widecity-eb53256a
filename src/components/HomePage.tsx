@@ -658,13 +658,16 @@ const HomePage = () => {
           <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
           <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
         </div>
-        {justDoIt.length > 0 || allDayEvents.length > 0 ? (
+        {justDoIt.length > 0 || allDayEvents.length > 0 || gcalAllDay.length > 0 ? (
           <div className="space-y-3">
             {justDoIt.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {allDayEvents.map((event) => (
               <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+            ))}
+            {gcalAllDay.map((ge) => (
+              <GCalEventCard key={`gcal-${ge.id}`} event={ge} />
             ))}
           </div>
         ) : (
