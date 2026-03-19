@@ -244,6 +244,9 @@ const WorkoutsPage = () => {
         <p className="text-sm text-muted-foreground mt-0.5">Stay active and healthy together</p>
       </header>
 
+      {/* Group Selector */}
+      <GroupSelector />
+
       {/* Mine / Partner Toggle */}
       {partner && (
         <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">

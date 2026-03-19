@@ -11,7 +11,8 @@ import { toast } from "sonner";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const { events, addEvent, addTask, removeEvent, tasks, toggleTask, removeTask, googleCalendarEvents } = useAppContext();
+  const { events, filteredEvents, addEvent, addTask, removeEvent, tasks, filteredTasks, toggleTask, removeTask, googleCalendarEvents } = useAppContext();
+  const { activeGroup } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [showAddForm, setShowAddForm] = useState(false);
