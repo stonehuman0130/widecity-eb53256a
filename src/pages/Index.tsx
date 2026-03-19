@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useRef } from "react";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import BottomNav from "@/components/BottomNav";
 import HomePage from "@/components/HomePage";
 import WorkoutsPage from "@/components/WorkoutsPage";
@@ -17,7 +17,6 @@ type Tab = "launcher" | "home" | "workout" | "habits" | "calendar" | "settings";
 const Index = () => {
   const { user, loading, groups, setActiveGroup } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("launcher");
-  const [aiPrefill, setAiPrefill] = useState("");
 
   if (loading) {
     return (
@@ -41,30 +40,48 @@ const Index = () => {
     setActiveTab("home");
   };
 
+  const handleBackToLauncher = () => {
+    setActiveTab("launcher");
+  };
+
   const handleTabChange = (tab: "home" | "workout" | "habits" | "calendar" | "settings") => {
     setActiveTab(tab);
   };
 
+  // Swipe right on inner pages → back to launcher
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    if (activeTab !== "launcher" && info.offset.x > 100 && info.velocity.x > 200) {
+      handleBackToLauncher();
+    }
+  };
+
   const pages: Record<string, React.ReactNode> = {
     launcher: <LauncherPage onEnterGroup={handleEnterGroup} />,
-    home: <HomePage />,
+    home: <HomePage onBackToLauncher={handleBackToLauncher} />,
     workout: <WorkoutsPage />,
     habits: <HabitsPage />,
     calendar: <CalendarPage />,
     settings: <SettingsPage />,
   };
 
+  const isInnerPage = activeTab !== "launcher";
+
   return (
     <AppProvider>
-      <div className="flex flex-col w-full max-w-md mx-auto bg-background min-h-svh relative">
+      <div className="flex flex-col w-full max-w-md mx-auto bg-background min-h-svh relative overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, x: 10 }}
+            initial={{ opacity: 0, x: activeTab === "launcher" ? -20 : 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
+            exit={{ opacity: 0, x: activeTab === "launcher" ? 20 : -20 }}
             transition={{ duration: 0.15 }}
             className="flex-1 pb-24 overflow-y-auto"
+            drag={isInnerPage ? "x" : false}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.2}
+            onDragEnd={handleDragEnd}
+            style={{ touchAction: isInnerPage ? "pan-y" : "auto" }}
           >
             {pages[activeTab]}
           </motion.div>
