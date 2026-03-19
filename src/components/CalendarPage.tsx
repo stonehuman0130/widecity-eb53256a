@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Check, MoreVertical, Trash2, Clock, EyeOff, Eye } from "lucide-react";
+import GroupBadge from "@/components/GroupBadge";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import UserBadge from "@/components/UserBadge";
