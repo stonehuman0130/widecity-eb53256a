@@ -639,6 +639,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const addTask = async (task: Omit<Task, "id" | "done">) => {
     if (!user) return;
+    const groupId = activeGroup?.id ?? null;
     const { data, error } = await supabase
       .from("tasks")
       .insert({
@@ -651,12 +652,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         scheduled_day: task.scheduledDay,
         scheduled_month: task.scheduledMonth,
         scheduled_year: task.scheduledYear,
+        group_id: groupId,
       })
       .select()
       .single();
 
     if (data && !error) {
-      setTasks((t) => [...t, { ...task, id: data.id, done: false }]);
+      setTasks((t) => [...t, { ...task, id: data.id, done: false, groupId }]);
     }
   };
 
