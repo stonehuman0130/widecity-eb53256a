@@ -243,6 +243,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             completedDate: w.completed_date,
             exercises: w.exercises || [],
             hiddenFromPartner: w.hidden_from_partner || false,
+            groupId: w.group_id || null,
           })));
         }
 
