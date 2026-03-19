@@ -7,7 +7,7 @@ import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
 import AddItemModal from "@/components/AddItemModal";
 import CongratsPopup from "@/components/CongratsPopup";
-import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
+import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -36,7 +36,7 @@ const HomePage = () => {
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
     habits, toggleHabit, addHabit, removeHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent, removeTask,
-    partnerHabits, partnerEvents, partnerTasks,
+    partnerHabits, partnerEvents, partnerTasks, googleCalendarEvents,
   } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
@@ -377,6 +377,15 @@ const HomePage = () => {
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
 
+  // Google Calendar events for the selected date
+  const gcalEventsForDay = googleCalendarEvents.filter((ge) => {
+    const startDate = ge.start?.split("T")[0] || ge.start;
+    const selDateStr = `${selYear}-${String(selMonth + 1).padStart(2, "0")}-${String(selDay).padStart(2, "0")}`;
+    return startDate === selDateStr;
+  });
+  const gcalTimed = gcalEventsForDay.filter((ge) => !ge.allDay);
+  const gcalAllDay = gcalEventsForDay.filter((ge) => ge.allDay);
+
   const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: userTimezone });
   const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
 
@@ -626,13 +635,16 @@ const HomePage = () => {
           <Clock size={18} className="text-muted-foreground" />
           <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
         </div>
-        {scheduledTasks.length > 0 || timedEvents.length > 0 ? (
+        {scheduledTasks.length > 0 || timedEvents.length > 0 || gcalTimed.length > 0 ? (
           <div className="space-y-3">
             {scheduledTasks.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {timedEvents.map((event) => (
               <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+            ))}
+            {gcalTimed.map((ge) => (
+              <GCalEventCard key={`gcal-${ge.id}`} event={ge} />
             ))}
           </div>
         ) : (
@@ -646,13 +658,16 @@ const HomePage = () => {
           <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
           <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
         </div>
-        {justDoIt.length > 0 || allDayEvents.length > 0 ? (
+        {justDoIt.length > 0 || allDayEvents.length > 0 || gcalAllDay.length > 0 ? (
           <div className="space-y-3">
             {justDoIt.map((task) => (
               <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
             ))}
             {allDayEvents.map((event) => (
               <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+            ))}
+            {gcalAllDay.map((ge) => (
+              <GCalEventCard key={`gcal-${ge.id}`} event={ge} />
             ))}
           </div>
         ) : (
@@ -777,6 +792,44 @@ const EventCard = ({ event, onRemove, onCongrats, readOnly }: { event: Scheduled
       {(!event.time || event.time === "All day") && (
         <div className="mt-2 ml-9">
           <span className="text-xs text-muted-foreground">{dateLabel} · All day</span>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+const GCalEventCard = ({ event }: { event: GoogleCalendarEvent }) => {
+  const timeStr = event.allDay
+    ? "All day"
+    : event.start
+    ? new Date(event.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    : "";
+
+  return (
+    <motion.div
+      layout
+      className="bg-card rounded-xl p-4 shadow-card border border-primary/20 transition-transform active:scale-[0.99]"
+    >
+      {timeStr && timeStr !== "All day" && (
+        <div className="flex items-center gap-2 mb-2">
+          <Clock size={13} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">{timeStr}</span>
+          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google</span>
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
+        <span className="flex-1 text-[15px] font-medium tracking-body">{event.title}</span>
+        {event.htmlLink && (
+          <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium">
+            Open
+          </a>
+        )}
+      </div>
+      {timeStr === "All day" && (
+        <div className="mt-2 ml-9 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">All day</span>
+          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google</span>
         </div>
       )}
     </motion.div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Check, MoreVertical, Trash2, Clock } from "lucide-react";
-import { useAppContext, Task, ScheduledEvent } from "@/context/AppContext";
+import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import UserBadge from "@/components/UserBadge";
 import TaskTag from "@/components/TaskTag";
 import { formatTime } from "@/lib/formatTime";
@@ -9,7 +9,7 @@ import { toast } from "sonner";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const { events, addEvent, addTask, removeEvent, tasks, toggleTask, removeTask } = useAppContext();
+  const { events, addEvent, addTask, removeEvent, tasks, toggleTask, removeTask, googleCalendarEvents } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [showAddForm, setShowAddForm] = useState(false);
@@ -34,13 +34,22 @@ const CalendarPage = () => {
     (t) => t.scheduledDay === selectedDay && t.scheduledMonth === month && t.scheduledYear === year
   );
 
+  // Google Calendar events for the selected day
+  const selDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
+  const gcalDayEvents = googleCalendarEvents.filter((ge) => {
+    const startDate = ge.start?.split("T")[0] || ge.start;
+    return startDate === selDateStr;
+  });
+
   // Split into Scheduled (has time) vs Just Do It (no time)
   const scheduledTasks = dayTasks.filter((t) => Boolean(t.time));
   const justDoItTasks = dayTasks.filter((t) => !t.time);
 
   const dayHasItems = (day: number) => {
+    const dayDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     return monthEvents.some((e) => e.day === day) ||
-      tasks.some((t) => t.scheduledDay === day && t.scheduledMonth === month && t.scheduledYear === year);
+      tasks.some((t) => t.scheduledDay === day && t.scheduledMonth === month && t.scheduledYear === year) ||
+      googleCalendarEvents.some((ge) => (ge.start?.split("T")[0] || ge.start) === dayDateStr);
   };
 
   const prevMonth = () => {
@@ -79,7 +88,7 @@ const CalendarPage = () => {
     setShowAddForm(false);
   };
 
-  const allEmpty = dayEvents.length === 0 && dayTasks.length === 0;
+  const allEmpty = dayEvents.length === 0 && dayTasks.length === 0 && gcalDayEvents.length === 0;
 
   return (
     <div className="px-5">
@@ -219,7 +228,7 @@ const CalendarPage = () => {
       ) : (
         <div className="space-y-5 pb-4">
           {/* Scheduled section (events + tasks with time) */}
-          {(dayEvents.length > 0 || scheduledTasks.length > 0) && (
+          {(dayEvents.length > 0 || scheduledTasks.length > 0 || gcalDayEvents.filter(g => !g.allDay).length > 0) && (
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <Clock size={16} className="text-muted-foreground" />
@@ -249,6 +258,23 @@ const CalendarPage = () => {
                     }}
                     onRemove={() => { removeTask(task.id); toast.success("Task deleted"); }}
                   />
+                ))}
+                {gcalDayEvents.filter(g => !g.allDay).map((ge) => (
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Google Calendar all-day events */}
+          {gcalDayEvents.filter(g => g.allDay).length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google Calendar</span>
+              </div>
+              <div className="space-y-3">
+                {gcalDayEvents.filter(g => g.allDay).map((ge) => (
+                  <GCalCard key={`gcal-${ge.id}`} event={ge} />
                 ))}
               </div>
             </div>
@@ -347,6 +373,41 @@ const CalendarItemCard = ({
       {(!time || time === "All day") && (
         <div className="mt-1 ml-9">
           <span className="text-xs text-muted-foreground">All day</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const GCalCard = ({ event }: { event: GoogleCalendarEvent }) => {
+  const timeStr = event.allDay
+    ? "All day"
+    : event.start
+    ? new Date(event.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    : "";
+
+  return (
+    <div className="bg-card rounded-xl p-4 shadow-card border border-primary/20">
+      {timeStr && timeStr !== "All day" && (
+        <div className="flex items-center gap-2 mb-2">
+          <Clock size={13} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">{timeStr}</span>
+          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google</span>
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
+        <span className="flex-1 text-[15px] font-medium">{event.title}</span>
+        {event.htmlLink && (
+          <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium">
+            Open
+          </a>
+        )}
+      </div>
+      {timeStr === "All day" && (
+        <div className="mt-1 ml-9 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">All day</span>
+          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google</span>
         </div>
       )}
     </div>

@@ -254,8 +254,8 @@ serve(async (req) => {
     if (intent === "create" && timeMention) {
       if (!dateSignals.hasDate) {
         return askClarification({
-          question: `I caught "${timeMention.raw}". What date is this for, and is it work, personal, or household?`,
-          suggestions: ["Today · Work", "Today · Personal", "Tomorrow · Work", "Tomorrow · Personal"],
+          question: `I caught "${timeMention.raw}". What date is this for?`,
+          suggestions: ["Today", "Tomorrow"],
           spokenResponse: `I heard ${timeMention.raw}. What day is that for?`,
           context: `Detected a timed request (${timeMention.raw}) but no date was provided.`,
         });
@@ -340,19 +340,23 @@ QUERY RULES:
 
 PERSON/ASSIGNMENT RULES:
 - "Harrison", "mine", "my", "me", "I" → assignee "me"
-- "Evelyn", "her", "partner" → assignee "partner"
+- "Evelyn", "her", "partner", "for Evelyn" → assignee "partner"
 - "both", "us", "shared", "household", "together" → assignee "both"
 - Default: "me"
+- IMPORTANT: When someone says "Schedule X for Evelyn" or "Add X for partner", the assignee MUST be "partner". The item is being created FOR the partner, not for "me".
 
 HABIT RULES:
 - Keywords: "habit", "routine", "daily", "every day", "add to routine", "mornings"
 - "morning habit/routine/mornings" → category "morning"
 - Other habits → category "other"
 
-TAG RULES:
-- "work", "office", "meeting", "project", "work call" → tag "Work"
-- "household", "chores", "cleaning", "trash", "laundry" → tag "Household"
-- Everything else → tag "Personal"
+TAG/CATEGORY RULES (CRITICAL - always assign a tag):
+- "work", "office", "meeting", "project", "work call", "standup", "presentation", "deadline", "client", "report", "interview" → tag "Work"
+- "household", "chores", "cleaning", "trash", "laundry", "groceries", "dishes", "vacuum", "mop", "cook", "repair", "fix" → tag "Household"
+- "personal", "gym", "doctor", "dentist", "workout", "lunch", "dinner", "coffee", "date", "birthday", "hangout", "call mom", "therapist" → tag "Personal"
+- If the category is ambiguous and cannot be inferred from the title or context, you MUST use ask_clarification to ask the user: "Is this Work, Personal, or Household?"
+- NEVER leave tag empty or undefined. Always set a tag value.
+- Use context clues: time of day, keywords, and common sense to infer the best tag.
 
 VOICE RESPONSE:
 - Always include a spokenResponse field with a natural confirmation or question.
