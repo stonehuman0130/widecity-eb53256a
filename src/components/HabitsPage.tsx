@@ -410,6 +410,7 @@ const OtherHabitCard = ({ habit, onToggle, onDelete, streak, isViewingPartner }:
           <span className="w-8 h-8 rounded-full border-2 border-muted" />
         )}
         <p className="text-sm font-semibold text-center">{habit.label}</p>
+        <GroupBadge groupId={habit.groupId} />
         <div className="flex items-center gap-1 text-accent">
           <Flame size={14} />
           <span className="text-xs font-bold">{streak} days</span>

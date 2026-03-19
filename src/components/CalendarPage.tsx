@@ -404,6 +404,7 @@ const CalendarItemCard = ({
         <div className="mt-1 ml-9 flex items-center gap-2">
           <span className="text-xs text-muted-foreground">All day</span>
           {hidden && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
+          <GroupBadge groupId={groupId} />
         </div>
       )}
     </div>

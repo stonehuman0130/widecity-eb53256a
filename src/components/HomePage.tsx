@@ -639,6 +639,7 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
                 <span className="w-5 h-5 rounded-full border-2 border-muted" />
               )}
               {habit.label}
+              <GroupBadge groupId={habit.groupId} />
             </button>
           ))}
           {displayMorningHabits.length === 0 && (
