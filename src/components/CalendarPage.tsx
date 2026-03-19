@@ -433,7 +433,6 @@ const GCalCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: () =
         )}
         {onHide && (
           <ItemActionMenu
-            onRemove={() => {}}
             onToggleVisibility={onHide}
           />
         )}
