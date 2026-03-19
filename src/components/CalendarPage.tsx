@@ -255,6 +255,7 @@ const CalendarPage = () => {
                       time={event.time}
                       user={event.user}
                       hidden={event.hiddenFromPartner}
+                      groupId={event.groupId}
                       onRemove={() => { removeEvent(event.id); toast.success("Event deleted"); }}
                       onToggleVisibility={() => { toggleEventVisibility(event.id); toast.success(event.hiddenFromPartner ? "Now visible to others" : "Hidden from others"); }}
                       onMoveToTomorrow={() => { rescheduleEvent(event.id, tomorrow.getDate(), tomorrow.getMonth(), tomorrow.getFullYear()); toast.success("Moved to tomorrow"); }}
