@@ -29,14 +29,19 @@ const SettingsPage = () => {
     }
   }, [activeGroup, groups, setActiveGroup]);
 
-  // Check if Google Calendar is connected
+  // Check if Google Calendar is connected for active group
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeGroup) {
+      setGcalConnected(false);
+      return;
+    }
+
     const checkGcal = async () => {
       const { data } = await supabase
         .from("google_calendar_tokens")
         .select("id")
         .eq("user_id", user.id)
+        .eq("group_id", activeGroup.id)
         .maybeSingle();
       setGcalConnected(!!data);
     };
@@ -49,7 +54,7 @@ const SettingsPage = () => {
       toast.success("Google Calendar connected! 🎉");
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, [user]);
+  }, [user, activeGroup]);
 
   const handleCopyCode = () => {
     if (profile?.invite_code) {
