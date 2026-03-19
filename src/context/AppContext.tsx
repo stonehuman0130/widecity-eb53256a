@@ -154,6 +154,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [googleCalendarEvents, setGoogleCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const contextOtherUserId = useMemo(() => {
+    if (!user) return null;
+
+    if (activeGroup) {
+      const otherMembers = activeGroup.members.filter((m) => m.user_id !== user.id);
+      if (otherMembers.length === 1) return otherMembers[0].user_id;
+      return null;
+    }
+
+    return partner?.id ?? null;
+  }, [activeGroup, partner?.id, user]);
+
   // Load all data from database on mount
   useEffect(() => {
     if (!user) {
