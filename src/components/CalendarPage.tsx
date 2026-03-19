@@ -110,6 +110,9 @@ const CalendarPage = () => {
         <p className="text-sm text-muted-foreground mt-1 font-medium">{monthName} {year}</p>
       </header>
 
+      {/* Group Selector */}
+      <GroupSelector />
+
       {/* Calendar Grid */}
       <div className="bg-card rounded-xl p-4 border border-border shadow-card mb-6">
         <div className="grid grid-cols-7 gap-1 mb-2">
