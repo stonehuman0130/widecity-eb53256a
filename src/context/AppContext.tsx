@@ -940,19 +940,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [habits]);
 
   const getPartnerHabitsForDate = useCallback((date: string) => {
-    return filteredPartnerHabits.map((h) => ({
+    const scoped = activeGroup
+      ? partnerHabits.filter((h) => h.groupId === activeGroup.id)
+      : partnerHabits;
+
+    return scoped.map((h) => ({
       ...h,
       done: h.completionDates.includes(date),
     }));
-  }, [filteredPartnerHabits]);
+  }, [activeGroup, partnerHabits]);
 
   const getWorkoutsForDate = useCallback((date: string) => {
     return workouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
   }, [workouts]);
 
   const getPartnerWorkoutsForDate = useCallback((date: string) => {
-    return filteredPartnerWorkouts.filter((w) => w.scheduledDate === date || w.completedDate === date);
-  }, [filteredPartnerWorkouts]);
+    const scoped = activeGroup
+      ? partnerWorkouts.filter((w) => w.groupId === activeGroup.id || w.groupId == null)
+      : partnerWorkouts;
+
+    return scoped.filter((w) => w.scheduledDate === date || w.completedDate === date);
+  }, [activeGroup, partnerWorkouts]);
 
   // Group-filtered data
   const filterByGroup = useCallback(<T extends { groupId?: string | null }>(items: T[]): T[] => {
