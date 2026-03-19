@@ -968,6 +968,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("events").update({ hidden_from_partner: newHidden }).eq("id", eventId);
   };
 
+  const designateGcalEvent = async (eventId: string, assignee: "me" | "partner" | "both") => {
+    if (!user) return;
+    setGoogleCalendarEvents((prev) =>
+      prev.map((e) => e.id === eventId ? { ...e, assignee } : e)
+    );
+    await supabase.from("gcal_event_designations").upsert({
+      user_id: user.id,
+      gcal_event_id: eventId,
+      assignee,
+    }, { onConflict: "user_id,gcal_event_id" });
+  };
+
   return (
     <AppContext.Provider value={{
       habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
