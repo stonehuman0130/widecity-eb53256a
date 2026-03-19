@@ -67,7 +67,7 @@ const WorkoutsPage = () => {
   });
   const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
   const [aiWeeklyPlan, setAiWeeklyPlan] = useState<AIDayPlan[] | null>(null);
-  const [planType, setPlanType] = useState<"today" | "week" | "month">("today");
+  // planType is now inferred by AI, not user-selected
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [showManualAdd, setShowManualAdd] = useState(false);
