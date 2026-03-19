@@ -775,6 +775,7 @@ const EventCard = ({ event, onRemove, onToggleVisibility, onReschedule, onCongra
           <span className="text-xs text-muted-foreground">· {dateLabel}</span>
           {event.hiddenFromPartner && <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex items-center gap-1"><EyeOff size={10} /> Hidden</span>}
           <GroupBadge groupId={event.groupId} />
+        </div>
       )}
       <div className="flex items-center gap-3">
         <button
