@@ -54,7 +54,7 @@ const CalendarPage = () => {
     const dayDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     return monthEvents.some((e) => e.day === day) ||
       filteredTasks.some((t) => t.scheduledDay === day && t.scheduledMonth === month && t.scheduledYear === year) ||
-      googleCalendarEvents.some((ge) => (ge.start?.split("T")[0] || ge.start) === dayDateStr);
+      (showGoogleCalendar && googleCalendarEvents.some((ge) => (ge.start?.split("T")[0] || ge.start) === dayDateStr));
   };
 
   const prevMonth = () => {
