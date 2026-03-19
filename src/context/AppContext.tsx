@@ -821,7 +821,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Find all future workouts after oldDate (including the target) that are not done
-    const toShift = workoutsState.filter(
+    const toShift = workouts.filter(
       (w) => w.scheduledDate && w.scheduledDate >= oldDate && !w.done && w.id !== id
     );
 
