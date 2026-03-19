@@ -856,6 +856,7 @@ const WorkoutCard = ({
                 {workout.tag && (
                   <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{workout.tag}</span>
                 )}
+                <GroupBadge groupId={workout.groupId} />
               </div>
             </div>
             {!readOnly && (
