@@ -34,6 +34,13 @@ const CalendarPage = () => {
     (t) => t.scheduledDay === selectedDay && t.scheduledMonth === month && t.scheduledYear === year
   );
 
+  // Google Calendar events for the selected day
+  const selDateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
+  const gcalDayEvents = googleCalendarEvents.filter((ge) => {
+    const startDate = ge.start?.split("T")[0] || ge.start;
+    return startDate === selDateStr;
+  });
+
   // Split into Scheduled (has time) vs Just Do It (no time)
   const scheduledTasks = dayTasks.filter((t) => Boolean(t.time));
   const justDoItTasks = dayTasks.filter((t) => !t.time);
