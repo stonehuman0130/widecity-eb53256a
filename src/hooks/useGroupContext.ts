@@ -65,8 +65,8 @@ export function useGroupContext() {
     return result;
   }, [hasOther, otherName]);
 
-  // Whether Google Calendar should be shown (only in "All" mode or no group)
-  const showGoogleCalendar = !activeGroup;
+  // Google Calendar should be shown only when a specific group is selected
+  const showGoogleCalendar = !!activeGroup;
 
   return {
     otherMembers,
