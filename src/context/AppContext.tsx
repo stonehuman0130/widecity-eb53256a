@@ -350,20 +350,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const data = await res.json();
         const rawEvents: GoogleCalendarEvent[] = data.events || [];
 
-        // Load designations to apply assignee overrides
-        const { data: designations } = await supabase
-          .from("gcal_event_designations")
-          .select("gcal_event_id, assignee")
-          .eq("user_id", user.id);
-
-        const designationMap = new Map<string, string>();
-        (designations || []).forEach((d: any) => designationMap.set(d.gcal_event_id, d.assignee));
-
         const enriched = rawEvents.map((ge) => {
-          const override = designationMap.get(ge.id);
-          // Default: if ownerUserId matches current user -> "me", else -> "partner"
-          let assignee: "me" | "partner" | "both" = ge.ownerUserId === user.id ? "me" : "partner";
-          if (override) assignee = override as "me" | "partner" | "both";
+          const fallbackAssignee: Assignee = ge.ownerUserId === user.id ? "me" : "partner";
+          const assignee = (ge.assignee as Assignee | undefined) ?? fallbackAssignee;
           return { ...ge, assignee };
         });
 
