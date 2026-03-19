@@ -232,7 +232,8 @@ const WorkoutsPage = () => {
   const completedCount = activeWorkouts.filter((w) => w.done).length;
   const totalCal = activeWorkouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
   const todayCal = activeWorkouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
-  const partnerName = partner?.display_name || "Partner";
+  const { twoTabFilters, hasOther, otherName } = useGroupContext();
+  const partnerName = otherName;
 
   return (
     <div className="px-5 pb-24">
