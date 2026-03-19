@@ -1,10 +1,14 @@
-import { useState } from "react";
-import { CalendarDays, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Droplets } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 
 const HabitDateViewer = () => {
   const [viewingDate, setViewingDate] = useState<string | null>(null);
   const { getHabitsForDate } = useAppContext();
+  const { user } = useAuth();
+  const [historicalWater, setHistoricalWater] = useState<{ intake: number; goal: number } | null>(null);
 
   const formatLabel = (dateStr: string) => {
     const d = new Date(dateStr + "T00:00:00");
