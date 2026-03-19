@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Plus, Copy, Check, Users, LogOut, Link2, Loader2, X } from "lucide-react";
+import { Plus, Copy, Check, LogOut, Link2, Loader2, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { useAuth, Group } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import MigrateItemsModal from "@/components/MigrateItemsModal";
 
 const GROUP_TYPES = [
   { value: "couple", label: "Couple", emoji: "💑" },
@@ -13,7 +14,7 @@ const GROUP_TYPES = [
 ];
 
 const GroupManager = () => {
-  const { groups, createGroup, joinGroup, leaveGroup, refreshGroups } = useAuth();
+  const { groups, createGroup, joinGroup, leaveGroup } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [showGroupDetail, setShowGroupDetail] = useState<Group | null>(null);
@@ -23,6 +24,13 @@ const GroupManager = () => {
   const [newType, setNewType] = useState("couple");
   const [joinCode, setJoinCode] = useState("");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Post-creation setup flow
+  const [newlyCreatedGroup, setNewlyCreatedGroup] = useState<Group | null>(null);
+  const [showSetupChoice, setShowSetupChoice] = useState(false);
+  const [showMigrate, setShowMigrate] = useState(false);
+  const [migrateTarget, setMigrateTarget] = useState<Group | null>(null);
+  const [migrateDirection, setMigrateDirection] = useState<"into" | "from">("into");
 
   const selectedType = GROUP_TYPES.find((t) => t.value === newType) || GROUP_TYPES[0];
 
@@ -39,6 +47,24 @@ const GroupManager = () => {
       setShowCreate(false);
       setNewName("");
       setNewType("couple");
+
+      // Show setup choice if user has other groups to migrate from
+      if (groups.length > 0 && result.id) {
+        // Find the newly created group after refresh
+        setTimeout(() => {
+          const created: Group = {
+            id: result.id!,
+            name: newName.trim(),
+            type: newType,
+            emoji: selectedType.emoji,
+            invite_code: result.invite_code || "",
+            created_by: "",
+            members: [],
+          };
+          setNewlyCreatedGroup(created);
+          setShowSetupChoice(true);
+        }, 500);
+      }
     }
     setCreating(false);
   };
@@ -72,6 +98,18 @@ const GroupManager = () => {
     setCopiedCode(code);
     toast.success("Invite code copied!");
     setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  const openMigrateInto = (group: Group) => {
+    setMigrateTarget(group);
+    setMigrateDirection("into");
+    setShowMigrate(true);
+  };
+
+  const openMigrateFrom = (group: Group) => {
+    setMigrateTarget(group);
+    setMigrateDirection("from");
+    setShowMigrate(true);
   };
 
   return (
@@ -174,6 +212,65 @@ const GroupManager = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Post-creation Setup Choice */}
+      <Dialog open={showSetupChoice} onOpenChange={setShowSetupChoice}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-xl">{newlyCreatedGroup?.emoji}</span>
+              {newlyCreatedGroup?.name} Created!
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              How would you like to set up your new calendar?
+            </p>
+
+            <button
+              onClick={() => {
+                setShowSetupChoice(false);
+                toast.success("Calendar is ready — starting fresh! 🎉");
+              }}
+              className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-primary/20 hover:border-primary hover:bg-primary/5 transition-all text-left"
+            >
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-lg">
+                ✨
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Start Fresh</p>
+                <p className="text-xs text-muted-foreground">
+                  Begin with a clean calendar — no inherited items or settings
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowSetupChoice(false);
+                if (newlyCreatedGroup) {
+                  openMigrateInto(newlyCreatedGroup);
+                }
+              }}
+              className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-border hover:border-primary/50 hover:bg-secondary/50 transition-all text-left"
+            >
+              <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-lg">
+                📦
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Copy from Existing Calendar</p>
+                <p className="text-xs text-muted-foreground">
+                  Choose items to bring over from another calendar
+                </p>
+              </div>
+            </button>
+
+            <p className="text-xs text-muted-foreground text-center italic">
+              You can always import items later from the group settings.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Join Group Dialog */}
       <Dialog open={showJoin} onOpenChange={setShowJoin}>
         <DialogContent className="max-w-sm">
@@ -251,6 +348,37 @@ const GroupManager = () => {
                 </div>
               </div>
 
+              {/* Migration buttons */}
+              {groups.length > 1 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
+                    Migrate Items
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowGroupDetail(null);
+                        openMigrateInto(showGroupDetail);
+                      }}
+                      className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-secondary/50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <ArrowDownToLine size={14} />
+                      Import
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowGroupDetail(null);
+                        openMigrateFrom(showGroupDetail);
+                      }}
+                      className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-secondary/50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <ArrowUpFromLine size={14} />
+                      Send
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Leave group */}
               <button
                 onClick={() => handleLeave(showGroupDetail.id)}
@@ -263,6 +391,14 @@ const GroupManager = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Migrate Items Modal */}
+      <MigrateItemsModal
+        open={showMigrate}
+        onOpenChange={setShowMigrate}
+        targetGroup={migrateTarget}
+        direction={migrateDirection}
+      />
     </div>
   );
 };
