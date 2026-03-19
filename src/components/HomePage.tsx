@@ -811,7 +811,8 @@ const EventCard = ({ event, onRemove, onToggleVisibility, onReschedule, onCongra
   );
 };
 
-const GCalEventCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: (eventId: string) => void }) => {
+const GCalEventCard = ({ event, onHide, onDesignate }: { event: GoogleCalendarEvent; onHide?: (eventId: string) => void; onDesignate?: (eventId: string, assignee: "me" | "partner" | "both") => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
   const timeStr = event.allDay
     ? "All day"
     : event.start
@@ -833,15 +834,49 @@ const GCalEventCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?:
       <div className="flex items-center gap-3">
         <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
         <span className="flex-1 text-[15px] font-medium tracking-body">{event.title}</span>
+        <UserBadge user={event.assignee || "me"} />
         {event.htmlLink && (
           <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium">
             Open
           </a>
         )}
-        {onHide && (
-          <ItemActionMenu
-            onToggleVisibility={() => { onHide(event.id); toast.success("Hidden from others"); }}
-          />
+        {(onHide || onDesignate) && (
+          <div className="relative">
+            <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+              <MoreVertical size={16} />
+            </button>
+            {menuOpen && (
+              <>
+                <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+                <div className="absolute right-0 top-8 z-50 min-w-[180px] rounded-xl border border-border bg-card shadow-card overflow-hidden">
+                  {onDesignate && (
+                    <>
+                      <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Assign to</div>
+                      {(["me", "partner", "both"] as const).map((opt) => (
+                        <button
+                          key={opt}
+                          onClick={() => { onDesignate(event.id, opt); setMenuOpen(false); toast.success(`Assigned as ${opt === "me" ? "Mine" : opt === "partner" ? "Partner's" : "Together"}`); }}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-secondary ${event.assignee === opt ? "text-primary font-semibold" : "text-foreground"}`}
+                        >
+                          <UserBadge user={opt} />
+                          {opt === "me" ? "Mine" : opt === "partner" ? "Partner's" : "Together"}
+                          {event.assignee === opt && <Check size={14} className="ml-auto text-primary" />}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {onHide && (
+                    <button
+                      onClick={() => { onHide(event.id); setMenuOpen(false); toast.success("Hidden from others"); }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-destructive hover:bg-destructive/10"
+                    >
+                      <EyeOff size={14} /> Hide from others
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
       {timeStr === "All day" && (
