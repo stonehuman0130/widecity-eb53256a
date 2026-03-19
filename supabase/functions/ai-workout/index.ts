@@ -187,6 +187,9 @@ serve(async (req) => {
       ? { type: "function", function: { name: "suggest_weekly_plan" } }
       : { type: "function", function: { name: "suggest_workouts" } };
 
+    // Use flash-lite for monthly plans (faster), flash for others
+    const model = isMonthly ? "google/gemini-2.5-flash-lite" : "google/gemini-2.5-flash";
+    
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -194,8 +197,8 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        max_tokens: 16000,
+        model,
+        max_tokens: isMonthly ? 12000 : 8000,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
