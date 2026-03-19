@@ -5,8 +5,6 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import GroupManager from "@/components/GroupManager";
-import { useGroupContext } from "@/hooks/useGroupContext";
-import GroupSelector from "@/components/GroupSelector";
 
 const settingsItems = [
   { icon: Bell, label: "Notifications", desc: "Reminders & alerts" },
