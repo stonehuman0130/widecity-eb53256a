@@ -65,8 +65,8 @@ export function useGroupContext() {
     return result;
   }, [hasOther, otherName]);
 
-  // Google Calendar should be shown only when a specific group is selected
-  const showGoogleCalendar = !!activeGroup;
+  // Google Calendar should be shown in both "All" and specific group views
+  const showGoogleCalendar = true;
 
   return {
     otherMembers,

@@ -276,44 +276,58 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadData();
   }, [user]);
 
-  // Load Google Calendar events
+  // Load Google Calendar events — supports both single group and "All" mode
   useEffect(() => {
-    if (!user || !activeGroup) {
+    if (!user) {
       setGoogleCalendarEvents([]);
       return;
     }
 
     const loadGcalEvents = async () => {
       try {
-        // Check if user has Google Calendar connected for this group
-        const { data: tokenRow } = await supabase
-          .from("google_calendar_tokens")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("group_id", activeGroup.id)
-          .maybeSingle();
-
-        if (!tokenRow) {
-          setGoogleCalendarEvents([]);
-          return;
-        }
+        const { data: session } = await supabase.auth.getSession();
+        if (!session?.session?.access_token) return;
 
         const now = new Date();
         const timeMin = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
         const timeMax = new Date(now.getFullYear(), now.getMonth() + 3, 0).toISOString();
 
-        const { data: session } = await supabase.auth.getSession();
-        if (!session?.session?.access_token) return;
+        let url: string;
+        if (activeGroup) {
+          // Check if connected for this specific group
+          const { data: tokenRow } = await supabase
+            .from("google_calendar_tokens")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("group_id", activeGroup.id)
+            .maybeSingle();
 
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.session.access_token}`,
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
+          if (!tokenRow) {
+            setGoogleCalendarEvents([]);
+            return;
           }
-        );
+          url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}`;
+        } else {
+          // "All" mode — check if any tokens exist
+          const { data: anyTokens } = await supabase
+            .from("google_calendar_tokens")
+            .select("id")
+            .eq("user_id", user.id)
+            .limit(1);
+
+          if (!anyTokens || anyTokens.length === 0) {
+            setGoogleCalendarEvents([]);
+            return;
+          }
+          url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&allGroups=true`;
+        }
+
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${session.session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        });
 
         if (res.ok) {
           const data = await res.json();
