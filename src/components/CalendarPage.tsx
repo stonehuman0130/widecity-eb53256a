@@ -278,7 +278,7 @@ const CalendarPage = () => {
                 ))}
               </div>
             </div>
-          )
+          )}
 
           {/* Just Do It section (tasks without time) */}
           {justDoItTasks.length > 0 && (
