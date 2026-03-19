@@ -39,7 +39,7 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
-    partnerHabits, partnerEvents, partnerTasks, googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
+    partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
   } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
@@ -322,7 +322,7 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
 
   // Morning habits: show own when "mine", partner's when "partner"
   const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
-  const partnerMorningHabits = partnerHabits.filter((h) => h.category === "morning");
+  const partnerMorningHabits = filteredPartnerHabits.filter((h) => h.category === "morning");
   const displayMorningHabits = filter === "partner" ? partnerMorningHabits : myMorningHabits;
 
   const handleToggleHabit = useCallback((id: string) => {
@@ -354,15 +354,15 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
     dayTasks = filteredTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
     visibleEvents = filteredEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
   } else if (filter === "partner") {
-    dayTasks = partnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    visibleEvents = partnerEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
+    dayTasks = filteredPartnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    visibleEvents = filteredPartnerEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
   } else {
     const myHousehold = filteredTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    const partnerHousehold = partnerTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
+    const partnerHousehold = filteredPartnerTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
     dayTasks = [...myHousehold, ...partnerHousehold];
 
     const myHouseholdEvents = filteredEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
-    const partnerHouseholdEvents = partnerEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
+    const partnerHouseholdEvents = filteredPartnerEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
     visibleEvents = [...myHouseholdEvents, ...partnerHouseholdEvents];
   }
 

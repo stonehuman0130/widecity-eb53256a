@@ -107,11 +107,16 @@ interface AppContextType {
   hideGcalEvent: (eventId: string) => Promise<void>;
   toggleEventVisibility: (eventId: string) => Promise<void>;
   designateGcalEvent: (eventId: string, assignee: "me" | "partner" | "both") => Promise<void>;
-  // Partner data
+  // Partner data (raw)
   partnerHabits: Habit[];
   partnerEvents: ScheduledEvent[];
   partnerTasks: Task[];
   partnerWorkouts: Workout[];
+  // Partner data (group-filtered, matching own data filtering)
+  filteredPartnerHabits: Habit[];
+  filteredPartnerEvents: ScheduledEvent[];
+  filteredPartnerTasks: Task[];
+  filteredPartnerWorkouts: Workout[];
   getPartnerWorkoutsForDate: (date: string) => Workout[];
   getPartnerHabitsForDate: (date: string) => Habit[];
   getPartnerHabitStreak: (id: string) => number;
@@ -390,6 +395,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               category: h.category as "morning" | "other",
               done: completionDates.includes(todayDate),
               completionDates,
+              hiddenFromPartner: h.hidden_from_partner || false,
+              groupId: h.group_id || null,
             };
           }));
         }
@@ -411,6 +418,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             scheduledDay: t.scheduled_day,
             scheduledMonth: t.scheduled_month,
             scheduledYear: t.scheduled_year,
+            hiddenFromPartner: t.hidden_from_partner || false,
+            groupId: t.group_id || null,
           })));
         }
 
@@ -430,6 +439,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             month: e.month,
             year: e.year,
             user: e.assignee as "me" | "partner" | "both",
+            hiddenFromPartner: e.hidden_from_partner || false,
+            groupId: e.group_id || null,
           })));
         }
 
@@ -451,6 +462,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             scheduledDate: w.scheduled_date,
             completedDate: w.completed_date,
             exercises: w.exercises || [],
+            hiddenFromPartner: w.hidden_from_partner || false,
+            groupId: w.group_id || null,
           })));
         }
       } catch (err) {
@@ -942,9 +955,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const filteredTasks = useMemo(() => filterByGroup(tasks), [tasks, filterByGroup]);
   const filteredWorkouts = useMemo(() => {
     if (!activeGroup) return workouts;
-    // Keep legacy ungrouped workouts visible while new inserts are correctly group-scoped
     return workouts.filter((workout) => workout.groupId === activeGroup.id || workout.groupId == null);
   }, [workouts, activeGroup]);
+
+  // Group-filtered partner data — applies the same activeGroup filter so cross-user views are consistent
+  const filteredPartnerHabits = useMemo(() => filterByGroup(partnerHabits), [partnerHabits, filterByGroup]);
+  const filteredPartnerEvents = useMemo(() => filterByGroup(partnerEvents), [partnerEvents, filterByGroup]);
+  const filteredPartnerTasks = useMemo(() => filterByGroup(partnerTasks), [partnerTasks, filterByGroup]);
+  const filteredPartnerWorkouts = useMemo(() => {
+    if (!activeGroup) return partnerWorkouts;
+    return partnerWorkouts.filter((w) => w.groupId === activeGroup.id || w.groupId == null);
+  }, [partnerWorkouts, activeGroup]);
 
   const hideGcalEvent = async (eventId: string) => {
     if (!user) return;
@@ -990,6 +1011,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
       googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
+      filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, filteredPartnerWorkouts,
       getPartnerWorkoutsForDate, getPartnerHabitsForDate, getPartnerHabitStreak,
       loading,
     }}>
