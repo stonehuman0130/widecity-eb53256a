@@ -694,8 +694,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addWorkouts = async (newWorkouts: Workout[]) => {
-    if (!user) return;
-    const rows = newWorkouts.map((w) => ({
+    if (!user || newWorkouts.length === 0) return;
+
+    const now = Date.now();
+    const optimisticWorkouts: Workout[] = newWorkouts.map((w, index) => ({
+      ...w,
+      id: w.id || `temp-workout-${now}-${index}`,
+      groupId: w.groupId ?? activeGroup?.id ?? null,
+      hiddenFromPartner: w.hiddenFromPartner ?? false,
+    }));
+    const tempIds = new Set(optimisticWorkouts.map((w) => w.id));
+
+    setWorkoutsState((prev) => [...prev, ...optimisticWorkouts]);
+
+    const rows = optimisticWorkouts.map((w) => ({
       user_id: user.id,
       title: w.title,
       duration: w.duration,
@@ -706,6 +718,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       scheduled_date: w.scheduledDate || null,
       completed_date: w.completedDate || null,
       exercises: w.exercises || [],
+      hidden_from_partner: w.hiddenFromPartner ?? false,
+      group_id: w.groupId ?? null,
     }));
 
     const { data, error } = await supabase
@@ -713,21 +727,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       .insert(rows)
       .select();
 
-    if (data && !error) {
-      const mapped: Workout[] = data.map((w: any) => ({
-        id: w.id,
-        title: w.title,
-        duration: w.duration,
-        cal: w.cal,
-        tag: w.tag,
-        emoji: w.emoji,
-        done: w.done,
-        scheduledDate: w.scheduled_date,
-        completedDate: w.completed_date,
-        exercises: w.exercises || [],
-      }));
-      setWorkoutsState((prev) => [...prev, ...mapped]);
+    if (error || !data) {
+      console.error("Error saving workouts:", error);
+      setWorkoutsState((prev) => prev.filter((item) => !tempIds.has(item.id)));
+      return;
     }
+
+    const mapped: Workout[] = data.map((w: any) => ({
+      id: w.id,
+      title: w.title,
+      duration: w.duration,
+      cal: w.cal,
+      tag: w.tag,
+      emoji: w.emoji,
+      done: w.done,
+      scheduledDate: w.scheduled_date,
+      completedDate: w.completed_date,
+      exercises: w.exercises || [],
+      hiddenFromPartner: w.hidden_from_partner || false,
+      groupId: w.group_id || null,
+    }));
+
+    setWorkoutsState((prev) => [
+      ...prev.filter((item) => !tempIds.has(item.id)),
+      ...mapped,
+    ]);
   };
 
   const rescheduleWorkout = async (id: string, newDate: string) => {
@@ -810,7 +834,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const filteredHabits = useMemo(() => filterByGroup(habits), [habits, filterByGroup]);
   const filteredEvents = useMemo(() => filterByGroup(events), [events, filterByGroup]);
   const filteredTasks = useMemo(() => filterByGroup(tasks), [tasks, filterByGroup]);
-  const filteredWorkouts = useMemo(() => filterByGroup(workouts), [workouts, filterByGroup]);
+  const filteredWorkouts = useMemo(() => {
+    if (!activeGroup) return workouts;
+    // Keep legacy ungrouped workouts visible while new inserts are correctly group-scoped
+    return workouts.filter((workout) => workout.groupId === activeGroup.id || workout.groupId == null);
+  }, [workouts, activeGroup]);
 
   return (
     <AppContext.Provider value={{
