@@ -708,6 +708,9 @@ const WorkoutsPage = () => {
                 workout={w}
                 onToggle={handleToggleWorkout}
                 onRemove={removeWorkout}
+                onReschedule={handleReschedule}
+                onRescheduleCascade={rescheduleWorkoutCascade}
+                allWorkouts={filteredWorkouts}
                 onSelectExercise={setSelectedExercise}
                 onEditExercise={startEditExercise}
                 onDeleteExercise={deleteExercise}
