@@ -130,6 +130,15 @@ const fmtDateCtx = (d: Date) =>
 
 const todayStr = () => fmtDateCtx(new Date());
 
+type Assignee = "me" | "partner" | "both";
+
+const toViewerPerspective = (assignee: Assignee, isOwnerView: boolean): Assignee => {
+  if (isOwnerView) return assignee;
+  if (assignee === "me") return "partner";
+  if (assignee === "partner") return "me";
+  return "both";
+};
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { user, partner, activeGroup } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
