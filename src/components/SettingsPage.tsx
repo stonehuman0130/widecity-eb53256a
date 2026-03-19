@@ -155,58 +155,58 @@ const SettingsPage = () => {
         <GroupManager />
       </div>
 
-      {/* Partner Connection */}
+      {/* Selected Group Details */}
       <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
-        {partner ? (
-          <div className="p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Link2 size={16} className="text-primary" />
-              <span className="text-sm font-semibold">Connected Partner</span>
-            </div>
+        {activeGroup ? (
+          <div className="p-4 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-accent-foreground text-sm font-bold">
-                {partnerInitial}
+              <span className="text-2xl">{activeGroup.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{activeGroup.name}</p>
+                <p className="text-xs text-muted-foreground">{activeGroup.members.length} member{activeGroup.members.length !== 1 ? "s" : ""}</p>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">{partner.display_name}</p>
-                <p className="text-xs text-muted-foreground">{partner.email}</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-secondary rounded-lg px-3 py-2.5 text-center">
+                <span className="text-xs text-muted-foreground block">Group Invite Code</span>
+                <span className="text-lg font-bold tracking-widest">{activeGroup.invite_code || "..."}</span>
               </div>
               <button
-                onClick={handleDisconnect}
-                className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Disconnect"
+                onClick={() => {
+                  if (!activeGroup.invite_code) return;
+                  navigator.clipboard.writeText(activeGroup.invite_code);
+                  toast.success("Group invite code copied!");
+                }}
+                className="p-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
               >
-                <Unlink size={16} />
+                <Copy size={18} />
               </button>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Members</p>
+              <div className="space-y-2">
+                {activeGroup.members.map((member) => (
+                  <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg bg-secondary/40">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                      {member.display_name?.charAt(0)?.toUpperCase() || "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{member.display_name || "Member"}</p>
+                      <p className="text-xs text-muted-foreground truncate">{member.email || ""}</p>
+                    </div>
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase bg-card px-2 py-0.5 rounded">
+                      {member.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
           <div className="p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Link2 size={16} className="text-primary" />
-              <span className="text-sm font-semibold">Connect with Partner</span>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Share your invite code or enter your partner's code to connect and share schedules, habits, and workouts.
-            </p>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex-1 bg-secondary rounded-lg px-3 py-2.5 text-center">
-                <span className="text-xs text-muted-foreground block">Your Invite Code</span>
-                <span className="text-lg font-bold tracking-widest">{profile?.invite_code || "..."}</span>
-              </div>
-              <button
-                onClick={handleCopyCode}
-                className="p-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-              >
-                {codeCopied ? <Check size={18} /> : <Copy size={18} />}
-              </button>
-            </div>
-            <button
-              onClick={() => setShowPartnerDialog(true)}
-              className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
-            >
-              Enter Partner's Code
-            </button>
+            <p className="text-sm text-muted-foreground">Select a group above to view its settings.</p>
           </div>
         )}
       </div>
