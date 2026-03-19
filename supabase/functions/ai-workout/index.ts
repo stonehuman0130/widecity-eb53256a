@@ -5,6 +5,43 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function tryRepairJson(text: string): any {
+  try {
+    // Remove trailing commas before } or ]
+    let cleaned = text
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/[\x00-\x1F\x7F]/g, "");
+
+    // Count braces/brackets to detect truncation
+    const openBraces = (cleaned.match(/{/g) || []).length;
+    const closeBraces = (cleaned.match(/}/g) || []).length;
+    const openBrackets = (cleaned.match(/\[/g) || []).length;
+    const closeBrackets = (cleaned.match(/\]/g) || []).length;
+
+    // If truncated, try to close the JSON
+    if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
+      // Find the last complete object in an array context
+      const lastCompleteObj = cleaned.lastIndexOf("}");
+      if (lastCompleteObj > 0) {
+        cleaned = cleaned.substring(0, lastCompleteObj + 1);
+        // Remove any trailing comma
+        cleaned = cleaned.replace(/,\s*$/, "");
+        // Close remaining open brackets/braces
+        const remainingBrackets = (cleaned.match(/\[/g) || []).length - (cleaned.match(/\]/g) || []).length;
+        const remainingBraces = (cleaned.match(/{/g) || []).length - (cleaned.match(/}/g) || []).length;
+        for (let i = 0; i < remainingBraces; i++) cleaned += "}";
+        for (let i = 0; i < remainingBrackets; i++) cleaned += "]";
+      }
+    }
+
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("JSON repair failed:", e);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
