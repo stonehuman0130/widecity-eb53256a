@@ -405,9 +405,19 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
       )}
 
       <header className="pt-12 pb-4 flex items-start justify-between">
-        <div>
-          <h1 className="text-[1.75rem] font-bold tracking-display">{greeting} 👋</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, {profile?.display_name || "there"}</p>
+        <div className="flex items-center gap-2">
+          {onBackToLauncher && (
+            <button
+              onClick={onBackToLauncher}
+              className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors -ml-1"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <div>
+            <h1 className="text-[1.75rem] font-bold tracking-display">{greeting} 👋</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, {profile?.display_name || "there"}</p>
+          </div>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
