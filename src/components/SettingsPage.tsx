@@ -89,11 +89,11 @@ const SettingsPage = () => {
   };
 
   const handleConnectGoogleCalendar = async () => {
-    if (!user) return;
+    if (!user || !activeGroup) return;
     setGcalLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("google-calendar-auth-url", {
-        body: { user_id: user.id },
+        body: { group_id: activeGroup.id },
       });
       if (error || !data?.url) throw error || new Error("No URL returned");
       window.location.href = data.url;
