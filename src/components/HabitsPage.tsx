@@ -340,6 +340,7 @@ const MorningHabitRow = ({ habit, onToggle, onDelete, streak, partner, isViewing
             <span className="w-6 h-6 rounded-full border-2 border-muted flex-shrink-0" />
           )}
           <span className={`flex-1 text-left text-sm font-medium ${habit.done ? "line-through opacity-50" : ""}`}>{habit.label}</span>
+          <GroupBadge groupId={habit.groupId} />
           <div className="flex items-center gap-1 text-accent">
             <Flame size={12} />
             <span className="text-xs font-bold">{streak}d</span>
