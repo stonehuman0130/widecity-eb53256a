@@ -476,37 +476,47 @@ const WorkoutsPage = () => {
       )}
 
       {/* Date selector strip */}
-      <div className="mb-5">
-        <ScrollArea className="w-full">
-          <div className="flex gap-2 pb-2">
-            {dateRange.map((date) => {
-              const d = new Date(date + "T00:00:00");
-              const dayNum = d.getDate();
-              const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
-              const isSelected = date === selectedDate;
-              const isT = date === today;
-              const hasWorkouts = isViewingPartner
-                ? getPartnerWorkoutsForDate(date).length > 0
-                : getWorkoutsForDate(date).length > 0;
+      <div className="mb-5 -mx-5">
+        <div
+          className="flex gap-2 px-5 pb-2 overflow-x-auto scrollbar-hide"
+          style={{ WebkitOverflowScrolling: "touch" }}
+          ref={(el) => {
+            if (el) {
+              const selectedEl = el.querySelector('[data-selected="true"]');
+              if (selectedEl) {
+                selectedEl.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+              }
+            }
+          }}
+        >
+          {dateRange.map((date) => {
+            const d = new Date(date + "T00:00:00");
+            const dayNum = d.getDate();
+            const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+            const isSelected = date === selectedDate;
+            const isT = date === today;
+            const hasWorkouts = isViewingPartner
+              ? getPartnerWorkoutsForDate(date).length > 0
+              : getWorkoutsForDate(date).length > 0;
 
-              return (
-                <button
-                  key={date}
-                  onClick={() => setSelectedDate(date)}
-                  className={`flex flex-col items-center min-w-[48px] py-2 px-1 rounded-xl border transition-all ${
-                    isSelected
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-transparent text-muted-foreground hover:bg-secondary"
-                  }`}
-                >
-                  <span className="text-[10px] font-medium">{dayName}</span>
-                  <span className={`text-base font-bold ${isT && !isSelected ? "text-primary" : ""}`}>{dayNum}</span>
-                  {hasWorkouts && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" />}
-                </button>
-              );
-            })}
-          </div>
-        </ScrollArea>
+            return (
+              <button
+                key={date}
+                data-selected={isSelected}
+                onClick={() => setSelectedDate(date)}
+                className={`flex flex-col items-center min-w-[48px] flex-shrink-0 py-2 px-1 rounded-xl border transition-all ${
+                  isSelected
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-transparent text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                <span className="text-[10px] font-medium">{dayName}</span>
+                <span className={`text-base font-bold ${isT && !isSelected ? "text-primary" : ""}`}>{dayNum}</span>
+                {hasWorkouts && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Quick Add Activities - only for own view */}

@@ -27,6 +27,24 @@ const HabitDateViewer = () => {
   const habitsForDate = getHabitsForDate(dateToView);
   const completed = habitsForDate.filter((h) => h.done);
 
+  // Fetch water intake for the viewed date
+  useEffect(() => {
+    if (!viewingDate || !user) {
+      setHistoricalWater(null);
+      return;
+    }
+    const fetchWater = async () => {
+      const { data } = await supabase
+        .from("water_tracking")
+        .select("intake, goal")
+        .eq("user_id", user.id)
+        .eq("date", viewingDate)
+        .maybeSingle();
+      setHistoricalWater(data ? { intake: Number(data.intake), goal: Number(data.goal) } : { intake: 0, goal: 3 });
+    };
+    fetchWater();
+  }, [viewingDate, user]);
+
   if (!viewingDate) {
     return (
       <section className="mb-6">
