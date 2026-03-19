@@ -105,7 +105,7 @@ const WorkoutsPage = () => {
     if (isViewingPartner) return [] as [string, Workout[]][];
 
     const upcoming = filteredWorkouts
-      .filter((w) => Boolean(w.scheduledDate) && (w.scheduledDate as string) > today)
+      .filter((w) => Boolean(w.scheduledDate) && (w.scheduledDate as string) > today && !w.done)
       .sort((a, b) => (a.scheduledDate as string).localeCompare(b.scheduledDate as string));
 
     const grouped = new Map<string, Workout[]>();
