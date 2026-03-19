@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           day: number
           description: string | null
+          group_id: string | null
           hidden_from_partner: boolean
           id: string
           month: number
@@ -33,6 +34,7 @@ export type Database = {
           created_at?: string
           day: number
           description?: string | null
+          group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
           month: number
@@ -46,6 +48,7 @@ export type Database = {
           created_at?: string
           day?: number
           description?: string | null
+          group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
           month?: number
@@ -54,7 +57,15 @@ export type Database = {
           user_id?: string
           year?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       google_calendar_tokens: {
         Row: {
@@ -83,6 +94,68 @@ export type Database = {
           refresh_token?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          created_by: string
+          emoji: string
+          id: string
+          invite_code: string | null
+          name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          emoji?: string
+          id?: string
+          invite_code?: string | null
+          name: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          emoji?: string
+          id?: string
+          invite_code?: string | null
+          name?: string
+          type?: string
         }
         Relationships: []
       }
@@ -122,6 +195,7 @@ export type Database = {
         Row: {
           category: string
           created_at: string
+          group_id: string | null
           hidden_from_partner: boolean
           id: string
           label: string
@@ -130,6 +204,7 @@ export type Database = {
         Insert: {
           category?: string
           created_at?: string
+          group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
           label: string
@@ -138,12 +213,21 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
           label?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "habits_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       nudges: {
         Row: {
@@ -235,6 +319,7 @@ export type Database = {
           assignee: string
           created_at: string
           done: boolean
+          group_id: string | null
           hidden_from_partner: boolean
           id: string
           scheduled_day: number | null
@@ -249,6 +334,7 @@ export type Database = {
           assignee?: string
           created_at?: string
           done?: boolean
+          group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
           scheduled_day?: number | null
@@ -263,6 +349,7 @@ export type Database = {
           assignee?: string
           created_at?: string
           done?: boolean
+          group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
           scheduled_day?: number | null
@@ -273,7 +360,15 @@ export type Database = {
           title?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tasks_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       water_tracking: {
         Row: {
@@ -308,6 +403,7 @@ export type Database = {
           duration: string
           emoji: string
           exercises: Json | null
+          group_id: string | null
           hidden_from_partner: boolean
           id: string
           scheduled_date: string | null
@@ -323,6 +419,7 @@ export type Database = {
           duration?: string
           emoji?: string
           exercises?: Json | null
+          group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
           scheduled_date?: string | null
@@ -338,6 +435,7 @@ export type Database = {
           duration?: string
           emoji?: string
           exercises?: Json | null
+          group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
           scheduled_date?: string | null
@@ -345,7 +443,15 @@ export type Database = {
           title?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workouts_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -353,12 +459,22 @@ export type Database = {
     }
     Functions: {
       connect_partner: { Args: { code: string }; Returns: Json }
+      create_group: {
+        Args: { _emoji?: string; _name: string; _type?: string }
+        Returns: Json
+      }
       create_shared_habit: {
         Args: { _category: string; _label: string }
         Returns: Json
       }
       disconnect_partner: { Args: never; Returns: Json }
       get_partner_id: { Args: { _user_id: string }; Returns: string }
+      is_group_member: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      join_group: { Args: { _code: string }; Returns: Json }
+      leave_group: { Args: { _group_id: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

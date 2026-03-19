@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { User, Bell, Shield, Palette, HelpCircle, LogOut, ChevronRight, Link2, Copy, Check, Unlink, Loader2, Calendar, ExternalLink } from "lucide-react";
+import { User, Bell, Shield, Palette, HelpCircle, LogOut, ChevronRight, Link2, Copy, Check, Unlink, Loader2, Calendar, ExternalLink, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import GroupManager from "@/components/GroupManager";
 
 const settingsItems = [
   { icon: Bell, label: "Notifications", desc: "Reminders & alerts" },
@@ -184,6 +185,15 @@ const SettingsPage = () => {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Groups / Calendars */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-3 px-1">
+          <Users size={16} className="text-primary" />
+          <span className="text-sm font-semibold">My Groups & Calendars</span>
+        </div>
+        <GroupManager />
       </div>
 
       {/* Google Calendar Integration */}

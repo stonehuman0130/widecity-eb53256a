@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2 } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users } from "lucide-react";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
@@ -24,7 +24,7 @@ interface ClarificationState {
 }
 
 const HomePage = () => {
-  const { profile, partner } = useAuth();
+  const { profile, partner, groups, activeGroup, setActiveGroup } = useAuth();
   const [filter, setFilter] = useState<Filter>("mine");
   const [input, setInput] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -435,6 +435,27 @@ const HomePage = () => {
           <ChevronRight size={20} />
         </button>
       </div>
+
+      {/* Group Selector */}
+      {groups.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide -mx-1 px-1">
+          {groups.map((group) => (
+            <button
+              key={group.id}
+              onClick={() => setActiveGroup(activeGroup?.id === group.id ? null : group)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border whitespace-nowrap text-sm font-medium transition-all flex-shrink-0 ${
+                activeGroup?.id === group.id
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-card text-muted-foreground"
+              }`}
+            >
+              <span>{group.emoji}</span>
+              <span>{group.name}</span>
+              <span className="text-[10px] opacity-60">{group.members.length}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
         {filters.map((f) => (
