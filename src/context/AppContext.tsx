@@ -299,31 +299,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         let url: string;
         if (activeGroup) {
-          // Check if connected for this specific group
-          const { data: tokenRow } = await supabase
-            .from("google_calendar_tokens")
-            .select("id")
-            .eq("user_id", user.id)
-            .eq("group_id", activeGroup.id)
-            .maybeSingle();
-
-          if (!tokenRow) {
-            setGoogleCalendarEvents([]);
-            return;
-          }
-          url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}`;
+          // Fetch group-shared events (from all members who connected their calendar for this group)
+          url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}&groupShared=true`;
         } else {
-          // "All" mode — check if any tokens exist
-          const { data: anyTokens } = await supabase
-            .from("google_calendar_tokens")
-            .select("id")
-            .eq("user_id", user.id)
-            .limit(1);
-
-          if (!anyTokens || anyTokens.length === 0) {
-            setGoogleCalendarEvents([]);
-            return;
-          }
+          // "All" mode
           url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&allGroups=true`;
         }
 
@@ -346,7 +325,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setGoogleCalendarEvents([]);
       }
     };
-
     loadGcalEvents();
   }, [user, activeGroup]);
 
