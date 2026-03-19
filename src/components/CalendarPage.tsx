@@ -9,7 +9,7 @@ import { toast } from "sonner";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CalendarPage = () => {
-  const { events, addEvent, addTask, removeEvent, tasks, toggleTask, removeTask } = useAppContext();
+  const { events, addEvent, addTask, removeEvent, tasks, toggleTask, removeTask, googleCalendarEvents } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const [showAddForm, setShowAddForm] = useState(false);
