@@ -406,4 +406,46 @@ const CalendarItemCard = ({
     </div>
   );
 };
+
+const GCalCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: () => void }) => {
+  const timeStr = event.allDay
+    ? "All day"
+    : event.start
+    ? new Date(event.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    : "";
+
+  return (
+    <div className="bg-card rounded-xl p-4 shadow-card border border-primary/20">
+      {timeStr && timeStr !== "All day" && (
+        <div className="flex items-center gap-2 mb-2">
+          <Clock size={13} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">{timeStr}</span>
+          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google</span>
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
+        <span className="flex-1 text-[15px] font-medium">{event.title}</span>
+        {event.htmlLink && (
+          <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium">
+            Open
+          </a>
+        )}
+        {onHide && (
+          <ItemActionMenu
+            onRemove={() => {}}
+            onToggleVisibility={onHide}
+          />
+        )}
+      </div>
+      {timeStr === "All day" && (
+        <div className="mt-1 ml-9 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">All day</span>
+          <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default CalendarPage;
