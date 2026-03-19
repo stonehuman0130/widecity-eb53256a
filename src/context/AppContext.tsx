@@ -63,6 +63,7 @@ export interface GoogleCalendarEvent {
   allDay: boolean;
   location: string | null;
   htmlLink: string;
+  ownerUserId?: string;
 }
 
 interface AppContextType {
