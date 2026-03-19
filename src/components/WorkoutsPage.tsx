@@ -56,7 +56,7 @@ const MANUAL_ACTIVITIES = [
 type ViewFilter = "mine" | "partner";
 
 const WorkoutsPage = () => {
-  const { workouts, filteredWorkouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, getWorkoutsForDate, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
+  const { workouts, filteredWorkouts, toggleWorkout, removeWorkout, setWorkouts, addWorkouts, rescheduleWorkout, partnerWorkouts, getPartnerWorkoutsForDate } = useAppContext();
   const { partner } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -94,6 +94,31 @@ const WorkoutsPage = () => {
     return filteredWorkouts.filter((w) => w.scheduledDate === selectedDate || w.completedDate === selectedDate);
   }, [selectedDate, filteredWorkouts, getPartnerWorkoutsForDate, isViewingPartner]);
 
+  const todaysWorkouts = useMemo(() => {
+    if (isViewingPartner) return [];
+    return filteredWorkouts
+      .filter((w) => w.scheduledDate === today || w.completedDate === today)
+      .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+  }, [filteredWorkouts, today, isViewingPartner]);
+
+  const upcomingWorkoutsByDate = useMemo(() => {
+    if (isViewingPartner) return [] as [string, Workout[]][];
+
+    const upcoming = filteredWorkouts
+      .filter((w) => Boolean(w.scheduledDate) && (w.scheduledDate as string) > today && !w.done)
+      .sort((a, b) => (a.scheduledDate as string).localeCompare(b.scheduledDate as string));
+
+    const grouped = new Map<string, Workout[]>();
+    for (const workout of upcoming) {
+      const key = workout.scheduledDate as string;
+      const list = grouped.get(key) || [];
+      list.push(workout);
+      grouped.set(key, list);
+    }
+
+    return Array.from(grouped.entries());
+  }, [filteredWorkouts, today, isViewingPartner]);
+
   const activeWorkouts = isViewingPartner ? partnerWorkouts : filteredWorkouts;
 
   const missedWorkouts = useMemo(() => {
@@ -102,8 +127,6 @@ const WorkoutsPage = () => {
   }, [filteredWorkouts, today, isViewingPartner]);
 
   const isToday = selectedDate === today;
-  const isPast = selectedDate < today;
-  const isFuture = selectedDate > today;
 
   const handleAiPlan = async () => {
     if (!aiPrompt.trim()) return;
@@ -472,7 +495,7 @@ const WorkoutsPage = () => {
             const isT = date === today;
             const hasWorkouts = isViewingPartner
               ? getPartnerWorkoutsForDate(date).length > 0
-              : getWorkoutsForDate(date).length > 0;
+              : filteredWorkouts.some((w) => w.scheduledDate === date || w.completedDate === date);
 
             return (
               <button
@@ -560,38 +583,101 @@ const WorkoutsPage = () => {
         </div>
       )}
 
-      {/* Selected Date Workouts */}
-      <section className="mb-6">
-        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-          <CalIcon size={14} className="text-muted-foreground" />
-          {isViewingPartner
-            ? `${partnerName}'s Workouts`
-            : isToday ? "Today's Workouts" : isFuture ? "Upcoming" : "Past Workouts"}
-          <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
-        </h3>
+      {/* Workout Sections */}
+      {isViewingPartner ? (
+        <section className="mb-6">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <CalIcon size={14} className="text-muted-foreground" />
+            {partnerName}'s Workouts
+            <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
+          </h3>
 
-        {dateWorkouts.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">
-            {isViewingPartner
-              ? `${partnerName} has no workouts on this day`
-              : isToday ? "No workouts today. Add one above!" : isFuture ? "Nothing scheduled yet." : "No workouts on this day."}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {dateWorkouts.map((w) => (
-              <WorkoutCard
-                key={w.id}
-                workout={w}
-                onToggle={handleToggleWorkout}
-                onRemove={removeWorkout}
-                onSelectExercise={setSelectedExercise}
-                isToday={isToday}
-                readOnly={isViewingPartner}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+          {dateWorkouts.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              {partnerName} has no workouts on this day
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {dateWorkouts.map((w) => (
+                <WorkoutCard
+                  key={w.id}
+                  workout={w}
+                  onToggle={handleToggleWorkout}
+                  onRemove={removeWorkout}
+                  onSelectExercise={setSelectedExercise}
+                  isToday={isToday}
+                  readOnly={true}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
+          <section className="mb-6">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <CalIcon size={14} className="text-muted-foreground" />
+              Today's Workouts
+              <span className="text-muted-foreground text-xs">({todaysWorkouts.length})</span>
+            </h3>
+
+            {todaysWorkouts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No workouts today. Generate a plan or add one above.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {todaysWorkouts.map((w) => (
+                  <WorkoutCard
+                    key={w.id}
+                    workout={w}
+                    onToggle={handleToggleWorkout}
+                    onRemove={removeWorkout}
+                    onSelectExercise={setSelectedExercise}
+                    isToday={true}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="mb-6">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <CalIcon size={14} className="text-muted-foreground" />
+              Upcoming
+              <span className="text-muted-foreground text-xs">({upcomingWorkoutsByDate.reduce((sum, [, workouts]) => sum + workouts.length, 0)})</span>
+            </h3>
+
+            {upcomingWorkoutsByDate.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                Nothing scheduled in upcoming days yet.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {upcomingWorkoutsByDate.map(([date, workoutsForDay]) => (
+                  <div key={date} className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground px-1">
+                      {new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                    </p>
+                    <div className="space-y-3">
+                      {workoutsForDay.map((workout) => (
+                        <WorkoutCard
+                          key={workout.id}
+                          workout={workout}
+                          onToggle={handleToggleWorkout}
+                          onRemove={removeWorkout}
+                          onSelectExercise={setSelectedExercise}
+                          isToday={false}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
 
       {/* Exercise Detail Dialog */}
       <ExerciseDetailDialog
