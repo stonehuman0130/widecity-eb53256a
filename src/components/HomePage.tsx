@@ -39,7 +39,7 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
-    partnerHabits, partnerEvents, partnerTasks, googleCalendarEvents, hideGcalEvent, toggleEventVisibility,
+    partnerHabits, partnerEvents, partnerTasks, googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
   } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
