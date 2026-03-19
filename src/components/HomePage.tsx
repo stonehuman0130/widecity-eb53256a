@@ -36,7 +36,7 @@ const HomePage = () => {
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
     habits, toggleHabit, addHabit, removeHabit, events, tasks, toggleTask, addTask, addEvent, removeEvent, removeTask,
-    partnerHabits, partnerEvents, partnerTasks,
+    partnerHabits, partnerEvents, partnerTasks, googleCalendarEvents,
   } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
