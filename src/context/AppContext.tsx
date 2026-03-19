@@ -106,6 +106,7 @@ interface AppContextType {
   googleCalendarEvents: GoogleCalendarEvent[];
   hideGcalEvent: (eventId: string) => Promise<void>;
   toggleEventVisibility: (eventId: string) => Promise<void>;
+  designateGcalEvent: (eventId: string, assignee: "me" | "partner" | "both") => Promise<void>;
   // Partner data
   partnerHabits: Habit[];
   partnerEvents: ScheduledEvent[];
