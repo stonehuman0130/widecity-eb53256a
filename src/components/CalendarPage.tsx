@@ -88,7 +88,7 @@ const CalendarPage = () => {
     setShowAddForm(false);
   };
 
-  const allEmpty = dayEvents.length === 0 && dayTasks.length === 0;
+  const allEmpty = dayEvents.length === 0 && dayTasks.length === 0 && gcalDayEvents.length === 0;
 
   return (
     <div className="px-5">
