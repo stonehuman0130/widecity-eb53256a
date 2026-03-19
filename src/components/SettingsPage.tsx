@@ -197,55 +197,69 @@ const SettingsPage = () => {
         )}
       </div>
 
-      {/* Google Calendar Integration */}
-      <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
-        <div className="p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <Calendar size={16} className="text-primary" />
-            <span className="text-sm font-semibold">Google Calendar Sync</span>
-          </div>
-          <p className="text-xs text-muted-foreground mb-3">
-            Connect your Google Calendar for two-way sync. Your Google Calendar events will appear in the app.
-          </p>
+      {/* Google Calendar Integration - only visible when no specific group is selected */}
+      {!activeGroup ? (
+        <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <Calendar size={16} className="text-primary" />
+              <span className="text-sm font-semibold">Google Calendar Sync</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Connect your Google Calendar for two-way sync. Events appear in the "All" consolidated view.
+            </p>
 
-          {gcalConnected === null ? (
-            <div className="flex items-center justify-center py-3">
-              <Loader2 size={16} className="animate-spin text-muted-foreground" />
-            </div>
-          ) : gcalConnected ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
-                <span className="text-xl">📅</span>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-primary">Connected</p>
-                  <p className="text-xs text-muted-foreground">Google Calendar is syncing</p>
+            {gcalConnected === null ? (
+              <div className="flex items-center justify-center py-3">
+                <Loader2 size={16} className="animate-spin text-muted-foreground" />
+              </div>
+            ) : gcalConnected ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                  <span className="text-xl">📅</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-primary">Connected</p>
+                    <p className="text-xs text-muted-foreground">Google Calendar is syncing</p>
+                  </div>
+                  <Check size={16} className="text-primary" />
                 </div>
-                <Check size={16} className="text-primary" />
+                <button
+                  onClick={handleDisconnectGoogleCalendar}
+                  disabled={gcalLoading}
+                  className="w-full py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {gcalLoading ? <Loader2 size={16} className="animate-spin" /> : <Unlink size={16} />}
+                  Disconnect Google Calendar
+                </button>
               </div>
+            ) : (
               <button
-                onClick={handleDisconnectGoogleCalendar}
-                disabled={gcalLoading}
-                className="w-full py-2.5 rounded-xl border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                onClick={handleConnectGoogleCalendar}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
               >
-                {gcalLoading ? <Loader2 size={16} className="animate-spin" /> : <Unlink size={16} />}
-                Disconnect Google Calendar
+                <span className="text-xl">📅</span>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-semibold">Connect Google Calendar</p>
+                  <p className="text-xs opacity-80">Two-way sync with your schedule</p>
+                </div>
+                <ExternalLink size={14} />
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={handleConnectGoogleCalendar}
-              className="w-full flex items-center gap-3 p-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              <span className="text-xl">📅</span>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-semibold">Connect Google Calendar</p>
-                <p className="text-xs opacity-80">Two-way sync with your schedule</p>
-              </div>
-              <ExternalLink size={14} />
-            </button>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <Calendar size={16} className="text-muted-foreground" />
+              <span className="text-sm font-semibold">Calendar Integrations</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Google Calendar sync is available in the "All" view. Switch to "All" in the group selector to manage integrations.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Settings List */}
       <div className="space-y-1">
