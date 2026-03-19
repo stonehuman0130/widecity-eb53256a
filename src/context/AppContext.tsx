@@ -67,14 +67,17 @@ export interface GoogleCalendarEvent {
 
 interface AppContextType {
   habits: Habit[];
+  filteredHabits: Habit[];
   toggleHabit: (id: string) => void;
   addHabit: (label: string, category: "morning" | "other") => void;
   removeHabit: (id: string) => void;
   addSharedHabit: (label: string, category: "morning" | "other") => Promise<void>;
   events: ScheduledEvent[];
+  filteredEvents: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
   removeEvent: (id: string) => void;
   tasks: Task[];
+  filteredTasks: Task[];
   toggleTask: (id: string) => void;
   addTask: (task: Omit<Task, "id" | "done">) => void;
   removeTask: (id: string) => void;
@@ -85,6 +88,7 @@ interface AppContextType {
   setWaterGoal: (goal: number) => void;
   resetWater: () => void;
   workouts: Workout[];
+  filteredWorkouts: Workout[];
   toggleWorkout: (id: string) => void;
   removeWorkout: (id: string) => void;
   setWorkouts: (workouts: Workout[]) => void;
