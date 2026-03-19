@@ -277,6 +277,7 @@ const CalendarPage = () => {
                       user={task.assignee}
                       done={task.done}
                       tag={task.tag}
+                      groupId={task.groupId}
                       onToggle={() => {
                         if (!task.done) toast.success("🎉 Task complete!");
                         toggleTask(task.id);
