@@ -871,6 +871,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return workouts.filter((workout) => workout.groupId === activeGroup.id || workout.groupId == null);
   }, [workouts, activeGroup]);
 
+  const hideGcalEvent = async (eventId: string) => {
+    if (!user) return;
+    // Remove from local state immediately
+    setGoogleCalendarEvents((prev) => prev.filter((e) => e.id !== eventId));
+    await supabase.from("hidden_gcal_events").upsert({
+      user_id: user.id,
+      gcal_event_id: eventId,
+      group_id: activeGroup?.id || null,
+    }, { onConflict: "user_id,gcal_event_id" });
+  };
+
+  const toggleEventVisibility = async (eventId: string) => {
+    if (!user) return;
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+    const newHidden = !event.hiddenFromPartner;
+    setEvents((prev) =>
+      prev.map((e) => e.id === eventId ? { ...e, hiddenFromPartner: newHidden } : e)
+    );
+    await supabase.from("events").update({ hidden_from_partner: newHidden }).eq("id", eventId);
+  };
+
   return (
     <AppContext.Provider value={{
       habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
@@ -879,7 +901,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
-      googleCalendarEvents,
+      googleCalendarEvents, hideGcalEvent, toggleEventVisibility,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
       getPartnerWorkoutsForDate, getPartnerHabitsForDate, getPartnerHabitStreak,
       loading,
