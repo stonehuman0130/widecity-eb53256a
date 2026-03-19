@@ -401,7 +401,8 @@ const CalendarItemCard = ({
     </div>
   );
 };
-const GCalCard = ({ event }: { event: GoogleCalendarEvent }) => {
+const GCalCard = ({ event, onHide }: { event: GoogleCalendarEvent; onHide?: () => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
   const timeStr = event.allDay
     ? "All day"
     : event.start
@@ -425,6 +426,26 @@ const GCalCard = ({ event }: { event: GoogleCalendarEvent }) => {
             Open
           </a>
         )}
+        <div className="relative">
+          <button onClick={() => setMenuOpen((v) => !v)} className="p-1 text-muted-foreground">
+            <MoreVertical size={16} />
+          </button>
+          {menuOpen && (
+            <>
+              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+              <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-card">
+                {onHide && (
+                  <button
+                    onClick={() => { onHide(); setMenuOpen(false); }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-secondary"
+                  >
+                    <EyeOff size={14} /> Hide from others
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
       {timeStr === "All day" && (
         <div className="mt-1 ml-9 flex items-center gap-2">
