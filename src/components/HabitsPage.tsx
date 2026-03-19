@@ -99,7 +99,8 @@ const HabitsPage = () => {
     }
   };
 
-  const partnerName = partner?.display_name || "Partner";
+  const { twoTabFilters, hasOther, otherName } = useGroupContext();
+  const partnerName = otherName;
 
   return (
     <div className="px-5">
