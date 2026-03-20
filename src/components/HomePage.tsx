@@ -544,6 +544,13 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         </div>
         <div className="flex items-center gap-1.5 mt-1">
           <button
+            onClick={() => setShowCustomizer(true)}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            aria-label="Customize layout"
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
             onClick={() => setShowAddModal(true)}
             className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card"
           >
