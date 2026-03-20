@@ -334,7 +334,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+            className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center pb-[env(safe-area-inset-bottom)]"
             onClick={() => setShowForm(false)}
           >
             <motion.div
@@ -343,7 +343,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[85vh] overflow-y-auto"
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[70svh] flex flex-col"
             >
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <h3 className="text-lg font-bold">
@@ -357,7 +357,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
                 </button>
               </div>
 
-              <div className="px-5 pb-6 space-y-4">
+              <div className="px-5 pb-6 space-y-4 flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" as any }}>
                 {/* Icon Picker */}
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-2 block">Icon</label>

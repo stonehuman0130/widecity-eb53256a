@@ -178,8 +178,8 @@ const HomeSectionCustomizer = ({ open, onClose, order, visible, selectedSobriety
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
-        onClick={onClose}
+          className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center pb-[env(safe-area-inset-bottom)]"
+          onClick={onClose}
       >
         <motion.div
           initial={{ y: "100%" }}
@@ -187,7 +187,7 @@ const HomeSectionCustomizer = ({ open, onClose, order, visible, selectedSobriety
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[80vh] flex flex-col"
+          className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[70svh] flex flex-col"
         >
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="text-lg font-bold tracking-display">Customize Home</h3>
@@ -199,7 +199,7 @@ const HomeSectionCustomizer = ({ open, onClose, order, visible, selectedSobriety
             Toggle sections on/off and drag to reorder. Changes apply instantly.
           </p>
 
-          <div className="flex-1 overflow-y-auto px-5 pb-5 overscroll-contain">
+          <div className="flex-1 overflow-y-auto px-5 pb-5 overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
             <Reorder.Group axis="y" values={fullOrder} onReorder={handleReorder} className="space-y-2">
               {fullOrder.map((id) => {
                 const section = ALL_SECTIONS.find((s) => s.id === id);
