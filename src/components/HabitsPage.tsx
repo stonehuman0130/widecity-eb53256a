@@ -357,9 +357,9 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
               onToggle={handleToggle}
               onDelete={isViewingPartner ? undefined : (id) => { removeHabit(id); toast.success("Habit deleted"); }}
               streak={streakFn(habit.id)}
-              partner={partner}
               isViewingPartner={isViewingPartner}
-              onNudge={() => sendNudge(habit.label, habit.id)}
+              onNudge={isViewingPartner && partner ? () => sendNudge(habit.label, habit.id) : undefined}
+              nudgeLabel={isViewingPartner && partner ? `Nudge ${partner.display_name}` : undefined}
             />
           ))}
           {morningHabits.length === 0 && (
