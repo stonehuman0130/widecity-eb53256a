@@ -26,6 +26,10 @@ export interface ScheduledEvent {
   endTime?: string;
   allDay?: boolean;
   user: "me" | "partner" | "both";
+  done?: boolean;
+  completedAt?: string | null;
+  completedBy?: string | null;
+  updatedAt?: string | null;
   hiddenFromPartner?: boolean;
   groupId?: string | null;
 }
@@ -37,6 +41,9 @@ export interface Task {
   tag: "Work" | "Personal" | "Household";
   assignee: "me" | "partner" | "both";
   done: boolean;
+  completedAt?: string | null;
+  completedBy?: string | null;
+  updatedAt?: string | null;
   scheduledDay?: number;
   scheduledMonth?: number;
   scheduledYear?: number;
@@ -84,6 +91,7 @@ interface AppContextType {
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
   removeEvent: (id: string) => void;
   rescheduleEvent: (id: string, day: number, month: number, year: number) => Promise<void>;
+  toggleEventCompletion: (id: string) => Promise<void>;
   tasks: Task[];
   filteredTasks: Task[];
   toggleTask: (id: string) => void;
@@ -239,6 +247,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             tag: t.tag as "Work" | "Personal" | "Household",
             assignee: t.assignee as "me" | "partner" | "both",
             done: t.done,
+            completedAt: t.completed_at ?? null,
+            completedBy: t.completed_by ?? null,
+            updatedAt: t.updated_at ?? null,
             scheduledDay: t.scheduled_day,
             scheduledMonth: t.scheduled_month,
             scheduledYear: t.scheduled_year,
@@ -268,6 +279,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             endTime: e.end_time ?? "",
             allDay: e.all_day ?? false,
             user: e.assignee as "me" | "partner" | "both",
+            done: e.done ?? false,
+            completedAt: e.completed_at ?? null,
+            completedBy: e.completed_by ?? null,
+            updatedAt: e.updated_at ?? null,
             hiddenFromPartner: e.hidden_from_partner || false,
             groupId: e.group_id || null,
           })));
@@ -435,6 +450,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             tag: t.tag as "Work" | "Personal" | "Household",
             assignee: toViewerPerspective(t.assignee as Assignee, false),
             done: t.done,
+            completedAt: t.completed_at ?? null,
+            completedBy: t.completed_by ?? null,
+            updatedAt: t.updated_at ?? null,
             scheduledDay: t.scheduled_day,
             scheduledMonth: t.scheduled_month,
             scheduledYear: t.scheduled_year,
@@ -464,6 +482,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             endTime: e.end_time ?? "",
             allDay: e.all_day ?? false,
             user: toViewerPerspective(e.assignee as Assignee, false),
+            done: e.done ?? false,
+            completedAt: e.completed_at ?? null,
+            completedBy: e.completed_by ?? null,
+            updatedAt: e.updated_at ?? null,
             hiddenFromPartner: e.hidden_from_partner || false,
             groupId: e.group_id || null,
           })));
@@ -499,52 +521,79 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadPartnerData();
   }, [contextOtherUserId, user]);
 
-  // ── Realtime subscription for tasks (cross-user sync) ──
+  // ── Realtime subscription for tasks/events (cross-user sync) ──
   useEffect(() => {
     if (!user) return;
 
+    const applyTaskUpdate = (row: any) => ({
+      done: row.done,
+      completedAt: row.completed_at ?? null,
+      completedBy: row.completed_by ?? null,
+      updatedAt: row.updated_at ?? null,
+      time: row.time ?? "",
+      assignee: row.assignee as "me" | "partner" | "both",
+      scheduledDay: row.scheduled_day,
+      scheduledMonth: row.scheduled_month,
+      scheduledYear: row.scheduled_year,
+      hiddenFromPartner: row.hidden_from_partner || false,
+      groupId: row.group_id || null,
+      tag: row.tag as "Work" | "Personal" | "Household",
+      title: row.title,
+    });
+
+    const applyEventUpdate = (row: any) => ({
+      done: row.done ?? false,
+      completedAt: row.completed_at ?? null,
+      completedBy: row.completed_by ?? null,
+      updatedAt: row.updated_at ?? null,
+      title: row.title,
+      time: row.time || "",
+      description: row.description,
+      day: row.day,
+      month: row.month,
+      year: row.year,
+      endDay: row.end_day ?? row.day,
+      endMonth: row.end_month ?? row.month,
+      endYear: row.end_year ?? row.year,
+      endTime: row.end_time ?? "",
+      allDay: row.all_day ?? false,
+      hiddenFromPartner: row.hidden_from_partner || false,
+      groupId: row.group_id || null,
+      user: row.assignee as "me" | "partner" | "both",
+    });
+
     const channel = supabase
-      .channel('tasks-realtime')
+      .channel("items-realtime")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tasks' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tasks" },
         (payload) => {
-          if (payload.eventType === 'UPDATE') {
+          if (payload.eventType === "UPDATE") {
             const updated = payload.new as any;
-            // Update own tasks
-            setTasks((prev) =>
-              prev.map((t) => t.id === updated.id ? { ...t, done: updated.done } : t)
-            );
-            // Update partner tasks
-            setPartnerTasks((prev) =>
-              prev.map((t) => t.id === updated.id ? { ...t, done: updated.done } : t)
-            );
-          } else if (payload.eventType === 'DELETE') {
+            setTasks((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...applyTaskUpdate(updated) } : t)));
+            setPartnerTasks((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...applyTaskUpdate(updated), assignee: toViewerPerspective(updated.assignee as Assignee, false) } : t)));
+          } else if (payload.eventType === "DELETE") {
             const deletedId = payload.old?.id;
             if (deletedId) {
               setTasks((prev) => prev.filter((t) => t.id !== deletedId));
               setPartnerTasks((prev) => prev.filter((t) => t.id !== deletedId));
             }
-          } else if (payload.eventType === 'INSERT') {
-            const inserted = payload.new as any;
-            // If it belongs to partner, add to partner tasks
-            if (inserted.user_id === contextOtherUserId) {
-              setPartnerTasks((prev) => {
-                if (prev.some((t) => t.id === inserted.id)) return prev;
-                return [...prev, {
-                  id: inserted.id,
-                  title: inserted.title,
-                  time: inserted.time || "",
-                  tag: inserted.tag as "Work" | "Personal" | "Household",
-                  assignee: toViewerPerspective(inserted.assignee as Assignee, false),
-                  done: inserted.done,
-                  scheduledDay: inserted.scheduled_day,
-                  scheduledMonth: inserted.scheduled_month,
-                  scheduledYear: inserted.scheduled_year,
-                  hiddenFromPartner: inserted.hidden_from_partner || false,
-                  groupId: inserted.group_id || null,
-                }];
-              });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        (payload) => {
+          if (payload.eventType === "UPDATE") {
+            const updated = payload.new as any;
+            setEvents((prev) => prev.map((e) => (e.id === updated.id ? { ...e, ...applyEventUpdate(updated) } : e)));
+            setPartnerEvents((prev) => prev.map((e) => (e.id === updated.id ? { ...e, ...applyEventUpdate(updated), user: toViewerPerspective(updated.assignee as Assignee, false) } : e)));
+          } else if (payload.eventType === "DELETE") {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setEvents((prev) => prev.filter((e) => e.id !== deletedId));
+              setPartnerEvents((prev) => prev.filter((e) => e.id !== deletedId));
             }
           }
         }
@@ -554,7 +603,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, contextOtherUserId]);
+  }, [user]);
 
   const toggleHabit = async (id: string) => {
     const dateKey = todayStr();
@@ -685,6 +734,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         end_time: event.endTime ?? (isAllDay ? "" : (event.time || "")),
         all_day: isAllDay,
         assignee: event.user,
+        done: false,
+        completed_at: null,
+        completed_by: null,
         group_id: groupId,
       })
       .select()
@@ -696,6 +748,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         time: isAllDay ? "All day" : (event.time || "All day"),
         id: data.id,
         groupId,
+        done: false,
+        completedAt: null,
+        completedBy: null,
+        updatedAt: data.updated_at ?? null,
         endDay: event.endDay ?? event.day,
         endMonth: event.endMonth ?? event.month,
         endYear: event.endYear ?? event.year,
@@ -717,18 +773,65 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("events").update({ day, month, year }).eq("id", id);
   };
 
+  const applyTaskCompletionState = (taskId: string, done: boolean, completedAt: string | null, completedBy: string | null) => {
+    setTasks((prev) => prev.map((item) => item.id === taskId ? { ...item, done, completedAt, completedBy } : item));
+    setPartnerTasks((prev) => prev.map((item) => item.id === taskId ? { ...item, done, completedAt, completedBy } : item));
+  };
+
+  const applyEventCompletionState = (eventId: string, done: boolean, completedAt: string | null, completedBy: string | null) => {
+    setEvents((prev) => prev.map((item) => item.id === eventId ? { ...item, done, completedAt, completedBy } : item));
+    setPartnerEvents((prev) => prev.map((item) => item.id === eventId ? { ...item, done, completedAt, completedBy } : item));
+  };
+
   const toggleTask = async (id: string) => {
-    const task = tasks.find((t) => t.id === id);
+    if (!user) return;
+    const task = tasks.find((t) => t.id === id) || partnerTasks.find((t) => t.id === id);
     if (!task) return;
 
     const newDone = !task.done;
-    setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: newDone } : item)));
+    const optimisticCompletedAt = newDone ? new Date().toISOString() : null;
+    const optimisticCompletedBy = newDone ? user.id : null;
+    applyTaskCompletionState(id, newDone, optimisticCompletedAt, optimisticCompletedBy);
 
-    const { error } = await supabase.from("tasks").update({ done: newDone }).eq("id", id);
+    const { data, error } = await supabase.rpc("toggle_task_completion", {
+      _task_id: id,
+      _completed: newDone,
+    });
+
     if (error) {
       console.error("Failed to persist task toggle:", error);
-      // Rollback optimistic update
-      setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: task.done } : item)));
+      applyTaskCompletionState(id, task.done, task.completedAt ?? null, task.completedBy ?? null);
+      return;
+    }
+
+    if (data) {
+      applyTaskCompletionState(id, data.done, data.completed_at ?? null, data.completed_by ?? null);
+    }
+  };
+
+  const toggleEventCompletion = async (id: string) => {
+    if (!user) return;
+    const event = events.find((e) => e.id === id) || partnerEvents.find((e) => e.id === id);
+    if (!event) return;
+
+    const newDone = !event.done;
+    const optimisticCompletedAt = newDone ? new Date().toISOString() : null;
+    const optimisticCompletedBy = newDone ? user.id : null;
+    applyEventCompletionState(id, newDone, optimisticCompletedAt, optimisticCompletedBy);
+
+    const { data, error } = await supabase.rpc("toggle_event_completion", {
+      _event_id: id,
+      _completed: newDone,
+    });
+
+    if (error) {
+      console.error("Failed to persist event toggle:", error);
+      applyEventCompletionState(id, event.done ?? false, event.completedAt ?? null, event.completedBy ?? null);
+      return;
+    }
+
+    if (data) {
+      applyEventCompletionState(id, data.done ?? false, data.completed_at ?? null, data.completed_by ?? null);
     }
   };
 
@@ -744,6 +847,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         tag: task.tag,
         assignee: task.assignee,
         done: false,
+        completed_at: null,
+        completed_by: null,
         scheduled_day: task.scheduledDay,
         scheduled_month: task.scheduledMonth,
         scheduled_year: task.scheduledYear,
@@ -753,7 +858,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (data && !error) {
-      setTasks((t) => [...t, { ...task, id: data.id, done: false, groupId }]);
+      setTasks((t) => [...t, {
+        ...task,
+        id: data.id,
+        done: false,
+        completedAt: null,
+        completedBy: null,
+        updatedAt: data.updated_at ?? null,
+        groupId,
+      }]);
     }
   };
 
@@ -1122,7 +1235,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AppContext.Provider value={{
       habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
-      events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
+      events, filteredEvents, addEvent, removeEvent, rescheduleEvent, toggleEventCompletion,
       tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade,

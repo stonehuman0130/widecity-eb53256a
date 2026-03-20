@@ -18,9 +18,12 @@ export type Database = {
         Row: {
           all_day: boolean
           assignee: string
+          completed_at: string | null
+          completed_by: string | null
           created_at: string
           day: number
           description: string | null
+          done: boolean
           end_day: number | null
           end_month: number | null
           end_time: string
@@ -31,15 +34,19 @@ export type Database = {
           month: number
           time: string
           title: string
+          updated_at: string
           user_id: string
           year: number
         }
         Insert: {
           all_day?: boolean
           assignee?: string
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           day: number
           description?: string | null
+          done?: boolean
           end_day?: number | null
           end_month?: number | null
           end_time?: string
@@ -50,15 +57,19 @@ export type Database = {
           month: number
           time?: string
           title: string
+          updated_at?: string
           user_id: string
           year: number
         }
         Update: {
           all_day?: boolean
           assignee?: string
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           day?: number
           description?: string | null
+          done?: boolean
           end_day?: number | null
           end_month?: number | null
           end_time?: string
@@ -69,6 +80,7 @@ export type Database = {
           month?: number
           time?: string
           title?: string
+          updated_at?: string
           user_id?: string
           year?: number
         }
@@ -510,6 +522,8 @@ export type Database = {
       tasks: {
         Row: {
           assignee: string
+          completed_at: string | null
+          completed_by: string | null
           created_at: string
           done: boolean
           group_id: string | null
@@ -521,10 +535,13 @@ export type Database = {
           tag: string
           time: string
           title: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           assignee?: string
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           done?: boolean
           group_id?: string | null
@@ -536,10 +553,13 @@ export type Database = {
           tag?: string
           time?: string
           title: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           assignee?: string
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           done?: boolean
           group_id?: string | null
@@ -551,6 +571,7 @@ export type Database = {
           tag?: string
           time?: string
           title?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -651,6 +672,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_user_toggle_assigned_item: {
+        Args: { _assignee: string; _group_id: string; _owner_user_id: string }
+        Returns: boolean
+      }
       connect_partner: { Args: { code: string }; Returns: Json }
       create_group: {
         Args: { _emoji?: string; _name: string; _type?: string }
@@ -678,6 +703,65 @@ export type Database = {
           _target_group_id: string
         }
         Returns: Json
+      }
+      toggle_event_completion: {
+        Args: { _completed: boolean; _event_id: string }
+        Returns: {
+          all_day: boolean
+          assignee: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          day: number
+          description: string | null
+          done: boolean
+          end_day: number | null
+          end_month: number | null
+          end_time: string
+          end_year: number | null
+          group_id: string | null
+          hidden_from_partner: boolean
+          id: string
+          month: number
+          time: string
+          title: string
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "events"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      toggle_task_completion: {
+        Args: { _completed: boolean; _task_id: string }
+        Returns: {
+          assignee: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          done: boolean
+          group_id: string | null
+          hidden_from_partner: boolean
+          id: string
+          scheduled_day: number | null
+          scheduled_month: number | null
+          scheduled_year: number | null
+          tag: string
+          time: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

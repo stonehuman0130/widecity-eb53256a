@@ -34,6 +34,7 @@ interface TeamDashboardProps {
   partnerEvents: ScheduledEvent[];
   gcalEvents: GoogleCalendarEvent[];
   toggleTask: (id: string) => void;
+  toggleEventCompletion?: (id: string) => void;
   removeEvent: (id: string) => void;
   removeTask?: (id: string) => void;
   toggleEventVisibility?: (id: string) => void;
@@ -61,7 +62,7 @@ function parseTimeToMinutes(time?: string): number {
 
 const TeamDashboard = ({
   myTasks, myEvents, partnerTasks, partnerEvents, gcalEvents,
-  toggleTask, onCongrats,
+  toggleTask, toggleEventCompletion, onCongrats,
 }: TeamDashboardProps) => {
   const { user, profile, partner, activeGroup } = useAuth();
 
@@ -153,19 +154,13 @@ const TeamDashboard = ({
       id: e.id, type: "event", title: e.title, time: e.time,
       sortMinutes: parseTimeToMinutes(e.time), assignee: e.user,
       assignedUserIds: resolveAssignedUserIds({ assignee: e.user, sourceUserId: selfUserId, selfUserId, members: columnMembers }),
-      sourceUserId: selfUserId, done: false, isOwn: true, original: e,
-    }));
-    partnerTasks.forEach((t) => addItem({
-      id: `p-${t.id}`, type: "task", title: t.title, time: t.time,
-      sortMinutes: parseTimeToMinutes(t.time), assignee: t.assignee,
-      assignedUserIds: resolveAssignedUserIds({ assignee: t.assignee, sourceUserId: primaryOtherUserId, selfUserId, members: columnMembers }),
-      sourceUserId: primaryOtherUserId, done: t.done, isOwn: false, tag: t.tag, original: t,
+      sourceUserId: selfUserId, done: e.done ?? false, isOwn: true, original: e,
     }));
     partnerEvents.forEach((e) => addItem({
       id: `p-${e.id}`, type: "event", title: e.title, time: e.time,
       sortMinutes: parseTimeToMinutes(e.time), assignee: e.user,
       assignedUserIds: resolveAssignedUserIds({ assignee: e.user, sourceUserId: primaryOtherUserId, selfUserId, members: columnMembers }),
-      sourceUserId: primaryOtherUserId, done: false, isOwn: false, original: e,
+      sourceUserId: primaryOtherUserId, done: e.done ?? false, isOwn: false, original: e,
     }));
     gcalEvents.forEach((ge) => {
       const timeStr = ge.allDay ? "" : ge.start ? new Date(ge.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "";
@@ -206,6 +201,18 @@ const TeamDashboard = ({
   // ── Render a single card ──
   const renderCard = (item: UnifiedItem) => {
     const isShared = item.assignedUserIds.length > 1 || item.assignee === "both";
+    const canToggle = item.type !== "gcal" && item.assignedUserIds.includes(selfUserId);
+
+    const handleToggle = () => {
+      if (!canToggle || item.type === "gcal") return;
+      if (!item.done) onCongrats();
+      if (item.type === "task") {
+        toggleTask((item.original as Task).id);
+      } else {
+        toggleEventCompletion?.((item.original as ScheduledEvent).id);
+      }
+    };
+
     return (
       <motion.div
         key={item.id}
@@ -228,15 +235,11 @@ const TeamDashboard = ({
             <span className="w-3.5 h-3.5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-[8px]">📅</span>
           ) : (
             <button
-              onClick={() => {
-                if (!item.isOwn || item.type !== "task") return;
-                if (!item.done) onCongrats();
-                toggleTask((item.original as Task).id);
-              }}
-              disabled={!item.isOwn || item.type !== "task"}
+              onClick={handleToggle}
+              disabled={!canToggle}
               className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                 item.done ? "bg-habit-green border-habit-green" : "border-muted"
-              } ${!item.isOwn ? "opacity-60" : ""}`}
+              } ${!canToggle ? "opacity-60" : ""}`}
             >
               {item.done && <Check size={7} className="text-primary-foreground" />}
             </button>

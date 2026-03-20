@@ -178,7 +178,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         id: `ev-${e.id}`, title: e.title, time: e.time,
         endTime: e.endTime,
         allDay: isAllDay, hour, endHour,
-        assignee: e.user, hidden: e.hiddenFromPartner,
+        assignee: e.user, done: e.done ?? false, hidden: e.hiddenFromPartner,
         groupId: e.groupId, type: "event", raw: e,
         isMultiDay, isStart: isStartDay, isEnd: isEndDay,
       });
