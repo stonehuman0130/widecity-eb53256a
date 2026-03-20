@@ -199,7 +199,7 @@ const HomeSectionCustomizer = ({ open, onClose, order, visible, selectedSobriety
             Toggle sections on/off and drag to reorder. Changes apply instantly.
           </p>
 
-          <div className="flex-1 overflow-y-auto px-5 pb-5 overscroll-contain">
+          <div className="flex-1 overflow-y-auto px-5 pb-5 overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
             <Reorder.Group axis="y" values={fullOrder} onReorder={handleReorder} className="space-y-2">
               {fullOrder.map((id) => {
                 const section = ALL_SECTIONS.find((s) => s.id === id);

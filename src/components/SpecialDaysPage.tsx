@@ -357,7 +357,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
                 </button>
               </div>
 
-              <div className="px-5 pb-6 space-y-4">
+              <div className="px-5 pb-6 space-y-4 flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" as any }}>
                 {/* Icon Picker */}
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-2 block">Icon</label>
