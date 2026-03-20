@@ -8,6 +8,7 @@ import GroupSelector from "@/components/GroupSelector";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
+import TeamDashboard from "@/components/TeamDashboard";
 import AddItemModal from "@/components/AddItemModal";
 import CongratsPopup from "@/components/CongratsPopup";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
