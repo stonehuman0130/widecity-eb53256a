@@ -25,6 +25,7 @@ const OPTIONAL_PAGES: { id: keyof EnabledPages; label: string; icon: typeof Dumb
   { id: "workout", label: "Workout", icon: Dumbbell, desc: "Track workouts and exercise plans" },
   { id: "habits", label: "Habits", icon: Heart, desc: "Daily habit tracking and streaks" },
   { id: "sobriety", label: "Sobriety Day Count", icon: Clock, desc: "Track sobriety milestones" },
+  { id: "specialdays", label: "Special Days", icon: Sparkles, desc: "Track anniversaries, birthdays & milestones" },
 ];
 
 const BottomNav = ({ activeTab, onTabChange, enabledPages, onTogglePage }: BottomNavProps) => {
