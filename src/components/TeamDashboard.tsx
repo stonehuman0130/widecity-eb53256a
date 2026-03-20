@@ -63,7 +63,7 @@ function parseTimeToMinutes(time?: string): number {
 
 const TeamDashboard = ({
   myTasks, myEvents, partnerTasks, partnerEvents, gcalEvents,
-  toggleTask, toggleEventCompletion, onCongrats,
+  toggleTask, toggleEventCompletion, toggleGcalCompletion, onCongrats,
 }: TeamDashboardProps) => {
   const { user, profile, partner, activeGroup } = useAuth();
 
