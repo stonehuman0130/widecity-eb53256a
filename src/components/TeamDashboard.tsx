@@ -43,7 +43,7 @@ interface TeamDashboardProps {
   designateGcalEvent?: (eventId: string, assignee: "me" | "partner" | "both") => void;
   onCongrats: () => void;
 }
-...
+
 const TeamDashboard = ({
   myTasks, myEvents, partnerTasks, partnerEvents, gcalEvents,
   toggleTask, toggleEventCompletion, onCongrats,
