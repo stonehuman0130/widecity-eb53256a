@@ -474,36 +474,51 @@ const TogetherHabitCard = ({
   streak,
   onToggle,
   readOnly,
+  onNudge,
+  nudgeLabel,
 }: {
   habit: { id: string; label: string; done: boolean; groupId?: string | null };
   streak: number;
   onToggle?: (id: string) => void;
   readOnly?: boolean;
+  onNudge?: () => void;
+  nudgeLabel?: string;
 }) => (
-  <button
-    onClick={() => !readOnly && onToggle?.(habit.id)}
-    disabled={readOnly}
-    className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-left ${
-      habit.done
-        ? "border-habit-green bg-habit-green/5"
-        : "border-border bg-card"
-    } ${readOnly ? "opacity-90" : "active:scale-[0.98]"}`}
-  >
-    {habit.done ? (
-      <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center flex-shrink-0">
-        <Check size={11} className="text-primary-foreground" />
+  <div>
+    <button
+      onClick={() => !readOnly && onToggle?.(habit.id)}
+      disabled={readOnly}
+      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-left ${
+        habit.done
+          ? "border-habit-green bg-habit-green/5"
+          : "border-border bg-card"
+      } ${readOnly ? "opacity-90" : "active:scale-[0.98]"}`}
+    >
+      {habit.done ? (
+        <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center flex-shrink-0">
+          <Check size={11} className="text-primary-foreground" />
+        </span>
+      ) : (
+        <span className="w-5 h-5 rounded-full border-2 border-muted flex-shrink-0" />
+      )}
+      <span className={`flex-1 text-xs font-medium truncate ${habit.done ? "line-through opacity-50" : ""}`}>
+        {habit.label}
       </span>
-    ) : (
-      <span className="w-5 h-5 rounded-full border-2 border-muted flex-shrink-0" />
+      <div className="flex items-center gap-0.5 text-accent flex-shrink-0">
+        <Flame size={10} />
+        <span className="text-[10px] font-bold">{streak}d</span>
+      </div>
+    </button>
+    {onNudge && !habit.done && (
+      <button
+        onClick={onNudge}
+        className="flex items-center gap-1 px-2 py-1 mt-1 rounded-full bg-primary/10 text-primary text-[10px] font-semibold hover:bg-primary/20 transition-colors"
+      >
+        <Bell size={9} />
+        {nudgeLabel || "Nudge"}
+      </button>
     )}
-    <span className={`flex-1 text-xs font-medium truncate ${habit.done ? "line-through opacity-50" : ""}`}>
-      {habit.label}
-    </span>
-    <div className="flex items-center gap-0.5 text-accent flex-shrink-0">
-      <Flame size={10} />
-      <span className="text-[10px] font-bold">{streak}d</span>
-    </div>
-  </button>
+  </div>
 );
 
 // ── Morning Habit Row (individual view) ──
