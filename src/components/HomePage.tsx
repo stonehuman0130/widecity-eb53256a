@@ -835,15 +835,15 @@ const TaskCard = ({ task, onToggle, onCongrats, readOnly }: { task: Task; onTogg
   );
 };
 
-const EventCard = ({ event, onRemove, onToggleVisibility, onReschedule, onCongrats, readOnly }: {
+const EventCard = ({ event, onToggle, onRemove, onToggleVisibility, onReschedule, onCongrats, readOnly }: {
   event: ScheduledEvent;
+  onToggle?: (id: string) => void;
   onRemove?: (id: string) => void;
   onToggleVisibility?: (id: string) => void;
   onReschedule?: (id: string, day: number, month: number, year: number) => void;
   onCongrats: () => void;
   readOnly?: boolean;
 }) => {
-  const [done, setDone] = useState(false);
   const dateLabel = new Date(event.year, event.month, event.day).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const tomorrow = new Date(event.year, event.month, event.day);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -851,7 +851,7 @@ const EventCard = ({ event, onRemove, onToggleVisibility, onReschedule, onCongra
   return (
     <motion.div
       layout
-      className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${done ? "border-habit-green/50" : event.hiddenFromPartner ? "border-muted/50 opacity-70" : "border-border"}`}
+      className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${event.done ? "border-habit-green/50" : event.hiddenFromPartner ? "border-muted/50 opacity-70" : "border-border"}`}
     >
       {(event.time && event.time !== "All day") && (
         <div className="flex items-center gap-2 mb-2">
@@ -865,18 +865,18 @@ const EventCard = ({ event, onRemove, onToggleVisibility, onReschedule, onCongra
       <div className="flex items-center gap-3">
         <button
           onClick={() => {
-            if (readOnly) return;
-            if (!done) onCongrats();
-            setDone(!done);
+            if (readOnly || !onToggle) return;
+            if (!event.done) onCongrats();
+            onToggle(event.id);
           }}
-          disabled={readOnly}
+          disabled={readOnly || !onToggle}
           className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-            done ? "bg-habit-green border-habit-green" : "border-muted"
-          } ${readOnly ? "opacity-60" : ""}`}
+            event.done ? "bg-habit-green border-habit-green" : "border-muted"
+          } ${(readOnly || !onToggle) ? "opacity-60" : ""}`}
         >
-          {done && <Check size={14} className="text-primary-foreground" />}
+          {event.done && <Check size={14} className="text-primary-foreground" />}
         </button>
-        <span className={`flex-1 text-[15px] font-medium tracking-body ${done ? "line-through opacity-40" : ""}`}>
+        <span className={`flex-1 text-[15px] font-medium tracking-body ${event.done ? "line-through opacity-40" : ""}`}>
           {event.title}
         </span>
         <UserBadge user={event.user} />
