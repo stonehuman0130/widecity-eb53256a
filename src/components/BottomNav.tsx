@@ -1,9 +1,4 @@
-import { Home, CalendarDays, MessageCircle, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
-import {
-  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
-} from "@/components/ui/drawer";
-import { Dumbbell, Heart, Clock, Sparkles } from "lucide-react";
+import { Home, CalendarDays, MessageCircle, MoreHorizontal, Dumbbell, Heart, Clock, Sparkles } from "lucide-react";
 
 export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "calendar" | "chat" | "settings" | "more";
 
