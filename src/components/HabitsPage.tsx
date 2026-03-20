@@ -217,7 +217,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
               <div className="space-y-2">
                 {theirMorning.length === 0 && <p className="text-xs text-muted-foreground">No morning habits</p>}
                 {theirMorning.map((h) => (
-                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly />
+                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly onNudge={partner ? () => sendNudge(h.label, h.id) : undefined} nudgeLabel={partner ? `Nudge ${partnerName}` : undefined} />
                 ))}
               </div>
             </div>
