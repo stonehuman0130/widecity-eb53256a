@@ -12,7 +12,7 @@ import TeamDashboard from "@/components/TeamDashboard";
 import AddItemModal from "@/components/AddItemModal";
 import CongratsPopup from "@/components/CongratsPopup";
 import HomeSectionCustomizer, { loadSectionPrefs, saveSectionPrefs } from "@/components/HomeSectionCustomizer";
-import { HomeWaterWidget, HomeWorkoutWidget, HomeSobrietyWidget, HomeOtherHabitsWidget } from "@/components/HomeWidgets";
+import { HomeWaterWidget, HomeWorkoutWidget, HomeSobrietyWidget, HomeOtherHabitsWidget, HomeSpecialDaysWidget } from "@/components/HomeWidgets";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +45,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const [sectionOrder, setSectionOrder] = useState<string[]>([]);
   const [sectionVisible, setSectionVisible] = useState<Set<string>>(new Set());
   const [selectedSobrietyIds, setSelectedSobrietyIds] = useState<string[]>([]);
+  const [selectedSpecialDayIds, setSelectedSpecialDayIds] = useState<string[]>([]);
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, toggleEventCompletion, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
     partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
@@ -60,13 +61,20 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     setSectionOrder(prefs.order);
     setSectionVisible(prefs.visible);
     setSelectedSobrietyIds(prefs.selectedSobrietyIds);
+    setSelectedSpecialDayIds(prefs.selectedSpecialDayIds);
   }, [activeGroup?.id]);
 
-  const handleSaveSections = (order: string[], visible: Set<string>, sobrietyIds: string[]) => {
+  const handleSaveSections = (
+    order: string[],
+    visible: Set<string>,
+    sobrietyIds: string[],
+    specialDayIds: string[]
+  ) => {
     setSectionOrder(order);
     setSectionVisible(visible);
     setSelectedSobrietyIds(sobrietyIds);
-    saveSectionPrefs(activeGroup?.id ?? null, order, visible, sobrietyIds);
+    setSelectedSpecialDayIds(specialDayIds);
+    saveSectionPrefs(activeGroup?.id ?? null, order, visible, sobrietyIds, specialDayIds);
   };
 
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
@@ -888,6 +896,13 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   </section>
                 );
 
+              case "special-days":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <HomeSpecialDaysWidget selectedDate={selectedDate} selectedDayIds={selectedSpecialDayIds} />
+                  </section>
+                );
+
               default:
                 return null;
             }
@@ -901,6 +916,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         order={sectionOrder}
         visible={sectionVisible}
         selectedSobrietyIds={selectedSobrietyIds}
+        selectedSpecialDayIds={selectedSpecialDayIds}
         onSave={handleSaveSections}
       />
       <AddItemModal open={showAddModal} onClose={() => setShowAddModal(false)} />
