@@ -41,7 +41,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, toggleEventCompletion, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
-    partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
+    partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
   } = useAppContext();
 
   const voiceModeRef = useRef(voiceMode);
@@ -422,12 +422,29 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
 
   const hasSpecificTime = (time?: string) => Boolean(time) && time !== "" && time !== "All day";
   const isTaskScheduled = (t: Task) => hasSpecificTime(t.time);
-  const scheduledTasks = dayTasks.filter((t) => isTaskScheduled(t));
-  const justDoIt = dayTasks.filter((t) => !isTaskScheduled(t));
 
-  // Split events: timed events go to Scheduled, all-day events go to Just Do It
-  const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
-  const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
+  // Helper: parse any time representation to minutes for sorting
+  const toSortMinutes = (time?: string, isoStart?: string): number => {
+    if (!time && isoStart) {
+      const d = new Date(isoStart);
+      if (!isNaN(d.getTime())) return d.getHours() * 60 + d.getMinutes();
+    }
+    if (!time || time === "" || time === "All day") return -1;
+    const match24 = time.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) return parseInt(match24[1]) * 60 + parseInt(match24[2]);
+    const match12 = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (match12) {
+      let h = parseInt(match12[1]);
+      const m = parseInt(match12[2]);
+      if (match12[3].toUpperCase() === "PM" && h !== 12) h += 12;
+      if (match12[3].toUpperCase() === "AM" && h === 12) h = 0;
+      return h * 60 + m;
+    }
+    // Try ISO
+    const d = new Date(time);
+    if (!isNaN(d.getTime())) return d.getHours() * 60 + d.getMinutes();
+    return -1;
+  };
 
   // Google Calendar events for the selected date — in individual views include shared items
   const gcalEventsForDay = showGoogleCalendar ? googleCalendarEvents.filter((ge) => {
@@ -439,8 +456,37 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     if (filter === "partner") return assignee === "partner" || assignee === "both";
     return true; // household shows all
   }) : [];
+
+  // ── Build unified item types for sorting ──
+  type UnifiedHomeItem = 
+    | { kind: "task"; data: Task; sortMinutes: number }
+    | { kind: "event"; data: ScheduledEvent; sortMinutes: number }
+    | { kind: "gcal"; data: GoogleCalendarEvent; sortMinutes: number };
+
+  const scheduledTasks = dayTasks.filter((t) => isTaskScheduled(t));
+  const justDoIt = dayTasks.filter((t) => !isTaskScheduled(t));
+  const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
+  const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
   const gcalTimed = gcalEventsForDay.filter((ge) => !ge.allDay);
   const gcalAllDay = gcalEventsForDay.filter((ge) => ge.allDay);
+
+  // Merge all timed items into one sorted list
+  const allTimedItems: UnifiedHomeItem[] = useMemo(() => {
+    const items: UnifiedHomeItem[] = [
+      ...scheduledTasks.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: toSortMinutes(t.time) })),
+      ...timedEvents.map((e): UnifiedHomeItem => ({ kind: "event", data: e, sortMinutes: toSortMinutes(e.time) })),
+      ...gcalTimed.map((ge): UnifiedHomeItem => ({ kind: "gcal", data: ge, sortMinutes: toSortMinutes(undefined, ge.start) })),
+    ];
+    items.sort((a, b) => a.sortMinutes - b.sortMinutes);
+    return items;
+  }, [scheduledTasks, timedEvents, gcalTimed]);
+
+  // Merge all untimed items
+  const allUntimedItems: UnifiedHomeItem[] = useMemo(() => [
+    ...justDoIt.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: -1 })),
+    ...allDayEvents.map((e): UnifiedHomeItem => ({ kind: "event", data: e, sortMinutes: -1 })),
+    ...gcalAllDay.map((ge): UnifiedHomeItem => ({ kind: "gcal", data: ge, sortMinutes: -1 })),
+  ], [justDoIt, allDayEvents, gcalAllDay]);
 
   const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: userTimezone });
   const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
@@ -722,6 +768,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
           gcalEvents={gcalEventsForDay}
           toggleTask={toggleTask}
           toggleEventCompletion={toggleEventCompletion}
+          toggleGcalCompletion={toggleGcalCompletion}
           removeEvent={removeEvent}
           removeTask={removeTask}
           toggleEventVisibility={toggleEventVisibility}
@@ -732,22 +779,18 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         />
       ) : (
         <>
-          <section className="mb-6">
+           <section className="mb-6">
             <div className="flex items-center gap-2 mb-3">
               <Clock size={18} className="text-muted-foreground" />
               <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
             </div>
-            {scheduledTasks.length > 0 || timedEvents.length > 0 || gcalTimed.length > 0 ? (
+            {allTimedItems.length > 0 ? (
               <div className="space-y-3">
-                {scheduledTasks.map((task) => (
-                  <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-                ))}
-                {timedEvents.map((event) => (
-                  <EventCard key={event.id} event={event} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-                ))}
-                {gcalTimed.map((ge) => (
-                  <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
-                ))}
+                {allTimedItems.map((item) => {
+                  if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                  if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                  return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">No scheduled items</p>
@@ -758,19 +801,15 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
             <div className="flex items-center gap-2 mb-3">
               <span className="w-2 h-2 rounded-full bg-foreground" />
               <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
-              <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
+              <span className="text-sm text-muted-foreground">({allUntimedItems.length})</span>
             </div>
-            {justDoIt.length > 0 || allDayEvents.length > 0 || gcalAllDay.length > 0 ? (
+            {allUntimedItems.length > 0 ? (
               <div className="space-y-3">
-                {justDoIt.map((task) => (
-                  <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-                ))}
-                {allDayEvents.map((event) => (
-                  <EventCard key={event.id} event={event} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-                ))}
-                {gcalAllDay.map((ge) => (
-                  <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
-                ))}
+                {allUntimedItems.map((item) => {
+                  if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                  if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                  return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
@@ -901,7 +940,13 @@ const EventCard = ({ event, onToggle, onRemove, onToggleVisibility, onReschedule
   );
 };
 
-const GCalEventCard = ({ event, onHide, onDesignate }: { event: GoogleCalendarEvent; onHide?: (eventId: string) => void; onDesignate?: (eventId: string, assignee: "me" | "partner" | "both") => void }) => {
+const GCalEventCard = ({ event, onToggle, onHide, onDesignate, onCongrats }: {
+  event: GoogleCalendarEvent;
+  onToggle?: (eventId: string) => void;
+  onHide?: (eventId: string) => void;
+  onDesignate?: (eventId: string, assignee: "me" | "partner" | "both") => void;
+  onCongrats?: () => void;
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const timeStr = event.allDay
     ? "All day"
@@ -909,10 +954,16 @@ const GCalEventCard = ({ event, onHide, onDesignate }: { event: GoogleCalendarEv
     ? new Date(event.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
     : "";
 
+  const handleToggle = () => {
+    if (!onToggle) return;
+    if (!event.done && onCongrats) onCongrats();
+    onToggle(event.id);
+  };
+
   return (
     <motion.div
       layout
-      className="bg-card rounded-xl p-4 shadow-card border border-primary/20 transition-transform active:scale-[0.99]"
+      className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${event.done ? "border-habit-green/50" : "border-primary/20"}`}
     >
       {timeStr && timeStr !== "All day" && (
         <div className="flex items-center gap-2 mb-2">
@@ -922,8 +973,16 @@ const GCalEventCard = ({ event, onHide, onDesignate }: { event: GoogleCalendarEv
         </div>
       )}
       <div className="flex items-center gap-3">
-        <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
-        <span className="flex-1 text-[15px] font-medium tracking-body">{event.title}</span>
+        <button
+          onClick={handleToggle}
+          disabled={!onToggle}
+          className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+            event.done ? "bg-habit-green border-habit-green" : "border-muted"
+          } ${!onToggle ? "opacity-60" : ""}`}
+        >
+          {event.done && <Check size={14} className="text-primary-foreground" />}
+        </button>
+        <span className={`flex-1 text-[15px] font-medium tracking-body ${event.done ? "line-through opacity-40" : ""}`}>{event.title}</span>
         <UserBadge user={event.assignee || "me"} />
         {event.htmlLink && (
           <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium">

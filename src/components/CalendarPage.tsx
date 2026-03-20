@@ -101,7 +101,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const {
     events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
     tasks, filteredTasks, toggleTask, removeTask, updateTask,
-    googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
+    googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
+    toggleEventCompletion,
   } = useAppContext();
   const { activeGroup, groups } = useAuth();
   const { showGoogleCalendar } = useGroupContext();
@@ -213,7 +214,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             id: `gcal-${ge.id}`, title: ge.title, time: ge.start || "All day",
             allDay: ge.allDay, hour: h, endHour: eh,
             assignee: ge.assignee || "me", groupId: null,
-            type: "gcal", raw: ge,
+            type: "gcal", raw: ge, done: ge.done ?? false,
           });
         });
     }

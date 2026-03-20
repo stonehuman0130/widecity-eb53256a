@@ -77,6 +77,9 @@ export interface GoogleCalendarEvent {
   htmlLink: string;
   ownerUserId?: string;
   assignee?: "me" | "partner" | "both";
+  done?: boolean;
+  completedAt?: string | null;
+  completedBy?: string | null;
 }
 
 interface AppContextType {
@@ -118,6 +121,7 @@ interface AppContextType {
   getWorkoutsForDate: (date: string) => Workout[];
   googleCalendarEvents: GoogleCalendarEvent[];
   hideGcalEvent: (eventId: string) => Promise<void>;
+  toggleGcalCompletion: (eventId: string) => Promise<void>;
   toggleEventVisibility: (eventId: string) => Promise<void>;
   designateGcalEvent: (eventId: string, assignee: "me" | "partner" | "both") => Promise<void>;
   // Partner data (raw)
@@ -375,10 +379,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const data = await res.json();
         const rawEvents: GoogleCalendarEvent[] = data.events || [];
 
+        // Load completion states for these gcal events
+        const gcalIds = rawEvents.map((ge) => ge.id);
+        const { data: completions } = gcalIds.length > 0
+          ? await supabase.from("gcal_event_completions").select("*").in("gcal_event_id", gcalIds)
+          : { data: [] };
+        const completionMap = new Map((completions || []).map((c: any) => [c.gcal_event_id, c]));
+
         const enriched = rawEvents.map((ge) => {
           const fallbackAssignee: Assignee = ge.ownerUserId === user.id ? "me" : "partner";
           const assignee = (ge.assignee as Assignee | undefined) ?? fallbackAssignee;
-          return { ...ge, assignee };
+          const completion = completionMap.get(ge.id);
+          return {
+            ...ge,
+            assignee,
+            done: completion?.done ?? false,
+            completedAt: completion?.completed_at ?? null,
+            completedBy: completion?.completed_by ?? null,
+          };
         });
 
         setGoogleCalendarEvents(enriched);
@@ -1232,6 +1250,40 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }, { onConflict: "user_id,gcal_event_id" });
   };
 
+  const toggleGcalCompletion = async (eventId: string) => {
+    if (!user) return;
+    const ge = googleCalendarEvents.find((e) => e.id === eventId);
+    if (!ge) return;
+    const newDone = !ge.done;
+
+    // Optimistic update
+    setGoogleCalendarEvents((prev) =>
+      prev.map((e) => e.id === eventId ? {
+        ...e,
+        done: newDone,
+        completedAt: newDone ? new Date().toISOString() : null,
+        completedBy: newDone ? user.id : null,
+      } : e)
+    );
+
+    const { error } = await supabase.from("gcal_event_completions" as any).upsert({
+      user_id: user.id,
+      gcal_event_id: eventId,
+      group_id: activeGroup?.id || null,
+      done: newDone,
+      completed_at: newDone ? new Date().toISOString() : null,
+      completed_by: newDone ? user.id : null,
+    }, { onConflict: "user_id,gcal_event_id" });
+
+    if (error) {
+      console.error("Failed to toggle gcal completion:", error);
+      // Rollback
+      setGoogleCalendarEvents((prev) =>
+        prev.map((e) => e.id === eventId ? { ...e, done: ge.done, completedAt: ge.completedAt, completedBy: ge.completedBy } : e)
+      );
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
@@ -1240,7 +1292,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
-      googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
+      googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
       filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, filteredPartnerWorkouts,
       getPartnerWorkoutsForDate, getPartnerHabitsForDate, getPartnerHabitStreak,
