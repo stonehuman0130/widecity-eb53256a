@@ -77,6 +77,9 @@ export interface GoogleCalendarEvent {
   htmlLink: string;
   ownerUserId?: string;
   assignee?: "me" | "partner" | "both";
+  done?: boolean;
+  completedAt?: string | null;
+  completedBy?: string | null;
 }
 
 interface AppContextType {
