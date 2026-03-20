@@ -417,16 +417,15 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             <h1 className="text-xl font-bold text-foreground">{monthName}</h1>
             <span className="text-xl font-light text-muted-foreground">{year}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setShowSearch(true)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground">
-              <Search size={18} />
+          <div className="flex items-center gap-0.5">
+            <button onClick={() => setShowSearch(true)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground">
+              <Search size={16} />
             </button>
 
-            {/* View Options Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="h-8 px-2.5 flex items-center gap-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-full">
-                  <CalendarIcon size={14} />
+                <button className="h-7 px-2 flex items-center gap-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 rounded-full">
+                  <CalendarIcon size={13} />
                   <span>{VIEW_LABELS[viewMode]}</span>
                 </button>
               </DropdownMenuTrigger>
@@ -443,10 +442,11 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <button onClick={openAddForm} className="w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <Plus size={16} />
+            <button onClick={openAddForm} className="w-7 h-7 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <Plus size={14} />
             </button>
 
+            <div className="w-px h-4 bg-border mx-0.5" />
 
             <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground">
               <ChevronLeft size={18} />
@@ -454,6 +454,11 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             <button onClick={nextMonth} className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground">
               <ChevronRight size={18} />
             </button>
+            {onOpenSettings && (
+              <button onClick={onOpenSettings} className="w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                <Settings size={16} />
+              </button>
+            )}
           </div>
         </div>
       </header>
