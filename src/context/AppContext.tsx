@@ -499,6 +499,63 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadPartnerData();
   }, [contextOtherUserId, user]);
 
+  // ── Realtime subscription for tasks (cross-user sync) ──
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('tasks-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as any;
+            // Update own tasks
+            setTasks((prev) =>
+              prev.map((t) => t.id === updated.id ? { ...t, done: updated.done } : t)
+            );
+            // Update partner tasks
+            setPartnerTasks((prev) =>
+              prev.map((t) => t.id === updated.id ? { ...t, done: updated.done } : t)
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setTasks((prev) => prev.filter((t) => t.id !== deletedId));
+              setPartnerTasks((prev) => prev.filter((t) => t.id !== deletedId));
+            }
+          } else if (payload.eventType === 'INSERT') {
+            const inserted = payload.new as any;
+            // If it belongs to partner, add to partner tasks
+            if (inserted.user_id === contextOtherUserId) {
+              setPartnerTasks((prev) => {
+                if (prev.some((t) => t.id === inserted.id)) return prev;
+                return [...prev, {
+                  id: inserted.id,
+                  title: inserted.title,
+                  time: inserted.time || "",
+                  tag: inserted.tag as "Work" | "Personal" | "Household",
+                  assignee: toViewerPerspective(inserted.assignee as Assignee, false),
+                  done: inserted.done,
+                  scheduledDay: inserted.scheduled_day,
+                  scheduledMonth: inserted.scheduled_month,
+                  scheduledYear: inserted.scheduled_year,
+                  hiddenFromPartner: inserted.hidden_from_partner || false,
+                  groupId: inserted.group_id || null,
+                }];
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, contextOtherUserId]);
+
   const toggleHabit = async (id: string) => {
     const dateKey = todayStr();
     const habit = habits.find((h) => h.id === id);
