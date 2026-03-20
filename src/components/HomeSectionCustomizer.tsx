@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { GripVertical, Eye, EyeOff, X, Lock } from "lucide-react";
 
@@ -6,7 +6,7 @@ export interface HomeSection {
   id: string;
   label: string;
   icon: string;
-  locked?: boolean; // Scheduled & Just Do It cannot be removed
+  locked?: boolean;
 }
 
 export const ALL_SECTIONS: HomeSection[] = [
@@ -30,9 +30,13 @@ export function loadSectionPrefs(groupId: string | null): { order: string[]; vis
     const raw = localStorage.getItem(getStorageKey(groupId));
     if (raw) {
       const parsed = JSON.parse(raw);
+      const vis = new Set<string>(parsed.visible || DEFAULT_ORDER);
+      // Always ensure locked sections are visible
+      vis.add("scheduled");
+      vis.add("justdoit");
       return {
-        order: parsed.order || DEFAULT_ORDER,
-        visible: new Set(parsed.visible || DEFAULT_ORDER),
+        order: parsed.order || [...DEFAULT_ORDER],
+        visible: vis,
       };
     }
   } catch {}
@@ -40,7 +44,6 @@ export function loadSectionPrefs(groupId: string | null): { order: string[]; vis
 }
 
 export function saveSectionPrefs(groupId: string | null, order: string[], visible: Set<string>) {
-  // Always ensure locked sections are visible
   const vis = new Set(visible);
   vis.add("scheduled");
   vis.add("justdoit");
@@ -67,7 +70,7 @@ const HomeSectionCustomizer = ({ open, onClose, order, visible, onSave }: Props)
     }
   }, [open, order, visible]);
 
-  // Ensure all sections appear in order list (new ones get appended)
+  // Ensure all sections appear in order list
   const fullOrder = (() => {
     const inOrder = new Set(localOrder);
     const result = [...localOrder];
@@ -84,11 +87,22 @@ const HomeSectionCustomizer = ({ open, onClose, order, visible, onSave }: Props)
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setLocalVisible(next);
+    // Auto-save immediately
+    onSave(fullOrder, next);
   };
 
-  const handleSave = () => {
-    onSave(fullOrder, localVisible);
-    onClose();
+  const handleReorder = (newOrder: string[]) => {
+    setLocalOrder(newOrder);
+    // Auto-save immediately
+    const computedFull = (() => {
+      const inOrder = new Set(newOrder);
+      const result = [...newOrder];
+      ALL_SECTIONS.forEach((s) => {
+        if (!inOrder.has(s.id)) result.push(s.id);
+      });
+      return result;
+    })();
+    onSave(computedFull, localVisible);
   };
 
   if (!open) return null;
@@ -118,15 +132,15 @@ const HomeSectionCustomizer = ({ open, onClose, order, visible, onSave }: Props)
             </button>
           </div>
           <p className="px-5 text-xs text-muted-foreground mb-4">
-            Toggle sections on/off and drag to reorder. Scheduled & Just Do It are always shown.
+            Toggle sections on/off and drag to reorder. Changes apply instantly.
           </p>
 
           {/* Sections list */}
-          <div className="flex-1 overflow-y-auto px-5 pb-4 overscroll-contain">
+          <div className="flex-1 overflow-y-auto px-5 pb-5 overscroll-contain">
             <Reorder.Group
               axis="y"
               values={fullOrder}
-              onReorder={(newOrder) => setLocalOrder(newOrder)}
+              onReorder={handleReorder}
               className="space-y-2"
             >
               {fullOrder.map((id) => {
@@ -165,16 +179,6 @@ const HomeSectionCustomizer = ({ open, onClose, order, visible, onSave }: Props)
                 );
               })}
             </Reorder.Group>
-          </div>
-
-          {/* Save */}
-          <div className="px-5 py-4 border-t border-border">
-            <button
-              onClick={handleSave}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm active:scale-[0.98] transition-transform"
-            >
-              Save Layout
-            </button>
           </div>
         </motion.div>
       </motion.div>
