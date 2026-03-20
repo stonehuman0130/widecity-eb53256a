@@ -229,7 +229,7 @@ interface SobrietyCategory {
   group_id: string | null;
 }
 
-export const HomeSobrietyWidget = () => {
+export const HomeSobrietyWidget = ({ selectedDate, selectedTrackerIds }: { selectedDate: Date; selectedTrackerIds: string[] }) => {
   const { user, activeGroup } = useAuth();
   const [categories, setCategories] = useState<SobrietyCategory[]>([]);
 
@@ -245,18 +245,29 @@ export const HomeSobrietyWidget = () => {
     load();
   }, [user, activeGroup?.id]);
 
-  if (categories.length === 0) {
+  // Filter to only selected trackers (if any selected; if none selected, show nothing)
+  const visibleCategories = selectedTrackerIds.length > 0
+    ? categories.filter((c) => selectedTrackerIds.includes(c.id))
+    : [];
+
+  if (visibleCategories.length === 0) {
     return (
       <div>
         <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">
           <Trophy size={18} className="text-primary" /> Sobriety Tracker
         </h2>
         <div className="bg-card rounded-xl p-4 shadow-card border border-border">
-          <p className="text-xs text-muted-foreground">No trackers set up yet</p>
+          <p className="text-xs text-muted-foreground">No trackers selected — use the customize button to choose which trackers to show</p>
         </div>
       </div>
     );
   }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const sel = new Date(selectedDate);
+  sel.setHours(0, 0, 0, 0);
+  const isFutureOrToday = sel >= today;
 
   return (
     <div>
@@ -264,8 +275,14 @@ export const HomeSobrietyWidget = () => {
         <Trophy size={18} className="text-primary" /> Sobriety Tracker
       </h2>
       <div className="bg-card rounded-xl p-4 shadow-card border border-border space-y-2">
-        {categories.map((cat) => {
-          const days = Math.max(0, Math.floor((Date.now() - new Date(cat.start_date).getTime()) / 86400000));
+        {visibleCategories.map((cat) => {
+          const startDate = new Date(cat.start_date);
+          startDate.setHours(0, 0, 0, 0);
+
+          // For future dates, cap at today's streak
+          const refDate = isFutureOrToday ? today : sel;
+          const days = Math.max(0, Math.floor((refDate.getTime() - startDate.getTime()) / 86400000));
+
           return (
             <div key={cat.id} className="flex items-center gap-3">
               <span className="text-base">{cat.icon}</span>

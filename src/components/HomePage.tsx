@@ -44,6 +44,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const [showCustomizer, setShowCustomizer] = useState(false);
   const [sectionOrder, setSectionOrder] = useState<string[]>([]);
   const [sectionVisible, setSectionVisible] = useState<Set<string>>(new Set());
+  const [selectedSobrietyIds, setSelectedSobrietyIds] = useState<string[]>([]);
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, toggleEventCompletion, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
     partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
@@ -58,12 +59,14 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const prefs = loadSectionPrefs(activeGroup?.id ?? null);
     setSectionOrder(prefs.order);
     setSectionVisible(prefs.visible);
+    setSelectedSobrietyIds(prefs.selectedSobrietyIds);
   }, [activeGroup?.id]);
 
-  const handleSaveSections = (order: string[], visible: Set<string>) => {
+  const handleSaveSections = (order: string[], visible: Set<string>, sobrietyIds: string[]) => {
     setSectionOrder(order);
     setSectionVisible(visible);
-    saveSectionPrefs(activeGroup?.id ?? null, order, visible);
+    setSelectedSobrietyIds(sobrietyIds);
+    saveSectionPrefs(activeGroup?.id ?? null, order, visible, sobrietyIds);
   };
 
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
@@ -881,7 +884,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
               case "sobriety":
                 return (
                   <section key={sectionId} className="mb-6">
-                    <HomeSobrietyWidget />
+                    <HomeSobrietyWidget selectedDate={selectedDate} selectedTrackerIds={selectedSobrietyIds} />
                   </section>
                 );
 
@@ -897,6 +900,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         onClose={() => setShowCustomizer(false)}
         order={sectionOrder}
         visible={sectionVisible}
+        selectedSobrietyIds={selectedSobrietyIds}
         onSave={handleSaveSections}
       />
       <AddItemModal open={showAddModal} onClose={() => setShowAddModal(false)} />
