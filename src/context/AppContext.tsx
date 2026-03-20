@@ -26,6 +26,10 @@ export interface ScheduledEvent {
   endTime?: string;
   allDay?: boolean;
   user: "me" | "partner" | "both";
+  done?: boolean;
+  completedAt?: string | null;
+  completedBy?: string | null;
+  updatedAt?: string | null;
   hiddenFromPartner?: boolean;
   groupId?: string | null;
 }
@@ -37,6 +41,9 @@ export interface Task {
   tag: "Work" | "Personal" | "Household";
   assignee: "me" | "partner" | "both";
   done: boolean;
+  completedAt?: string | null;
+  completedBy?: string | null;
+  updatedAt?: string | null;
   scheduledDay?: number;
   scheduledMonth?: number;
   scheduledYear?: number;
@@ -45,33 +52,7 @@ export interface Task {
 }
 
 export interface Workout {
-  id: string;
-  title: string;
-  duration: string;
-  cal: number;
-  tag: string;
-  emoji: string;
-  done: boolean;
-  scheduledDate?: string;
-  completedDate?: string;
-  exercises?: { name: string; sets: number; reps: string }[];
-  hiddenFromPartner?: boolean;
-  groupId?: string | null;
-}
-
-export interface GoogleCalendarEvent {
-  id: string;
-  title: string;
-  description: string | null;
-  start: string;
-  end: string;
-  allDay: boolean;
-  location: string | null;
-  htmlLink: string;
-  ownerUserId?: string;
-  assignee?: "me" | "partner" | "both";
-}
-
+...
 interface AppContextType {
   habits: Habit[];
   filteredHabits: Habit[];
@@ -84,6 +65,7 @@ interface AppContextType {
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
   removeEvent: (id: string) => void;
   rescheduleEvent: (id: string, day: number, month: number, year: number) => Promise<void>;
+  toggleEventCompletion: (id: string) => Promise<void>;
   tasks: Task[];
   filteredTasks: Task[];
   toggleTask: (id: string) => void;
