@@ -110,6 +110,7 @@ const Index = () => {
     workout: <WorkoutsPage onOpenSettings={handleOpenSettings} />,
     habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
     sobriety: <SobrietyPage onOpenSettings={handleOpenSettings} />,
+    specialdays: <SpecialDaysPage onOpenSettings={handleOpenSettings} />,
     calendar: <CalendarPage onOpenSettings={handleOpenSettings} />,
     chat: renderChatView(),
     settings: <SettingsPage />,
