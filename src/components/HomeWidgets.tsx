@@ -27,40 +27,45 @@ const CircleWaterGauge = ({
     const rect = svg.getBoundingClientRect();
     const x = clientX - (rect.left + rect.width / 2);
     const y = clientY - (rect.top + rect.height / 2);
-    // Angle from top (12 o'clock), clockwise, 0-360
+    // The SVG is rotated -90° via CSS, so visually top = 0%.
+    // We need angle from top (12 o'clock), clockwise, 0-360
     let angle = Math.atan2(x, -y) * (180 / Math.PI);
     if (angle < 0) angle += 360;
     return angle;
   }, []);
 
+  const setFromAngle = useCallback((clientX: number, clientY: number) => {
+    const angle = angleFromPointer(clientX, clientY);
+    const val = Math.round((angle / 360) * goal * 10) / 10;
+    onSetIntake(Math.max(0, Math.min(val, goal)));
+  }, [goal, onSetIntake, angleFromPointer]);
+
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!isToday) return;
     dragging.current = true;
     (e.target as Element).setPointerCapture(e.pointerId);
-    const angle = angleFromPointer(e.clientX, e.clientY);
-    const val = Math.round((angle / 360) * goal * 10) / 10;
-    onSetIntake(Math.max(0, Math.min(val, goal)));
-  }, [isToday, goal, onSetIntake, angleFromPointer]);
+    setFromAngle(e.clientX, e.clientY);
+  }, [isToday, setFromAngle]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragging.current) return;
-    const angle = angleFromPointer(e.clientX, e.clientY);
-    const val = Math.round((angle / 360) * goal * 10) / 10;
-    onSetIntake(Math.max(0, Math.min(val, goal)));
-  }, [goal, onSetIntake, angleFromPointer]);
+    setFromAngle(e.clientX, e.clientY);
+  }, [setFromAngle]);
 
   const handlePointerUp = useCallback(() => {
     dragging.current = false;
   }, []);
 
-  // Thumb position on the arc
-  const thumbAngleRad = ((percent / 100) * 360 - 90) * (Math.PI / 180);
+  // Thumb: the SVG has CSS -rotate-90, so 0° in SVG = 3 o'clock = visual 12 o'clock.
+  // Arc draws clockwise from 0° in SVG. Thumb sits at (percent/100)*360° in SVG space.
+  const thumbAngleDeg = (percent / 100) * 360;
+  const thumbAngleRad = thumbAngleDeg * (Math.PI / 180);
   const thumbX = CX + R * Math.cos(thumbAngleRad);
   const thumbY = CY + R * Math.sin(thumbAngleRad);
 
   return (
-    <div className="flex items-center gap-4">
-      <div className="relative w-16 h-16 flex-shrink-0" style={{ touchAction: "none" }}>
+    <div className="flex items-center gap-3">
+      <div className="relative w-14 h-14 flex-shrink-0" style={{ touchAction: "none" }}>
         <svg
           ref={svgRef}
           className="w-full h-full -rotate-90"
@@ -70,43 +75,45 @@ const CircleWaterGauge = ({
           onPointerUp={handlePointerUp}
           style={{ cursor: isToday ? "pointer" : "default" }}
         >
-          <circle cx={CX} cy={CY} r={R} fill="none" stroke="hsl(var(--secondary))" strokeWidth="5" />
+          <circle cx={CX} cy={CY} r={R} fill="none" stroke="hsl(var(--secondary))" strokeWidth="4" />
           <circle
             cx={CX} cy={CY} r={R} fill="none"
-            stroke="hsl(var(--primary))" strokeWidth="5" strokeLinecap="round"
+            stroke="hsl(var(--primary))" strokeWidth="4" strokeLinecap="round"
             strokeDasharray={2 * Math.PI * R}
             strokeDashoffset={2 * Math.PI * R * (1 - percent / 100)}
           />
-          {isToday && (
+          {isToday && percent > 0 && (
             <circle
-              cx={thumbX} cy={thumbY} r="4"
-              fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth="2"
+              cx={thumbX} cy={thumbY} r="3.5"
+              fill="hsl(var(--primary))" stroke="hsl(var(--background))" strokeWidth="1.5"
             />
           )}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-[11px] font-bold">{intake.toFixed(1)}L</span>
+          <span className="text-[10px] font-bold">{intake.toFixed(1)}L</span>
         </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold">{intake.toFixed(1)}L / {goal}L</p>
-        <p className="text-xs text-muted-foreground">
-          {percent >= 100 ? "🎉 Goal reached!" : `${Math.round(percent)}% — ${isToday ? "drag to adjust" : ""}`}
-        </p>
-      </div>
-      {isToday && (
-        <div className="flex gap-1">
-          {[0.25, 0.5].map((amt) => (
-            <button
-              key={amt}
-              onClick={() => onSetIntake(Math.round(Math.min(intake + amt, goal) * 10) / 10)}
-              className="px-2 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-semibold hover:bg-primary/20 active:scale-95 transition-all"
-            >
-              +{amt * 1000}ml
-            </button>
-          ))}
+      <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold">{intake.toFixed(1)}L / {goal}L</p>
+          <p className="text-[10px] text-muted-foreground">
+            {percent >= 100 ? "🎉 Goal reached!" : `${Math.round(percent)}%`}
+          </p>
         </div>
-      )}
+        {isToday && (
+          <div className="flex gap-1">
+            {[0.25, 0.5].map((amt) => (
+              <button
+                key={amt}
+                onClick={() => onSetIntake(Math.round(Math.min(intake + amt, goal) * 10) / 10)}
+                className="px-1.5 py-1 rounded-md bg-primary/10 text-primary text-[9px] font-semibold hover:bg-primary/20 active:scale-95 transition-all"
+              >
+                +{amt * 1000}ml
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
