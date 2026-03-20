@@ -900,6 +900,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         onClose={() => setShowCustomizer(false)}
         order={sectionOrder}
         visible={sectionVisible}
+        selectedSobrietyIds={selectedSobrietyIds}
         onSave={handleSaveSections}
       />
       <AddItemModal open={showAddModal} onClose={() => setShowAddModal(false)} />
