@@ -1310,6 +1310,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       events, filteredEvents, addEvent, removeEvent, rescheduleEvent, toggleEventCompletion,
       tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
+      partnerWaterIntake, partnerWaterGoal,
       workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
       googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
