@@ -66,6 +66,19 @@ export interface Workout {
   groupId?: string | null;
 }
 
+export interface GoogleCalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location: string | null;
+  htmlLink: string;
+  ownerUserId?: string;
+  assignee?: "me" | "partner" | "both";
+}
+
 interface AppContextType {
   habits: Habit[];
   filteredHabits: Habit[];
