@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import MorePage from "@/components/MorePage";
 import BottomNav, { type Tab, type EnabledPages } from "@/components/BottomNav";
 import HomePage from "@/components/HomePage";
 import WorkoutsPage from "@/components/WorkoutsPage";
@@ -78,7 +79,7 @@ const Index = () => {
 
   const handleTabChange = (tab: Tab) => {
     if (tab === "chat") {
-      setChatGroup(null); // always go to list first
+      setChatGroup(null);
     }
     setActiveTab(tab);
   };
@@ -140,7 +141,6 @@ const Index = () => {
             activeTab={activeTab as Tab}
             onTabChange={handleTabChange}
             enabledPages={enabledPages}
-            onTogglePage={handleTogglePage}
           />
         )}
       </div>
