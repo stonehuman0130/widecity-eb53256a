@@ -88,10 +88,12 @@ const TeamDashboard = ({
     document.addEventListener("mouseup", onMouseUp);
   }, []);
 
-  const handleTouchStart = useCallback((_e: React.TouchEvent) => {
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
     isDragging.current = true;
     const onTouchMove = (ev: TouchEvent) => {
       if (!isDragging.current || !containerRef.current) return;
+      ev.preventDefault();
       const rect = containerRef.current.getBoundingClientRect();
       const x = ev.touches[0].clientX - rect.left;
       setSplitPercent(Math.min(80, Math.max(20, (x / rect.width) * 100)));
@@ -101,7 +103,7 @@ const TeamDashboard = ({
       document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
     };
-    document.addEventListener("touchmove", onTouchMove);
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd);
   }, []);
 
