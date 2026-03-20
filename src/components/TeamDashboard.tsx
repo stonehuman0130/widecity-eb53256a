@@ -207,6 +207,18 @@ const TeamDashboard = ({
   // ── Render a single card ──
   const renderCard = (item: UnifiedItem) => {
     const isShared = item.assignedUserIds.length > 1 || item.assignee === "both";
+    const canToggle = item.type !== "gcal" && item.assignedUserIds.includes(selfUserId);
+
+    const handleToggle = () => {
+      if (!canToggle || item.type === "gcal") return;
+      if (!item.done) onCongrats();
+      if (item.type === "task") {
+        toggleTask((item.original as Task).id);
+      } else {
+        toggleEventCompletion?.((item.original as ScheduledEvent).id);
+      }
+    };
+
     return (
       <motion.div
         key={item.id}
@@ -229,15 +241,11 @@ const TeamDashboard = ({
             <span className="w-3.5 h-3.5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-[8px]">📅</span>
           ) : (
             <button
-              onClick={() => {
-                if (!item.isOwn || item.type !== "task") return;
-                if (!item.done) onCongrats();
-                toggleTask((item.original as Task).id);
-              }}
-              disabled={!item.isOwn || item.type !== "task"}
+              onClick={handleToggle}
+              disabled={!canToggle}
               className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                 item.done ? "bg-habit-green border-habit-green" : "border-muted"
-              } ${!item.isOwn ? "opacity-60" : ""}`}
+              } ${!canToggle ? "opacity-60" : ""}`}
             >
               {item.done && <Check size={7} className="text-primary-foreground" />}
             </button>
