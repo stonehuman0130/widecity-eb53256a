@@ -17,8 +17,11 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
 
   // Calendar form state
   const [calTitle, setCalTitle] = useState("");
-  const [calDate, setCalDate] = useState("");
-  const [calTime, setCalTime] = useState("");
+  const [calStartDate, setCalStartDate] = useState("");
+  const [calStartTime, setCalStartTime] = useState("");
+  const [calEndDate, setCalEndDate] = useState("");
+  const [calEndTime, setCalEndTime] = useState("");
+  const [calAllDay, setCalAllDay] = useState(false);
   const [calDesc, setCalDesc] = useState("");
   const [calUser, setCalUser] = useState<"me" | "partner" | "both">("me");
   const [calTag, setCalTag] = useState<"Work" | "Personal" | "Household">("Personal");
@@ -29,8 +32,11 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const reset = () => {
     setStep("choose");
     setCalTitle("");
-    setCalDate("");
-    setCalTime("");
+    setCalStartDate("");
+    setCalStartTime("");
+    setCalEndDate("");
+    setCalEndTime("");
+    setCalAllDay(false);
     setCalDesc("");
     setCalUser("me");
     setCalTag("Personal");
@@ -49,20 +55,33 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     let month = now.getMonth();
     let year = now.getFullYear();
 
-    if (calDate) {
-      const [y, m, d] = calDate.split("-").map(Number);
+    if (calStartDate) {
+      const [y, m, d] = calStartDate.split("-").map(Number);
       day = d;
       month = m - 1;
       year = y;
     }
 
+    let endDay = day, endMonth = month, endYear = year;
+    if (calEndDate) {
+      const [y, m, d] = calEndDate.split("-").map(Number);
+      endDay = d;
+      endMonth = m - 1;
+      endYear = y;
+    }
+
     addEvent({
       title: calTitle.trim(),
-      time: calTime || "All day",
+      time: calAllDay ? "All day" : (calStartTime || "All day"),
       description: calDesc,
       day,
       month,
       year,
+      endDay,
+      endMonth,
+      endYear,
+      endTime: calAllDay ? "" : (calEndTime || calStartTime || ""),
+      allDay: calAllDay,
       user: calUser,
     });
 
@@ -158,18 +177,45 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                   className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
                   autoFocus
                 />
-                <input
-                  type="date"
-                  value={calDate}
-                  onChange={(e) => setCalDate(e.target.value)}
-                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
-                />
-                <input
-                  type="time"
-                  value={calTime}
-                  onChange={(e) => setCalTime(e.target.value)}
-                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground"
-                />
+                <label className="flex items-center gap-2 text-sm px-1">
+                  <input type="checkbox" checked={calAllDay} onChange={(e) => setCalAllDay(e.target.checked)} className="rounded" />
+                  <span className="text-muted-foreground">All-day</span>
+                </label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">Start</label>
+                    <input type="date" value={calStartDate} onChange={(e) => {
+                      setCalStartDate(e.target.value);
+                      if (!calEndDate || e.target.value > calEndDate) setCalEndDate(e.target.value);
+                    }} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+                  </div>
+                  {!calAllDay && (
+                    <div className="w-28">
+                      <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">Time</label>
+                      <input type="time" value={calStartTime} onChange={(e) => {
+                        setCalStartTime(e.target.value);
+                        if (e.target.value && !calEndTime) {
+                          const [h, m] = e.target.value.split(":").map(Number);
+                          setCalEndTime(`${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+                        }
+                      }} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">End</label>
+                    <input type="date" value={calEndDate} onChange={(e) => setCalEndDate(e.target.value)} min={calStartDate}
+                      className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+                  </div>
+                  {!calAllDay && (
+                    <div className="w-28">
+                      <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">Time</label>
+                      <input type="time" value={calEndTime} onChange={(e) => setCalEndTime(e.target.value)}
+                        className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+                    </div>
+                  )}
+                </div>
                 <textarea
                   value={calDesc}
                   onChange={(e) => setCalDesc(e.target.value)}

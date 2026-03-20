@@ -1,33 +1,28 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
-  ChevronLeft, ChevronRight, Plus, X, Check, Search,
-  MoreVertical, EyeOff, Clock, Calendar as CalendarIcon,
-  List, Columns3,
+  ChevronLeft, ChevronRight, Plus, X, Search,
+  Calendar as CalendarIcon, MoreVertical,
 } from "lucide-react";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { useAuth, Group } from "@/context/AuthContext";
 import UserBadge from "@/components/UserBadge";
 import GroupSelector from "@/components/GroupSelector";
-import ItemActionMenu from "@/components/ItemActionMenu";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { formatTime } from "@/lib/formatTime";
 import { toast } from "sonner";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 // ── Constants ──────────────────────────────────────────────
 
 const DAYS_SHORT = ["S", "M", "T", "W", "T", "F", "S"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-// Group colors palette - assigned by index
 const GROUP_COLORS = [
-  "hsl(210 100% 50%)",  // blue
-  "hsl(340 80% 55%)",   // pink
-  "hsl(150 60% 42%)",   // green
-  "hsl(35 100% 52%)",   // orange
-  "hsl(270 60% 55%)",   // purple
-  "hsl(190 80% 42%)",   // teal
-  "hsl(0 75% 55%)",     // red
-  "hsl(50 90% 48%)",    // yellow
+  "hsl(210 100% 50%)", "hsl(340 80% 55%)", "hsl(150 60% 42%)",
+  "hsl(35 100% 52%)", "hsl(270 60% 55%)", "hsl(190 80% 42%)",
+  "hsl(0 75% 55%)", "hsl(50 90% 48%)",
 ];
 
 const GROUP_COLOR_CLASSES = [
@@ -42,14 +37,14 @@ const GROUP_COLOR_CLASSES = [
 ];
 
 type ViewMode = "month" | "list" | "day" | "3day";
+const VIEW_LABELS: Record<ViewMode, string> = { month: "Month", list: "List", day: "Day", "3day": "3 Day" };
 
-// ── Helper: parse time string to hour decimal ──────────────
+// ── Helpers ────────────────────────────────────────────────
 
 function timeToHour(time: string): number | null {
   if (!time || time === "All day") return null;
   const match = time.match(/^(\d{1,2}):(\d{2})$/);
   if (match) return parseInt(match[1]) + parseInt(match[2]) / 60;
-  // Try parsing ISO datetime
   const d = new Date(time);
   if (!isNaN(d.getTime())) return d.getHours() + d.getMinutes() / 60;
   return null;
@@ -61,14 +56,33 @@ function getGroupColorIndex(groupId: string | null | undefined, groups: Group[])
   return idx >= 0 ? idx % GROUP_COLOR_CLASSES.length : 0;
 }
 
+function dateToKey(d: number, m: number, y: number) {
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+function keyToDate(k: string) {
+  const [y, m, d] = k.split("-").map(Number);
+  return { day: d, month: m - 1, year: y };
+}
+
+/** Check if a date falls between start and end (inclusive) */
+function dateInRange(d: number, m: number, y: number, startD: number, startM: number, startY: number, endD: number, endM: number, endY: number) {
+  const dt = new Date(y, m, d).getTime();
+  const st = new Date(startY, startM, startD).getTime();
+  const et = new Date(endY, endM, endD).getTime();
+  return dt >= st && dt <= et;
+}
+
 // ── Unified calendar item type ──────────────────────────────
 
 interface CalItem {
   id: string;
   title: string;
   time: string;
+  endTime?: string;
   allDay: boolean;
   hour: number | null;
+  endHour: number | null;
   assignee: "me" | "partner" | "both";
   done?: boolean;
   tag?: string;
@@ -76,13 +90,16 @@ interface CalItem {
   groupId?: string | null;
   type: "event" | "task" | "gcal";
   raw: ScheduledEvent | Task | GoogleCalendarEvent;
+  isMultiDay?: boolean;
+  isStart?: boolean;
+  isEnd?: boolean;
 }
 
 // ── Main Component ──────────────────────────────────────────
 
 const CalendarPage = () => {
   const {
-    events, filteredEvents, addEvent, addTask, removeEvent, rescheduleEvent,
+    events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
     tasks, filteredTasks, toggleTask, removeTask, updateTask,
     googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
   } = useAppContext();
@@ -92,14 +109,20 @@ const CalendarPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
-  const [showAddForm, setShowAddForm] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [newTitle, setNewTitle] = useState("");
-  const [newTime, setNewTime] = useState("");
-  const [newUser, setNewUser] = useState<"me" | "partner" | "both">("me");
-  const [newTag, setNewTag] = useState<"Work" | "Personal" | "Household">("Personal");
   const timeGridRef = useRef<HTMLDivElement>(null);
+
+  // Add form state
+  const [newTitle, setNewTitle] = useState("");
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newStartTime, setNewStartTime] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
+  const [newEndTime, setNewEndTime] = useState("");
+  const [newAllDay, setNewAllDay] = useState(false);
+  const [newUser, setNewUser] = useState<"me" | "partner" | "both">("me");
+  const [newDesc, setNewDesc] = useState("");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -116,27 +139,57 @@ const CalendarPage = () => {
   // ── Build unified items for a given date ──────────────
 
   const getItemsForDate = useCallback((d: number, m: number, y: number): CalItem[] => {
-    const dateStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const dateStr = dateToKey(d, m, y);
     const items: CalItem[] = [];
 
-    filteredEvents
-      .filter((e) => e.day === d && e.month === m && e.year === y)
-      .forEach((e) => {
-        items.push({
-          id: `ev-${e.id}`, title: e.title, time: e.time,
-          allDay: !e.time || e.time === "All day",
-          hour: timeToHour(e.time), assignee: e.user,
-          hidden: e.hiddenFromPartner, groupId: e.groupId,
-          type: "event", raw: e,
-        });
+    filteredEvents.forEach((e) => {
+      const startD = e.day, startM = e.month, startY = e.year;
+      const endD = e.endDay ?? e.day, endM = e.endMonth ?? e.month, endY = e.endYear ?? e.year;
+      const isAllDay = e.allDay ?? (!e.time || e.time === "All day");
+      const isMultiDay = !(startD === endD && startM === endM && startY === endY);
+
+      if (!dateInRange(d, m, y, startD, startM, startY, endD, endM, endY)) return;
+
+      const isStartDay = d === startD && m === startM && y === startY;
+      const isEndDay = d === endD && m === endM && y === endY;
+
+      let hour: number | null = null;
+      let endHour: number | null = null;
+
+      if (!isAllDay) {
+        if (isMultiDay) {
+          if (isStartDay) {
+            hour = timeToHour(e.time);
+            endHour = 24;
+          } else if (isEndDay) {
+            hour = 0;
+            endHour = timeToHour(e.endTime || "") ?? 24;
+          } else {
+            hour = 0;
+            endHour = 24;
+          }
+        } else {
+          hour = timeToHour(e.time);
+          endHour = timeToHour(e.endTime || "") ?? (hour != null ? hour + 1 : null);
+        }
+      }
+
+      items.push({
+        id: `ev-${e.id}`, title: e.title, time: e.time,
+        endTime: e.endTime,
+        allDay: isAllDay, hour, endHour,
+        assignee: e.user, hidden: e.hiddenFromPartner,
+        groupId: e.groupId, type: "event", raw: e,
+        isMultiDay, isStart: isStartDay, isEnd: isEndDay,
       });
+    });
 
     filteredTasks
       .filter((t) => t.scheduledDay === d && t.scheduledMonth === m && t.scheduledYear === y)
       .forEach((t) => {
         items.push({
           id: `tk-${t.id}`, title: t.title, time: t.time,
-          allDay: !t.time, hour: timeToHour(t.time),
+          allDay: !t.time, hour: timeToHour(t.time), endHour: null,
           assignee: t.assignee, done: t.done, tag: t.tag,
           groupId: t.groupId, type: "task", raw: t,
         });
@@ -145,22 +198,26 @@ const CalendarPage = () => {
     if (showGoogleCalendar) {
       googleCalendarEvents
         .filter((ge) => {
+          if (ge.allDay) {
+            const startDate = ge.start?.split("T")[0] || ge.start;
+            const endDate = ge.end?.split("T")[0] || ge.end;
+            return dateStr >= startDate && dateStr <= (endDate || startDate);
+          }
           const startDate = ge.start?.split("T")[0] || ge.start;
           return startDate === dateStr;
         })
         .forEach((ge) => {
-          const startTime = ge.allDay ? "" : ge.start;
           const h = ge.allDay ? null : (ge.start ? new Date(ge.start).getHours() + new Date(ge.start).getMinutes() / 60 : null);
+          const eh = ge.allDay ? null : (ge.end ? new Date(ge.end).getHours() + new Date(ge.end).getMinutes() / 60 : null);
           items.push({
-            id: `gcal-${ge.id}`, title: ge.title, time: startTime || "All day",
-            allDay: ge.allDay, hour: h,
+            id: `gcal-${ge.id}`, title: ge.title, time: ge.start || "All day",
+            allDay: ge.allDay, hour: h, endHour: eh,
             assignee: ge.assignee || "me", groupId: null,
             type: "gcal", raw: ge,
           });
         });
     }
 
-    // Sort: all-day first, then by time
     items.sort((a, b) => {
       if (a.allDay && !b.allDay) return -1;
       if (!a.allDay && b.allDay) return 1;
@@ -192,35 +249,56 @@ const CalendarPage = () => {
 
   // ── Navigation ────────────────────────────────────────
 
-  const prevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
-  };
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
-  };
-
+  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToday = () => {
     const t = new Date();
     setCurrentDate(new Date(t.getFullYear(), t.getMonth(), 1));
     setSelectedDate(new Date(t.getFullYear(), t.getMonth(), t.getDate()));
   };
+  const selectDay = (d: number) => setSelectedDate(new Date(year, month, d));
 
-  const selectDay = (d: number) => {
-    setSelectedDate(new Date(year, month, d));
-  };
-
-  // ── Swipe support ─────────────────────────────────────
+  // ── Swipe ─────────────────────────────────────────────
 
   const touchStartX = useRef(0);
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = (e: React.TouchEvent) => {
     const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(diff) > 60) {
-      if (diff > 0) prevMonth();
-      else nextMonth();
+    if (Math.abs(diff) > 60) { diff > 0 ? prevMonth() : nextMonth(); }
+  };
+
+  // ── Open add form with defaults ───────────────────────
+
+  const openAddForm = () => {
+    const sd = selectedDate;
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setNewStartDate(fmt(sd));
+    setNewEndDate(fmt(sd));
+    setNewStartTime("");
+    setNewEndTime("");
+    setNewAllDay(false);
+    setNewTitle("");
+    setNewUser("me");
+    setNewDesc("");
+    setShowAddForm(true);
+  };
+
+  // Auto-adjust end when start changes
+  const handleStartDateChange = (v: string) => {
+    setNewStartDate(v);
+    if (!newEndDate || v > newEndDate) setNewEndDate(v);
+  };
+  const handleStartTimeChange = (v: string) => {
+    setNewStartTime(v);
+    if (v && !newEndTime) {
+      // default 1 hour later
+      const [h, m] = v.split(":").map(Number);
+      const eh = Math.min(h + 1, 23);
+      setNewEndTime(`${String(eh).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    } else if (v && newEndTime && newStartDate === newEndDate && v >= newEndTime) {
+      const [h, m] = v.split(":").map(Number);
+      const eh = Math.min(h + 1, 23);
+      setNewEndTime(`${String(eh).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
     }
   };
 
@@ -228,34 +306,32 @@ const CalendarPage = () => {
 
   const handleAddEvent = () => {
     if (!newTitle.trim()) return;
+    const startParts = newStartDate ? keyToDate(newStartDate) : { day: selDay, month: selMonth, year: selYear };
+    const endParts = newEndDate ? keyToDate(newEndDate) : startParts;
+
     addEvent({
       title: newTitle.trim(),
-      time: newTime || "All day",
-      day: selDay,
-      month: selMonth,
-      year: selYear,
+      time: newAllDay ? "All day" : (newStartTime || "All day"),
+      description: newDesc,
+      day: startParts.day,
+      month: startParts.month,
+      year: startParts.year,
+      endDay: endParts.day,
+      endMonth: endParts.month,
+      endYear: endParts.year,
+      endTime: newAllDay ? "" : (newEndTime || newStartTime || ""),
+      allDay: newAllDay,
       user: newUser,
     });
-    addTask({
-      title: newTitle.trim(),
-      time: newTime || "",
-      tag: newTag,
-      assignee: newUser === "partner" ? "partner" : newUser === "both" ? "both" : "me",
-      scheduledDay: selDay,
-      scheduledMonth: selMonth,
-      scheduledYear: selYear,
-    });
-    setNewTitle("");
-    setNewTime("");
-    setNewUser("me");
-    setNewTag("Personal");
+
+    toast.success(`Scheduled: ${newTitle.trim()}`);
     setShowAddForm(false);
   };
 
   // Scroll time grid to 8am
   useEffect(() => {
     if ((viewMode === "day" || viewMode === "3day") && timeGridRef.current) {
-      timeGridRef.current.scrollTop = 8 * 60; // 8am * 60px/hr
+      timeGridRef.current.scrollTop = 8 * 60;
     }
   }, [viewMode]);
 
@@ -266,17 +342,19 @@ const CalendarPage = () => {
     const q = searchQuery.toLowerCase();
     const results: { item: CalItem; dateLabel: string }[] = [];
 
-    // Search all events (not just filtered)
     events.forEach((e) => {
       if (e.title.toLowerCase().includes(q)) {
+        const hasEnd = e.endDay && !(e.endDay === e.day && e.endMonth === e.month && e.endYear === e.year);
+        const startLabel = new Date(e.year, e.month, e.day).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const endLabel = hasEnd ? ` – ${new Date(e.endYear!, e.endMonth!, e.endDay!).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "";
         results.push({
           item: {
             id: `ev-${e.id}`, title: e.title, time: e.time,
-            allDay: !e.time || e.time === "All day",
-            hour: timeToHour(e.time), assignee: e.user,
-            groupId: e.groupId, type: "event", raw: e,
+            endTime: e.endTime,
+            allDay: e.allDay ?? false, hour: timeToHour(e.time), endHour: timeToHour(e.endTime || ""),
+            assignee: e.user, groupId: e.groupId, type: "event", raw: e,
           },
-          dateLabel: `${new Date(e.year, e.month, e.day).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+          dateLabel: startLabel + endLabel,
         });
       }
     });
@@ -286,11 +364,11 @@ const CalendarPage = () => {
         results.push({
           item: {
             id: `tk-${t.id}`, title: t.title, time: t.time,
-            allDay: !t.time, hour: timeToHour(t.time),
+            allDay: !t.time, hour: timeToHour(t.time), endHour: null,
             assignee: t.assignee, done: t.done, tag: t.tag,
             groupId: t.groupId, type: "task", raw: t,
           },
-          dateLabel: `${new Date(t.scheduledYear!, t.scheduledMonth!, t.scheduledDay!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+          dateLabel: new Date(t.scheduledYear!, t.scheduledMonth!, t.scheduledDay!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
         });
       }
     });
@@ -300,7 +378,7 @@ const CalendarPage = () => {
         results.push({
           item: {
             id: `gcal-${ge.id}`, title: ge.title, time: ge.start || "",
-            allDay: ge.allDay, hour: null, assignee: ge.assignee || "me",
+            allDay: ge.allDay, hour: null, endHour: null, assignee: ge.assignee || "me",
             groupId: null, type: "gcal", raw: ge,
           },
           dateLabel: ge.start ? new Date(ge.start).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
@@ -311,26 +389,19 @@ const CalendarPage = () => {
     return results.slice(0, 20);
   }, [searchQuery, events, tasks, googleCalendarEvents]);
 
-  // ── Group color helper ────────────────────────────────
+  // ── Color helpers ─────────────────────────────────────
 
-  const getColorClasses = (groupId: string | null | undefined) => {
-    return GROUP_COLOR_CLASSES[getGroupColorIndex(groupId, groups)];
-  };
+  const getColorClasses = (groupId: string | null | undefined) =>
+    GROUP_COLOR_CLASSES[getGroupColorIndex(groupId, groups)];
 
-  const getGroupName = (groupId: string | null | undefined) => {
-    if (!groupId) return null;
-    return groups.find((g) => g.id === groupId);
-  };
+  const getGroupName = (groupId: string | null | undefined) =>
+    groupId ? groups.find((g) => g.id === groupId) : null;
 
   // ── 3-day dates ───────────────────────────────────────
 
   const threeDayDates = useMemo(() => {
     const d = new Date(selYear, selMonth, selDay);
-    return [
-      new Date(d),
-      new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1),
-      new Date(d.getFullYear(), d.getMonth(), d.getDate() + 2),
-    ];
+    return [d, new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1), new Date(d.getFullYear(), d.getMonth(), d.getDate() + 2)];
   }, [selDay, selMonth, selYear]);
 
   // ═══════════════════════════════════════════════════════
@@ -350,6 +421,32 @@ const CalendarPage = () => {
             <button onClick={() => setShowSearch(true)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground">
               <Search size={18} />
             </button>
+
+            {/* View Options Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-8 px-2.5 flex items-center gap-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-full">
+                  <CalendarIcon size={14} />
+                  <span>{VIEW_LABELS[viewMode]}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[120px]">
+                {(["month", "list", "day", "3day"] as ViewMode[]).map((mode) => (
+                  <DropdownMenuItem
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className={viewMode === mode ? "bg-accent font-semibold" : ""}
+                  >
+                    {VIEW_LABELS[mode]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <button onClick={openAddForm} className="w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <Plus size={16} />
+            </button>
+
             <button onClick={goToday} className="px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-full">
               Today
             </button>
@@ -363,43 +460,101 @@ const CalendarPage = () => {
         </div>
       </header>
 
-      {/* ── View Mode Toggle ────────────────────────────── */}
-      <div className="flex items-center justify-between mb-2">
+      {/* ── Group Selector ──────────────────────────────── */}
+      <div className="mb-2">
         <GroupSelector />
-        <div className="flex bg-secondary rounded-lg p-0.5 flex-shrink-0">
-          {([
-            { mode: "month" as ViewMode, icon: <CalendarIcon size={14} />, label: "Month" },
-            { mode: "list" as ViewMode, icon: <List size={14} />, label: "List" },
-            { mode: "day" as ViewMode, icon: <Clock size={14} />, label: "Day" },
-            { mode: "3day" as ViewMode, icon: <Columns3 size={14} />, label: "3D" },
-          ]).map(({ mode, icon, label }) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${
-                viewMode === mode
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {icon}
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
-        </div>
       </div>
+
+      {/* ── ADD EVENT FORM (Slide-down) ─────────────────── */}
+      {showAddForm && (
+        <div className="mb-3 bg-card border border-border rounded-xl p-4 space-y-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">New Event</h3>
+            <button onClick={() => setShowAddForm(false)} className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
+              <X size={14} />
+            </button>
+          </div>
+          <input
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Event title..."
+            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+            autoFocus
+          />
+
+          {/* All-day toggle */}
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={newAllDay} onChange={(e) => setNewAllDay(e.target.checked)} className="rounded" />
+            <span className="text-muted-foreground">All-day</span>
+          </label>
+
+          {/* Start */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="text-[10px] uppercase font-semibold text-muted-foreground">Start</label>
+              <input type="date" value={newStartDate} onChange={(e) => handleStartDateChange(e.target.value)}
+                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
+            </div>
+            {!newAllDay && (
+              <div className="w-28">
+                <label className="text-[10px] uppercase font-semibold text-muted-foreground">Time</label>
+                <input type="time" value={newStartTime} onChange={(e) => handleStartTimeChange(e.target.value)}
+                  className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
+              </div>
+            )}
+          </div>
+
+          {/* End */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="text-[10px] uppercase font-semibold text-muted-foreground">End</label>
+              <input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} min={newStartDate}
+                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
+            </div>
+            {!newAllDay && (
+              <div className="w-28">
+                <label className="text-[10px] uppercase font-semibold text-muted-foreground">Time</label>
+                <input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)}
+                  className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
+              </div>
+            )}
+          </div>
+
+          <textarea
+            value={newDesc}
+            onChange={(e) => setNewDesc(e.target.value)}
+            placeholder="Notes (optional)..."
+            rows={2}
+            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground resize-none"
+          />
+
+          {/* Assignee */}
+          <div className="flex gap-1.5">
+            {(["me", "partner", "both"] as const).map((u) => (
+              <button key={u} onClick={() => setNewUser(u)}
+                className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
+                  newUser === u ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                }`}>
+                {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
+              </button>
+            ))}
+          </div>
+
+          <button onClick={handleAddEvent} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold">
+            Add Event
+          </button>
+        </div>
+      )}
 
       {/* ── MONTH VIEW ──────────────────────────────────── */}
       {viewMode === "month" && (
         <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-          {/* Day headers */}
           <div className="grid grid-cols-7 mb-1">
             {DAYS_SHORT.map((d, i) => (
               <div key={i} className="text-center text-[11px] font-medium text-muted-foreground py-1">{d}</div>
             ))}
           </div>
 
-          {/* Day grid */}
           <div className="grid grid-cols-7">
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
               <div key={`e-${i}`} className="h-11" />
@@ -411,33 +566,21 @@ const CalendarPage = () => {
               const dots = monthDots.get(day);
 
               return (
-                <button
-                  key={day}
-                  onClick={() => selectDay(day)}
-                  className="h-11 flex flex-col items-center justify-center relative"
-                >
-                  <span
-                    className={`w-8 h-8 flex items-center justify-center rounded-full text-[13px] transition-all ${
-                      isSelected
-                        ? "bg-primary text-primary-foreground font-semibold"
-                        : isTodayDay
-                        ? "bg-destructive text-destructive-foreground font-semibold"
-                        : "text-foreground hover:bg-secondary"
-                    }`}
-                  >
+                <button key={day} onClick={() => selectDay(day)} className="h-11 flex flex-col items-center justify-center relative">
+                  <span className={`w-8 h-8 flex items-center justify-center rounded-full text-[13px] transition-all ${
+                    isSelected ? "bg-primary text-primary-foreground font-semibold"
+                      : isTodayDay ? "bg-destructive text-destructive-foreground font-semibold"
+                      : "text-foreground hover:bg-secondary"
+                  }`}>
                     {day}
                   </span>
-                  {/* Event dots */}
                   {dots && !isSelected && (
                     <div className="flex gap-[2px] absolute bottom-0">
                       {Array.from(dots).slice(0, 3).map((gid, idx) => {
                         const colorIdx = gid === "__default" ? 0 : getGroupColorIndex(gid, groups);
                         return (
-                          <span
-                            key={idx}
-                            className="w-[4px] h-[4px] rounded-full"
-                            style={{ backgroundColor: GROUP_COLORS[colorIdx % GROUP_COLORS.length] }}
-                          />
+                          <span key={idx} className="w-[4px] h-[4px] rounded-full"
+                            style={{ backgroundColor: GROUP_COLORS[colorIdx % GROUP_COLORS.length] }} />
                         );
                       })}
                     </div>
@@ -447,23 +590,12 @@ const CalendarPage = () => {
             })}
           </div>
 
-          {/* ── Selected day event list ──────────────────── */}
+          {/* Selected day event list */}
           <div className="mt-3 border-t border-border pt-3">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-[13px] font-semibold text-foreground">
-                {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-              </h2>
-              <button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
-              >
-                {showAddForm ? <X size={14} /> : <Plus size={14} />}
-              </button>
-            </div>
-
-            {showAddForm && <AddEventForm {...{ newTitle, setNewTitle, newTime, setNewTime, newTag, setNewTag, newUser, setNewUser, handleAddEvent }} />}
-
-            {selectedDayItems.length === 0 && !showAddForm ? (
+            <h2 className="text-[13px] font-semibold text-foreground mb-2">
+              {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </h2>
+            {selectedDayItems.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">No events</p>
             ) : (
               <EventList items={selectedDayItems} groups={groups} getColorClasses={getColorClasses} />
@@ -499,24 +631,14 @@ const CalendarPage = () => {
         </div>
       )}
 
-      {/* ── DAY VIEW (Time Grid) ────────────────────────── */}
+      {/* ── DAY VIEW ────────────────────────────────────── */}
       {viewMode === "day" && (
-        <TimeGridView
-          dates={[selectedDate]}
-          getItemsForDate={getItemsForDate}
-          groups={groups}
-          timeGridRef={timeGridRef}
-        />
+        <TimeGridView dates={[selectedDate]} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} />
       )}
 
       {/* ── 3-DAY VIEW ──────────────────────────────────── */}
       {viewMode === "3day" && (
-        <TimeGridView
-          dates={threeDayDates}
-          getItemsForDate={getItemsForDate}
-          groups={groups}
-          timeGridRef={timeGridRef}
-        />
+        <TimeGridView dates={threeDayDates} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} />
       )}
 
       {/* ── Search Modal ────────────────────────────────── */}
@@ -526,22 +648,13 @@ const CalendarPage = () => {
             <div className="flex items-center gap-2 mb-4">
               <div className="flex-1 flex items-center bg-secondary rounded-xl px-3 py-2 gap-2">
                 <Search size={16} className="text-muted-foreground flex-shrink-0" />
-                <input
-                  autoFocus
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search events..."
-                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                />
+                <input autoFocus value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search events..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} className="text-muted-foreground">
-                    <X size={14} />
-                  </button>
+                  <button onClick={() => setSearchQuery("")} className="text-muted-foreground"><X size={14} /></button>
                 )}
               </div>
-              <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} className="text-sm font-medium text-primary">
-                Cancel
-              </button>
+              <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} className="text-sm font-medium text-primary">Cancel</button>
             </div>
 
             <div className="space-y-1 max-h-[70vh] overflow-y-auto">
@@ -549,34 +662,30 @@ const CalendarPage = () => {
                 const group = getGroupName(r.item.groupId);
                 const colorClasses = getColorClasses(r.item.groupId);
                 return (
-                  <button
-                    key={r.item.id}
-                    onClick={() => {
-                      // Navigate to the date
-                      const raw = r.item.raw;
-                      if (r.item.type === "event") {
-                        const ev = raw as ScheduledEvent;
-                        setCurrentDate(new Date(ev.year, ev.month, 1));
-                        setSelectedDate(new Date(ev.year, ev.month, ev.day));
-                      } else if (r.item.type === "task") {
-                        const tk = raw as Task;
-                        if (tk.scheduledYear != null) {
-                          setCurrentDate(new Date(tk.scheduledYear, tk.scheduledMonth!, 1));
-                          setSelectedDate(new Date(tk.scheduledYear, tk.scheduledMonth!, tk.scheduledDay!));
-                        }
+                  <button key={r.item.id} onClick={() => {
+                    const raw = r.item.raw;
+                    if (r.item.type === "event") {
+                      const ev = raw as ScheduledEvent;
+                      setCurrentDate(new Date(ev.year, ev.month, 1));
+                      setSelectedDate(new Date(ev.year, ev.month, ev.day));
+                    } else if (r.item.type === "task") {
+                      const tk = raw as Task;
+                      if (tk.scheduledYear != null) {
+                        setCurrentDate(new Date(tk.scheduledYear, tk.scheduledMonth!, 1));
+                        setSelectedDate(new Date(tk.scheduledYear, tk.scheduledMonth!, tk.scheduledDay!));
                       }
-                      setViewMode("month");
-                      setShowSearch(false);
-                      setSearchQuery("");
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary text-left"
-                  >
+                    }
+                    setViewMode("month");
+                    setShowSearch(false);
+                    setSearchQuery("");
+                  }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary text-left">
                     <span className={`w-[3px] h-8 rounded-full ${colorClasses.bg} flex-shrink-0`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{r.item.title}</p>
                       <p className="text-[11px] text-muted-foreground">
                         {r.dateLabel}
                         {r.item.time && r.item.time !== "All day" && ` · ${formatTime(r.item.time)}`}
+                        {r.item.endTime && r.item.endTime !== r.item.time && ` – ${formatTime(r.item.endTime)}`}
                         {group && ` · ${group.emoji} ${group.name}`}
                       </p>
                     </div>
@@ -597,9 +706,7 @@ const CalendarPage = () => {
 // ── Event List Component ──────────────────────────────────
 
 const EventList = ({
-  items,
-  groups,
-  getColorClasses,
+  items, groups, getColorClasses,
 }: {
   items: CalItem[];
   groups: Group[];
@@ -611,7 +718,6 @@ const EventList = ({
 
   return (
     <div className="divide-y divide-border">
-      {/* All-day section */}
       {allDayItems.length > 0 && (
         <div className="py-1">
           {allDayItems.map((item) => {
@@ -624,10 +730,11 @@ const EventList = ({
                 <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
                   {item.title}
                 </span>
+                {item.isMultiDay && (
+                  <span className="text-[10px] text-muted-foreground">multi-day</span>
+                )}
                 {group && (
-                  <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">
-                    {group.emoji} {group.name}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{group.emoji} {group.name}</span>
                 )}
                 <UserBadge user={item.assignee} />
               </div>
@@ -636,27 +743,25 @@ const EventList = ({
         </div>
       )}
 
-      {/* Timed items */}
       {timedItems.map((item) => {
         const colors = getColorClasses(item.groupId);
         const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
         const displayTime = item.type === "gcal" && item.time
           ? new Date(item.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
           : formatTime(item.time);
+        const displayEndTime = item.endTime ? formatTime(item.endTime) : null;
 
         return (
           <div key={item.id} className="flex items-center gap-2.5 py-2 px-1">
             <span className={`w-[3px] h-5 rounded-full ${colors.bg} flex-shrink-0`} />
-            <span className="text-[11px] text-muted-foreground w-12 flex-shrink-0 tabular-nums">
-              {displayTime}
+            <span className="text-[11px] text-muted-foreground w-16 flex-shrink-0 tabular-nums">
+              {displayTime}{displayEndTime && displayEndTime !== displayTime ? `–${displayEndTime}` : ""}
             </span>
             <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
               {item.title}
             </span>
             {group && (
-              <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">
-                {group.emoji} {group.name}
-              </span>
+              <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{group.emoji} {group.name}</span>
             )}
             <UserBadge user={item.assignee} />
           </div>
@@ -669,10 +774,7 @@ const EventList = ({
 // ── Time Grid View (Day / 3-Day) ──────────────────────────
 
 const TimeGridView = ({
-  dates,
-  getItemsForDate,
-  groups,
-  timeGridRef,
+  dates, getItemsForDate, groups, timeGridRef,
 }: {
   dates: Date[];
   getItemsForDate: (d: number, m: number, y: number) => CalItem[];
@@ -683,24 +785,50 @@ const TimeGridView = ({
     date: d,
     label: d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" }),
     items: getItemsForDate(d.getDate(), d.getMonth(), d.getFullYear()),
-    isToday:
-      d.getDate() === new Date().getDate() &&
-      d.getMonth() === new Date().getMonth() &&
-      d.getFullYear() === new Date().getFullYear(),
+    isToday: d.getDate() === new Date().getDate() && d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear(),
   }));
 
-  const hourHeight = 60; // px per hour
+  const hourHeight = 60;
+
+  // Layout overlapping events side-by-side
+  const layoutEvents = (items: CalItem[]) => {
+    const timed = items.filter((it) => !it.allDay && it.hour != null);
+    const sorted = [...timed].sort((a, b) => (a.hour ?? 0) - (b.hour ?? 0));
+    const positioned: { item: CalItem; col: number; totalCols: number }[] = [];
+
+    sorted.forEach((item) => {
+      const startH = item.hour!;
+      const endH = item.endHour ?? startH + 1;
+
+      // Find overlapping group
+      const overlapping = positioned.filter((p) => {
+        const pStart = p.item.hour!;
+        const pEnd = p.item.endHour ?? pStart + 1;
+        return startH < pEnd && endH > pStart;
+      });
+
+      const usedCols = new Set(overlapping.map((o) => o.col));
+      let col = 0;
+      while (usedCols.has(col)) col++;
+
+      positioned.push({ item, col, totalCols: 1 });
+
+      // Update totalCols for all overlapping items
+      const group = [...overlapping, { item, col, totalCols: 1 }];
+      const maxCol = Math.max(...group.map((g) => g.col)) + 1;
+      group.forEach((g) => { g.totalCols = maxCol; });
+      overlapping.forEach((o) => { o.totalCols = maxCol; });
+    });
+
+    return positioned;
+  };
 
   return (
     <div>
-      {/* Column headers */}
       <div className="flex border-b border-border mb-0">
         <div className="w-12 flex-shrink-0" />
         {columns.map((col, i) => (
-          <div
-            key={i}
-            className={`flex-1 text-center py-2 text-[12px] font-semibold ${col.isToday ? "text-primary" : "text-foreground"}`}
-          >
+          <div key={i} className={`flex-1 text-center py-2 text-[12px] font-semibold ${col.isToday ? "text-primary" : "text-foreground"}`}>
             {col.label}
           </div>
         ))}
@@ -709,22 +837,14 @@ const TimeGridView = ({
       {/* All-day row */}
       {columns.some((c) => c.items.some((it) => it.allDay)) && (
         <div className="flex border-b border-border">
-          <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground flex items-center justify-end pr-2">
-            all-day
-          </div>
+          <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground flex items-center justify-end pr-2">all-day</div>
           {columns.map((col, ci) => (
             <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
               {col.items.filter((it) => it.allDay).map((it) => {
                 const colorIdx = getGroupColorIndex(it.groupId, groups);
                 return (
-                  <div
-                    key={it.id}
-                    className="text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5"
-                    style={{
-                      backgroundColor: GROUP_COLORS[colorIdx] + "22",
-                      color: GROUP_COLORS[colorIdx],
-                    }}
-                  >
+                  <div key={it.id} className="text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5"
+                    style={{ backgroundColor: GROUP_COLORS[colorIdx] + "22", color: GROUP_COLORS[colorIdx] }}>
                     {it.title}
                   </div>
                 );
@@ -735,141 +855,67 @@ const TimeGridView = ({
       )}
 
       {/* Time grid */}
-      <div
-        ref={timeGridRef}
-        className="overflow-y-auto relative"
-        style={{ maxHeight: "calc(100vh - 280px)" }}
-      >
+      <div ref={timeGridRef} className="overflow-y-auto relative" style={{ maxHeight: "calc(100vh - 280px)" }}>
         <div className="flex" style={{ height: 24 * hourHeight }}>
-          {/* Time labels */}
           <div className="w-12 flex-shrink-0 relative">
             {HOURS.map((h) => (
-              <div
-                key={h}
-                className="absolute w-full text-right pr-2 text-[10px] text-muted-foreground"
-                style={{ top: h * hourHeight - 6 }}
-              >
+              <div key={h} className="absolute w-full text-right pr-2 text-[10px] text-muted-foreground" style={{ top: h * hourHeight - 6 }}>
                 {h === 0 ? "" : `${h > 12 ? h - 12 : h}${h >= 12 ? "PM" : "AM"}`}
               </div>
             ))}
           </div>
 
-          {/* Columns */}
-          {columns.map((col, ci) => (
-            <div key={ci} className="flex-1 relative border-l border-border">
-              {/* Hour lines */}
-              {HOURS.map((h) => (
-                <div
-                  key={h}
-                  className="absolute w-full border-t border-border/50"
-                  style={{ top: h * hourHeight }}
-                />
-              ))}
+          {columns.map((col, ci) => {
+            const positioned = layoutEvents(col.items);
 
-              {/* Now indicator */}
-              {col.isToday && (() => {
-                const now = new Date();
-                const nowPos = (now.getHours() + now.getMinutes() / 60) * hourHeight;
-                return (
-                  <div className="absolute w-full z-10" style={{ top: nowPos }}>
-                    <div className="w-2 h-2 rounded-full bg-destructive absolute -left-1 -top-1" />
-                    <div className="h-[1px] w-full bg-destructive" />
-                  </div>
-                );
-              })()}
+            return (
+              <div key={ci} className="flex-1 relative border-l border-border">
+                {HOURS.map((h) => (
+                  <div key={h} className="absolute w-full border-t border-border/50" style={{ top: h * hourHeight }} />
+                ))}
 
-              {/* Event blocks */}
-              {col.items.filter((it) => !it.allDay && it.hour != null).map((it) => {
-                const colorIdx = getGroupColorIndex(it.groupId, groups);
-                const top = it.hour! * hourHeight;
-                const height = Math.max(hourHeight * 0.75, 30); // default ~45min block
+                {col.isToday && (() => {
+                  const now = new Date();
+                  const nowPos = (now.getHours() + now.getMinutes() / 60) * hourHeight;
+                  return (
+                    <div className="absolute w-full z-10" style={{ top: nowPos }}>
+                      <div className="w-2 h-2 rounded-full bg-destructive absolute -left-1 -top-1" />
+                      <div className="h-[1px] w-full bg-destructive" />
+                    </div>
+                  );
+                })()}
 
-                return (
-                  <div
-                    key={it.id}
-                    className="absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 overflow-hidden cursor-pointer"
-                    style={{
-                      top,
-                      height,
-                      backgroundColor: GROUP_COLORS[colorIdx] + "22",
-                      borderLeft: `3px solid ${GROUP_COLORS[colorIdx]}`,
-                    }}
-                  >
-                    <p className="text-[10px] font-semibold truncate" style={{ color: GROUP_COLORS[colorIdx] }}>
-                      {it.title}
-                    </p>
-                    <p className="text-[9px] text-muted-foreground truncate">
-                      {it.type === "gcal" ? new Date(it.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : formatTime(it.time)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                {positioned.map(({ item, col: colIdx, totalCols }) => {
+                  const colorIdx = getGroupColorIndex(item.groupId, groups);
+                  const top = item.hour! * hourHeight;
+                  const endH = item.endHour ?? item.hour! + 1;
+                  const duration = Math.max(endH - item.hour!, 0.25);
+                  const height = Math.max(duration * hourHeight, 20);
+                  const width = `calc(${100 / totalCols}% - 2px)`;
+                  const left = `calc(${(colIdx / totalCols) * 100}% + 1px)`;
+
+                  return (
+                    <div key={item.id} className="absolute rounded-md px-1.5 py-1 overflow-hidden cursor-pointer"
+                      style={{
+                        top, height, width, left,
+                        backgroundColor: GROUP_COLORS[colorIdx] + "22",
+                        borderLeft: `3px solid ${GROUP_COLORS[colorIdx]}`,
+                      }}>
+                      <p className="text-[10px] font-semibold truncate" style={{ color: GROUP_COLORS[colorIdx] }}>{item.title}</p>
+                      <p className="text-[9px] text-muted-foreground truncate">
+                        {item.type === "gcal" ? new Date(item.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : formatTime(item.time)}
+                        {item.endTime ? ` – ${formatTime(item.endTime)}` : ""}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 };
-
-// ── Add Event Form ────────────────────────────────────────
-
-const AddEventForm = ({
-  newTitle, setNewTitle, newTime, setNewTime, newTag, setNewTag, newUser, setNewUser, handleAddEvent,
-}: {
-  newTitle: string; setNewTitle: (v: string) => void;
-  newTime: string; setNewTime: (v: string) => void;
-  newTag: "Work" | "Personal" | "Household"; setNewTag: (v: "Work" | "Personal" | "Household") => void;
-  newUser: "me" | "partner" | "both"; setNewUser: (v: "me" | "partner" | "both") => void;
-  handleAddEvent: () => void;
-}) => (
-  <div className="mb-3 space-y-2 bg-secondary/50 rounded-xl p-3">
-    <input
-      value={newTitle}
-      onChange={(e) => setNewTitle(e.target.value)}
-      placeholder="Event title..."
-      className="w-full bg-card rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground border border-border"
-      autoFocus
-    />
-    <input
-      type="time"
-      value={newTime}
-      onChange={(e) => setNewTime(e.target.value)}
-      className="w-full bg-card rounded-lg px-3 py-2 text-sm outline-none text-foreground border border-border"
-    />
-    <div className="flex gap-1.5">
-      {(["Work", "Personal", "Household"] as const).map((tag) => (
-        <button
-          key={tag}
-          onClick={() => setNewTag(tag)}
-          className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
-            newTag === tag ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-          }`}
-        >
-          {tag}
-        </button>
-      ))}
-    </div>
-    <div className="flex gap-1.5">
-      {(["me", "partner", "both"] as const).map((u) => (
-        <button
-          key={u}
-          onClick={() => setNewUser(u)}
-          className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
-            newUser === u ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-          }`}
-        >
-          {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
-        </button>
-      ))}
-    </div>
-    <button
-      onClick={handleAddEvent}
-      className="w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold"
-    >
-      Add Event
-    </button>
-  </div>
-);
 
 export default CalendarPage;

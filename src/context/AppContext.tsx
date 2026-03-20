@@ -20,6 +20,11 @@ export interface ScheduledEvent {
   day: number;
   month: number;
   year: number;
+  endDay?: number;
+  endMonth?: number;
+  endYear?: number;
+  endTime?: string;
+  allDay?: boolean;
   user: "me" | "partner" | "both";
   hiddenFromPartner?: boolean;
   groupId?: string | null;
@@ -257,6 +262,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             day: e.day,
             month: e.month,
             year: e.year,
+            endDay: e.end_day ?? e.day,
+            endMonth: e.end_month ?? e.month,
+            endYear: e.end_year ?? e.year,
+            endTime: e.end_time ?? "",
+            allDay: e.all_day ?? false,
             user: e.assignee as "me" | "partner" | "both",
             hiddenFromPartner: e.hidden_from_partner || false,
             groupId: e.group_id || null,
@@ -448,6 +458,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             day: e.day,
             month: e.month,
             year: e.year,
+            endDay: e.end_day ?? e.day,
+            endMonth: e.end_month ?? e.month,
+            endYear: e.end_year ?? e.year,
+            endTime: e.end_time ?? "",
+            allDay: e.all_day ?? false,
             user: toViewerPerspective(e.assignee as Assignee, false),
             hiddenFromPartner: e.hidden_from_partner || false,
             groupId: e.group_id || null,
@@ -596,16 +611,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (existingRows && existingRows.length > 0) return;
 
     const groupId = activeGroup?.id ?? null;
+    const isAllDay = event.allDay ?? (!event.time || event.time === "All day");
     const { data, error } = await supabase
       .from("events")
       .insert({
         user_id: user.id,
         title: event.title,
-        time: event.time || "All day",
+        time: isAllDay ? "All day" : (event.time || "All day"),
         description: event.description,
         day: event.day,
         month: event.month,
         year: event.year,
+        end_day: event.endDay ?? event.day,
+        end_month: event.endMonth ?? event.month,
+        end_year: event.endYear ?? event.year,
+        end_time: event.endTime ?? (isAllDay ? "" : (event.time || "")),
+        all_day: isAllDay,
         assignee: event.user,
         group_id: groupId,
       })
@@ -613,7 +634,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (data && !error) {
-      setEvents((e) => [...e, { ...event, time: event.time || "All day", id: data.id, groupId }]);
+      setEvents((e) => [...e, {
+        ...event,
+        time: isAllDay ? "All day" : (event.time || "All day"),
+        id: data.id,
+        groupId,
+        endDay: event.endDay ?? event.day,
+        endMonth: event.endMonth ?? event.month,
+        endYear: event.endYear ?? event.year,
+        endTime: event.endTime ?? (isAllDay ? "" : (event.time || "")),
+        allDay: isAllDay,
+      }]);
     }
   };
 
