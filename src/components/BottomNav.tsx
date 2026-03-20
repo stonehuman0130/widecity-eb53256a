@@ -3,14 +3,15 @@ import { useState } from "react";
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
 } from "@/components/ui/drawer";
-import { Dumbbell, Heart, Clock } from "lucide-react";
+import { Dumbbell, Heart, Clock, Sparkles } from "lucide-react";
 
-export type Tab = "home" | "workout" | "habits" | "sobriety" | "calendar" | "chat" | "settings";
+export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "calendar" | "chat" | "settings";
 
 export interface EnabledPages {
   workout: boolean;
   habits: boolean;
   sobriety: boolean;
+  specialdays: boolean;
 }
 
 interface BottomNavProps {
