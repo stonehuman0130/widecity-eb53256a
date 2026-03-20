@@ -156,9 +156,16 @@ const ChatPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   if (!activeGroup) {
     return (
       <div className="px-5">
-        <header className="pt-12 pb-4">
-          <h1 className="text-[1.75rem] font-bold tracking-display">Chat</h1>
-          <p className="text-sm text-muted-foreground mt-1">Select a group to start chatting</p>
+        <header className="pt-12 pb-4 flex items-start justify-between">
+          <div>
+            <h1 className="text-[1.75rem] font-bold tracking-display">Chat</h1>
+            <p className="text-sm text-muted-foreground mt-1">Select a group to start chatting</p>
+          </div>
+          {onOpenSettings && (
+            <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors mt-1" aria-label="Settings">
+              <Settings size={18} />
+            </button>
+          )}
         </header>
         <GroupSelector />
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
