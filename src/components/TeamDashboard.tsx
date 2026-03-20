@@ -97,17 +97,25 @@ const TeamDashboard = ({
       assignee: e.user, done: false, isOwn: true, original: e,
     }));
 
+    // Partner items: swap assignee perspective.
+    // Partner's "me" = partner's column, partner's "partner" = current user's column.
+    const swapAssignee = (a: string): "me" | "partner" | "both" => {
+      if (a === "me") return "partner";
+      if (a === "partner") return "me";
+      return "both";
+    };
+
     partnerTasks.forEach((t) => items.push({
       id: `p-${t.id}`, type: "task", title: t.title, time: t.time,
       sortMinutes: parseTimeToMinutes(t.time),
-      assignee: t.assignee, done: t.done, isOwn: false,
+      assignee: swapAssignee(t.assignee), done: t.done, isOwn: false,
       tag: t.tag, original: t,
     }));
 
     partnerEvents.forEach((e) => items.push({
       id: `p-${e.id}`, type: "event", title: e.title, time: e.time,
       sortMinutes: parseTimeToMinutes(e.time),
-      assignee: e.user, done: false, isOwn: false, original: e,
+      assignee: swapAssignee(e.user), done: false, isOwn: false, original: e,
     }));
 
     gcalEvents.forEach((ge) => {
