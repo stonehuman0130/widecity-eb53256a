@@ -512,9 +512,9 @@ interface MorningHabitRowProps {
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
   streak: number;
-  partner: { id: string; display_name: string; avatar_url: string | null; email: string | null } | null;
   isViewingPartner: boolean;
-  onNudge: () => void;
+  onNudge?: () => void;
+  nudgeLabel?: string;
 }
 
 const MorningHabitRow = ({ habit, onToggle, onDelete, streak, partner, isViewingPartner, onNudge }: MorningHabitRowProps) => {
