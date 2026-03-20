@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Search,
-  Calendar as CalendarIcon, MoreVertical,
+  Calendar as CalendarIcon, MoreVertical, Settings,
 } from "lucide-react";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { useAuth, Group } from "@/context/AuthContext";
