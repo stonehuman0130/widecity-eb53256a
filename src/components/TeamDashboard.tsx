@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Clock, Check, Users, GripVertical } from "lucide-react";
+import { Clock, Check, Users, GripVertical, ListTodo } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
@@ -267,13 +267,11 @@ const TeamDashboard = ({
   };
 
   // ── Render a single item as a row in the grid ──
-  // Individual items go in their column; shared items span full width
   const renderItemRow = (item: UnifiedItem) => {
     const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
     const isShared = cols.length > 1;
 
     if (isShared) {
-      // Full-width spanning card, rendered OVER the divider
       return (
         <div
           key={item.id}
@@ -285,10 +283,8 @@ const TeamDashboard = ({
       );
     }
 
-    // Individual: place in correct column
     const targetCol = cols[0] ?? 0;
     if (colCount === 2) {
-      // 3-track grid: col1 | divider | col2
       const gridColumn = targetCol === 0 ? "1 / 2" : "3 / 4";
       return (
         <div key={item.id} className="px-1 py-0.5" style={{ gridColumn }}>
@@ -303,27 +299,32 @@ const TeamDashboard = ({
     );
   };
 
-  // ── Render a section (Scheduled / To Do) as chronologically ordered rows ──
-  const renderSection = (
-    label: string,
-    icon: React.ReactNode,
-    items: UnifiedItem[],
-  ) => {
-    if (items.length === 0) return null;
-
+  // ── Render a scrollable section grid ──
+  const renderSectionGrid = (items: UnifiedItem[], maxHeight: string) => {
+    if (items.length === 0) {
+      return (
+        <p className="text-[10px] text-muted-foreground text-center py-2 opacity-50">No items</p>
+      );
+    }
     return (
-      <>
-        {/* Section label - spans full width */}
+      <div
+        className="overflow-y-auto scroll-smooth-touch relative"
+        style={{ maxHeight }}
+      >
+        {/* Divider line inside scroll area */}
+        {colCount === 2 && (
+          <div
+            className="absolute top-0 bottom-0 w-[1px] bg-border z-[5] pointer-events-none"
+            style={{ left: `${splitPercent}%` }}
+          />
+        )}
         <div
-          className="flex items-center gap-1 px-2 py-0.5 bg-secondary/50 relative z-20"
-          style={{ gridColumn: "1 / -1" }}
+          className="grid auto-rows-auto"
+          style={{ gridTemplateColumns: gridCols }}
         >
-          {icon}
-          <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
+          {items.map(renderItemRow)}
         </div>
-        {/* Items in chronological order */}
-        {items.map(renderItemRow)}
-      </>
+      </div>
     );
   };
 
@@ -336,31 +337,26 @@ const TeamDashboard = ({
         <h2 className="text-base font-semibold tracking-display">Team Dashboard</h2>
       </div>
 
-      <div
-        ref={containerRef}
-        className="rounded-xl border border-border bg-secondary/30 overflow-hidden relative"
-      >
-        {/* Continuous divider line from top to bottom */}
-        {colCount === 2 && (
-          <div
-            className="absolute top-0 bottom-0 w-[1px] bg-border z-[5] pointer-events-none"
-            style={{ left: `${splitPercent}%` }}
-          />
-        )}
-
-        {/* Header row */}
-        <div className="grid" style={{ gridTemplateColumns: gridCols }}>
+      <div ref={containerRef} className="rounded-xl border border-border bg-secondary/30 overflow-hidden relative">
+        {/* ── Header row with resize handle ── */}
+        <div className="grid relative" style={{ gridTemplateColumns: gridCols }}>
+          {colCount === 2 && (
+            <div
+              className="absolute top-0 bottom-0 w-[1px] bg-border z-[5] pointer-events-none"
+              style={{ left: `${splitPercent}%` }}
+            />
+          )}
           {columnMembers.map((member, index) => (
             <div key={member.userId} className="contents">
               {index > 0 && colCount === 2 && (
                 <div className="relative flex items-center justify-center">
                   <div
-                    className="absolute inset-y-0 w-6 -ml-3 cursor-col-resize z-30 flex items-center justify-center"
+                    className="absolute inset-y-0 w-5 -ml-2.5 cursor-col-resize z-30 flex items-center justify-center"
                     onMouseDown={handleMouseDown}
                     onTouchStart={handleTouchStart}
                   >
-                    <div className="w-3 h-4 rounded-sm bg-border/80 flex items-center justify-center">
-                      <GripVertical size={8} className="text-muted-foreground" />
+                    <div className="w-2.5 h-3.5 rounded-sm bg-border/60 flex items-center justify-center">
+                      <GripVertical size={7} className="text-muted-foreground/70" />
                     </div>
                   </div>
                 </div>
@@ -378,31 +374,25 @@ const TeamDashboard = ({
           ))}
         </div>
 
-        {/* Scrollable board content */}
-        <div
-          className="overflow-y-auto scroll-smooth-touch"
-          style={{ maxHeight: "min(65vh, 500px)" }}
-        >
-          <div
-            className="grid auto-rows-auto"
-            style={{ gridTemplateColumns: gridCols }}
-          >
-            {renderSection(
-              "Scheduled",
-              <Clock size={9} className="text-muted-foreground" />,
-              timedItems,
-            )}
-            {renderSection(
-              "To Do",
-              <span className="w-1.5 h-1.5 rounded-full bg-foreground" />,
-              untimedItems,
-            )}
-          </div>
-
-          {!hasAnyItems && (
-            <p className="text-[10px] text-muted-foreground text-center py-3 opacity-50">No items</p>
-          )}
+        {/* ── Scheduled Section ── */}
+        <div className="flex items-center gap-1 px-2 py-1 bg-secondary/50 border-b border-border">
+          <Clock size={10} className="text-muted-foreground" />
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Scheduled</span>
+          <span className="text-[9px] text-muted-foreground/60 ml-auto">{timedItems.length}</span>
         </div>
+        {renderSectionGrid(timedItems, "min(40vh, 300px)")}
+
+        {/* ── To Do Section ── */}
+        <div className="flex items-center gap-1 px-2 py-1 bg-secondary/50 border-t border-b border-border">
+          <ListTodo size={10} className="text-muted-foreground" />
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">To Do</span>
+          <span className="text-[9px] text-muted-foreground/60 ml-auto">{untimedItems.length}</span>
+        </div>
+        {renderSectionGrid(untimedItems, "min(40vh, 300px)")}
+
+        {!hasAnyItems && (
+          <p className="text-[10px] text-muted-foreground text-center py-3 opacity-50">No items</p>
+        )}
       </div>
     </section>
   );
