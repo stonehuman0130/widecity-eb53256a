@@ -187,7 +187,7 @@ const HomeSectionCustomizer = ({ open, onClose, order, visible, selectedSobriety
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[80vh] flex flex-col"
+          className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[70svh] flex flex-col"
         >
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="text-lg font-bold tracking-display">Customize Home</h3>
