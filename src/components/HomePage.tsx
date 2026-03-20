@@ -884,7 +884,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
               case "sobriety":
                 return (
                   <section key={sectionId} className="mb-6">
-                    <HomeSobrietyWidget />
+                    <HomeSobrietyWidget selectedDate={selectedDate} selectedTrackerIds={selectedSobrietyIds} />
                   </section>
                 );
 
