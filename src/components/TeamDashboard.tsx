@@ -171,7 +171,7 @@ const TeamDashboard = ({
         id: `gcal-${ge.id}`, type: "gcal", title: ge.title, time: timeStr,
         sortMinutes: ge.allDay || !ge.start ? -1 : new Date(ge.start).getHours() * 60 + new Date(ge.start).getMinutes(),
         assignee, assignedUserIds: resolveAssignedUserIds({ assignee, sourceUserId: src, selfUserId, members: columnMembers }),
-        sourceUserId: src, done: false, isOwn: src === selfUserId, original: ge,
+        sourceUserId: src, done: ge.done ?? false, isOwn: src === selfUserId, original: ge,
       });
     });
     return items;
