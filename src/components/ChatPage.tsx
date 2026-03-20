@@ -181,6 +181,11 @@ const ChatPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
               {activeGroup.members.length} member{activeGroup.members.length !== 1 ? "s" : ""}
             </p>
           </div>
+          {onOpenSettings && (
+            <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" aria-label="Settings">
+              <Settings size={18} />
+            </button>
+          )}
         </div>
       </header>
 

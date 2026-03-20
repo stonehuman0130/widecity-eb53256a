@@ -114,6 +114,11 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           <h1 className="text-[1.75rem] font-bold tracking-display">Habits</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Build a better routine, one day at a time</p>
         </div>
+        {onOpenSettings && (
+          <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors mt-1" aria-label="Settings">
+            <Settings size={18} />
+          </button>
+        )}
       </header>
 
       {/* Group Selector */}
