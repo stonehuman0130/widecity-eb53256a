@@ -202,7 +202,7 @@ export const HomeWaterWidget = ({ selectedDate }: { selectedDate: Date }) => {
         </div>
       </div>
 
-      <div className="bg-card rounded-xl p-4 shadow-card border border-border">
+      <div className="bg-card rounded-xl p-3 shadow-card border border-border">
         {gaugeStyle === "circle" ? (
           <CircleWaterGauge
             intake={intake}
@@ -212,46 +212,43 @@ export const HomeWaterWidget = ({ selectedDate }: { selectedDate: Date }) => {
             onSetIntake={handleSetIntake}
           />
         ) : (
-          <>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-lg font-bold tracking-display">{intake.toFixed(1)}L</span>
-              <span className="text-xs text-muted-foreground">/ {goal}L</span>
-            </div>
-            {isToday ? (
-              <Slider
-                value={[intake]}
-                min={0}
-                max={goal}
-                step={0.1}
-                onValueChange={([val]) => handleSetIntake(val)}
-                className="my-3"
-              />
-            ) : (
-              <div className="h-2 bg-secondary rounded-full overflow-hidden my-3">
-                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${percent}%` }} />
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              {isToday ? (
+                <Slider
+                  value={[intake]}
+                  min={0}
+                  max={goal}
+                  step={0.1}
+                  onValueChange={([val]) => handleSetIntake(val)}
+                  className="my-1"
+                />
+              ) : (
+                <div className="h-2 bg-secondary rounded-full overflow-hidden my-1">
+                  <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${percent}%` }} />
+                </div>
+              )}
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs font-semibold">{intake.toFixed(1)}L / {goal}L</span>
+                <span className="text-[10px] text-muted-foreground font-semibold">
+                  {percent >= 100 ? "🎉 Goal reached!" : `${Math.round(percent)}%`}
+                </span>
               </div>
-            )}
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>0L</span>
-              <span className="font-semibold text-primary">
-                {percent >= 100 ? "🎉 Goal reached!" : `${Math.round(percent)}%`}
-              </span>
-              <span>{goal}L</span>
             </div>
             {isToday && (
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-1">
                 {[0.25, 0.5].map((amt) => (
                   <button
                     key={amt}
                     onClick={() => handleSetIntake(Math.min(intake + amt, goal))}
-                    className="flex-1 py-1.5 bg-primary/10 text-primary rounded-lg text-[10px] font-bold active:scale-[0.97] transition-transform"
+                    className="px-1.5 py-1 bg-primary/10 text-primary rounded-md text-[9px] font-semibold active:scale-95 transition-all"
                   >
                     +{amt * 1000}ml
                   </button>
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>
