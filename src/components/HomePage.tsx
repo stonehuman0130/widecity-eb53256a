@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft, EyeOff, Eye, Settings } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft, EyeOff, Eye, Settings, LayoutGrid } from "lucide-react";
 import GroupBadge from "@/components/GroupBadge";
 import ItemActionMenu from "@/components/ItemActionMenu";
 import GroupSelector from "@/components/GroupSelector";
@@ -11,6 +11,8 @@ import TaskActionMenu from "@/components/TaskActionMenu";
 import TeamDashboard from "@/components/TeamDashboard";
 import AddItemModal from "@/components/AddItemModal";
 import CongratsPopup from "@/components/CongratsPopup";
+import HomeSectionCustomizer, { loadSectionPrefs, saveSectionPrefs } from "@/components/HomeSectionCustomizer";
+import { HomeWaterWidget, HomeWorkoutWidget, HomeSobrietyWidget } from "@/components/HomeWidgets";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +41,9 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const [voiceMode, setVoiceMode] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
+  const [showCustomizer, setShowCustomizer] = useState(false);
+  const [sectionOrder, setSectionOrder] = useState<string[]>([]);
+  const [sectionVisible, setSectionVisible] = useState<Set<string>>(new Set());
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, toggleEventCompletion, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
     partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
@@ -47,6 +52,19 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const voiceModeRef = useRef(voiceMode);
   const aiRequestInFlightRef = useRef(false);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+
+  // Load section preferences
+  useEffect(() => {
+    const prefs = loadSectionPrefs(activeGroup?.id ?? null);
+    setSectionOrder(prefs.order);
+    setSectionVisible(prefs.visible);
+  }, [activeGroup?.id]);
+
+  const handleSaveSections = (order: string[], visible: Set<string>) => {
+    setSectionOrder(order);
+    setSectionVisible(visible);
+    saveSectionPrefs(activeGroup?.id ?? null, order, visible);
+  };
 
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
     onResult: (transcript) => {
@@ -526,6 +544,13 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         </div>
         <div className="flex items-center gap-1.5 mt-1">
           <button
+            onClick={() => setShowCustomizer(true)}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            aria-label="Customize layout"
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
             onClick={() => setShowAddModal(true)}
             className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card"
           >
@@ -724,41 +749,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         </div>
       )}
 
-      <section className="mb-6">
-        <h2 className="text-lg font-semibold tracking-display mb-3">
-          {filter === "partner" ? `${partnerName}'s Morning Habits` : "Morning Habits"}
-        </h2>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-          {displayMorningHabits.map((habit) => (
-            <button
-              key={habit.id}
-              onClick={() => !isViewingPartner && handleToggleHabit(habit.id)}
-              disabled={isViewingPartner}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
-                habit.done
-                  ? "border-habit-green bg-habit-green/10 text-habit-green"
-                  : "border-border bg-card text-foreground"
-              } ${isViewingPartner ? "opacity-80" : ""}`}
-            >
-              {habit.done ? (
-                <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
-                  <Check size={12} className="text-primary-foreground" />
-                </span>
-              ) : (
-                <span className="w-5 h-5 rounded-full border-2 border-muted" />
-              )}
-              {habit.label}
-              <GroupBadge groupId={habit.groupId} />
-            </button>
-          ))}
-          {displayMorningHabits.length === 0 && (
-            <p className="text-sm text-muted-foreground py-2">
-              {isViewingPartner ? `${partnerName} has no morning habits yet` : "No morning habits yet"}
-            </p>
-          )}
-        </div>
-      </section>
-
       {filter === "household" ? (
         <TeamDashboard
           myTasks={householdMyTasks}
@@ -779,45 +769,124 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         />
       ) : (
         <>
-           <section className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock size={18} className="text-muted-foreground" />
-              <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
-            </div>
-            {allTimedItems.length > 0 ? (
-              <div className="space-y-3">
-                {allTimedItems.map((item) => {
-                  if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
-                  if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
-                  return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No scheduled items</p>
-            )}
-          </section>
+          {sectionOrder.filter((id) => sectionVisible.has(id)).map((sectionId) => {
+            switch (sectionId) {
+              case "morning-habits":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <h2 className="text-lg font-semibold tracking-display mb-3">
+                      {filter === "partner" ? `${partnerName}'s Morning Habits` : "Morning Habits"}
+                    </h2>
+                    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                      {displayMorningHabits.map((habit) => (
+                        <button
+                          key={habit.id}
+                          onClick={() => !isViewingPartner && handleToggleHabit(habit.id)}
+                          disabled={isViewingPartner}
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
+                            habit.done
+                              ? "border-habit-green bg-habit-green/10 text-habit-green"
+                              : "border-border bg-card text-foreground"
+                          } ${isViewingPartner ? "opacity-80" : ""}`}
+                        >
+                          {habit.done ? (
+                            <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
+                              <Check size={12} className="text-primary-foreground" />
+                            </span>
+                          ) : (
+                            <span className="w-5 h-5 rounded-full border-2 border-muted" />
+                          )}
+                          {habit.label}
+                          <GroupBadge groupId={habit.groupId} />
+                        </button>
+                      ))}
+                      {displayMorningHabits.length === 0 && (
+                        <p className="text-sm text-muted-foreground py-2">
+                          {isViewingPartner ? `${partnerName} has no morning habits yet` : "No morning habits yet"}
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                );
 
-          <section className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-2 h-2 rounded-full bg-foreground" />
-              <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
-              <span className="text-sm text-muted-foreground">({allUntimedItems.length})</span>
-            </div>
-            {allUntimedItems.length > 0 ? (
-              <div className="space-y-3">
-                {allUntimedItems.map((item) => {
-                  if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
-                  if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
-                  return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
-            )}
-          </section>
+              case "scheduled":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock size={18} className="text-muted-foreground" />
+                      <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
+                    </div>
+                    {allTimedItems.length > 0 ? (
+                      <div className="space-y-3">
+                        {allTimedItems.map((item) => {
+                          if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                          if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                          return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">No scheduled items</p>
+                    )}
+                  </section>
+                );
+
+              case "justdoit":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-2 h-2 rounded-full bg-foreground" />
+                      <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
+                      <span className="text-sm text-muted-foreground">({allUntimedItems.length})</span>
+                    </div>
+                    {allUntimedItems.length > 0 ? (
+                      <div className="space-y-3">
+                        {allUntimedItems.map((item) => {
+                          if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                          if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                          return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
+                    )}
+                  </section>
+                );
+
+              case "water":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <HomeWaterWidget />
+                  </section>
+                );
+
+              case "workout":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <HomeWorkoutWidget />
+                  </section>
+                );
+
+              case "sobriety":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <HomeSobrietyWidget />
+                  </section>
+                );
+
+              default:
+                return null;
+            }
+          })}
         </>
       )}
 
+      <HomeSectionCustomizer
+        open={showCustomizer}
+        onClose={() => setShowCustomizer(false)}
+        order={sectionOrder}
+        visible={sectionVisible}
+        onSave={handleSaveSections}
+      />
       <AddItemModal open={showAddModal} onClose={() => setShowAddModal(false)} />
     </div>
   );
