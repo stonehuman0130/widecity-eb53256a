@@ -103,7 +103,7 @@ const Index = () => {
   };
 
   const isInnerPage = activeTab !== "launcher";
-  const showBottomNav = isInnerPage && activeTab !== "settings";
+  const showBottomNav = isInnerPage;
 
   return (
     <AppProvider>
