@@ -379,10 +379,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const data = await res.json();
         const rawEvents: GoogleCalendarEvent[] = data.events || [];
 
+        // Load completion states for these gcal events
+        const gcalIds = rawEvents.map((ge) => ge.id);
+        const { data: completions } = gcalIds.length > 0
+          ? await supabase.from("gcal_event_completions").select("*").in("gcal_event_id", gcalIds)
+          : { data: [] };
+        const completionMap = new Map((completions || []).map((c: any) => [c.gcal_event_id, c]));
+
         const enriched = rawEvents.map((ge) => {
           const fallbackAssignee: Assignee = ge.ownerUserId === user.id ? "me" : "partner";
           const assignee = (ge.assignee as Assignee | undefined) ?? fallbackAssignee;
-          return { ...ge, assignee };
+          const completion = completionMap.get(ge.id);
+          return {
+            ...ge,
+            assignee,
+            done: completion?.done ?? false,
+            completedAt: completion?.completed_at ?? null,
+            completedBy: completion?.completed_by ?? null,
+          };
         });
 
         setGoogleCalendarEvents(enriched);
