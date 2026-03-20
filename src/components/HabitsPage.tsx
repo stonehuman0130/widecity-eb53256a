@@ -217,7 +217,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
               <div className="space-y-2">
                 {theirMorning.length === 0 && <p className="text-xs text-muted-foreground">No morning habits</p>}
                 {theirMorning.map((h) => (
-                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly />
+                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly onNudge={partner ? () => sendNudge(h.label, h.id) : undefined} nudgeLabel={partner ? `Nudge ${partnerName}` : undefined} />
                 ))}
               </div>
             </div>
@@ -242,7 +242,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
               <div className="space-y-2">
                 {theirOther.length === 0 && <p className="text-xs text-muted-foreground">No other habits</p>}
                 {theirOther.map((h) => (
-                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly />
+                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly onNudge={partner ? () => sendNudge(h.label, h.id) : undefined} nudgeLabel={partner ? `Nudge ${partnerName}` : undefined} />
                 ))}
               </div>
             </div>
@@ -357,9 +357,9 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
               onToggle={handleToggle}
               onDelete={isViewingPartner ? undefined : (id) => { removeHabit(id); toast.success("Habit deleted"); }}
               streak={streakFn(habit.id)}
-              partner={partner}
               isViewingPartner={isViewingPartner}
-              onNudge={() => sendNudge(habit.label, habit.id)}
+              onNudge={isViewingPartner && partner ? () => sendNudge(habit.label, habit.id) : undefined}
+              nudgeLabel={isViewingPartner && partner ? `Nudge ${partner.display_name}` : undefined}
             />
           ))}
           {morningHabits.length === 0 && (
@@ -474,36 +474,51 @@ const TogetherHabitCard = ({
   streak,
   onToggle,
   readOnly,
+  onNudge,
+  nudgeLabel,
 }: {
   habit: { id: string; label: string; done: boolean; groupId?: string | null };
   streak: number;
   onToggle?: (id: string) => void;
   readOnly?: boolean;
+  onNudge?: () => void;
+  nudgeLabel?: string;
 }) => (
-  <button
-    onClick={() => !readOnly && onToggle?.(habit.id)}
-    disabled={readOnly}
-    className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-left ${
-      habit.done
-        ? "border-habit-green bg-habit-green/5"
-        : "border-border bg-card"
-    } ${readOnly ? "opacity-90" : "active:scale-[0.98]"}`}
-  >
-    {habit.done ? (
-      <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center flex-shrink-0">
-        <Check size={11} className="text-primary-foreground" />
+  <div>
+    <button
+      onClick={() => !readOnly && onToggle?.(habit.id)}
+      disabled={readOnly}
+      className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-left ${
+        habit.done
+          ? "border-habit-green bg-habit-green/5"
+          : "border-border bg-card"
+      } ${readOnly ? "opacity-90" : "active:scale-[0.98]"}`}
+    >
+      {habit.done ? (
+        <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center flex-shrink-0">
+          <Check size={11} className="text-primary-foreground" />
+        </span>
+      ) : (
+        <span className="w-5 h-5 rounded-full border-2 border-muted flex-shrink-0" />
+      )}
+      <span className={`flex-1 text-xs font-medium truncate ${habit.done ? "line-through opacity-50" : ""}`}>
+        {habit.label}
       </span>
-    ) : (
-      <span className="w-5 h-5 rounded-full border-2 border-muted flex-shrink-0" />
+      <div className="flex items-center gap-0.5 text-accent flex-shrink-0">
+        <Flame size={10} />
+        <span className="text-[10px] font-bold">{streak}d</span>
+      </div>
+    </button>
+    {onNudge && !habit.done && (
+      <button
+        onClick={onNudge}
+        className="flex items-center gap-1 px-2 py-1 mt-1 rounded-full bg-primary/10 text-primary text-[10px] font-semibold hover:bg-primary/20 transition-colors"
+      >
+        <Bell size={9} />
+        {nudgeLabel || "Nudge"}
+      </button>
     )}
-    <span className={`flex-1 text-xs font-medium truncate ${habit.done ? "line-through opacity-50" : ""}`}>
-      {habit.label}
-    </span>
-    <div className="flex items-center gap-0.5 text-accent flex-shrink-0">
-      <Flame size={10} />
-      <span className="text-[10px] font-bold">{streak}d</span>
-    </div>
-  </button>
+  </div>
 );
 
 // ── Morning Habit Row (individual view) ──
@@ -512,12 +527,12 @@ interface MorningHabitRowProps {
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
   streak: number;
-  partner: { id: string; display_name: string; avatar_url: string | null; email: string | null } | null;
   isViewingPartner: boolean;
-  onNudge: () => void;
+  onNudge?: () => void;
+  nudgeLabel?: string;
 }
 
-const MorningHabitRow = ({ habit, onToggle, onDelete, streak, partner, isViewingPartner, onNudge }: MorningHabitRowProps) => {
+const MorningHabitRow = ({ habit, onToggle, onDelete, streak, isViewingPartner, onNudge, nudgeLabel }: MorningHabitRowProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -567,14 +582,14 @@ const MorningHabitRow = ({ habit, onToggle, onDelete, streak, partner, isViewing
           </div>
         )}
       </div>
-      {partner && !isViewingPartner && !habit.done && (
+      {onNudge && !habit.done && (
         <div className="flex items-center justify-end ml-10 mt-1 mb-1">
           <button
             onClick={onNudge}
             className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 transition-colors"
           >
             <Bell size={10} />
-            Nudge {partner.display_name}
+            {nudgeLabel || "Nudge"}
           </button>
         </div>
       )}
