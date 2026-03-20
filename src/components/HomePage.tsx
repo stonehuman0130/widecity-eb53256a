@@ -426,12 +426,23 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
             <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, {profile?.display_name || "there"}</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="w-11 h-11 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card mt-1"
-        >
-          <Plus size={22} />
-        </button>
+        <div className="flex items-center gap-1.5 mt-1">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card"
+          >
+            <Plus size={18} />
+          </button>
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label="Settings"
+            >
+              <Settings size={18} />
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Date Selector */}
