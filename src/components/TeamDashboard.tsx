@@ -156,7 +156,6 @@ const TeamDashboard = ({
       assignedUserIds: resolveAssignedUserIds({ assignee: e.user, sourceUserId: selfUserId, selfUserId, members: columnMembers }),
       sourceUserId: selfUserId, done: e.done ?? false, isOwn: true, original: e,
     }));
-...
     partnerEvents.forEach((e) => addItem({
       id: `p-${e.id}`, type: "event", title: e.title, time: e.time,
       sortMinutes: parseTimeToMinutes(e.time), assignee: e.user,
