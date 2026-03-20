@@ -3,6 +3,7 @@ import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion
 import { GripVertical, Eye, EyeOff, X, Lock, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { useModalScrollLock } from "@/hooks/useModalScrollLock";
 
 export interface HomeSection {
   id: string;
@@ -138,6 +139,7 @@ const HomeSectionCustomizer = ({
   onSave,
 }: Props) => {
   const { user, activeGroup } = useAuth();
+  useModalScrollLock(open);
   const [localOrder, setLocalOrder] = useState<string[]>([...order]);
   const [localVisible, setLocalVisible] = useState<Set<string>>(new Set(visible));
   const [localSobrietyIds, setLocalSobrietyIds] = useState<string[]>([...selectedSobrietyIds]);
@@ -276,7 +278,7 @@ const HomeSectionCustomizer = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center pb-[env(safe-area-inset-bottom)]"
+        className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center pb-[env(safe-area-inset-bottom)] overscroll-none"
         onClick={onClose}
       >
         <motion.div
@@ -285,7 +287,7 @@ const HomeSectionCustomizer = ({
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[82svh] flex flex-col"
+          className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg h-[min(82svh,calc(100svh-env(safe-area-inset-top)-0.5rem))] min-h-0 flex flex-col"
         >
           <div className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 border-b border-border px-5 pt-5 pb-3">
             <div className="flex items-center justify-between">
@@ -300,8 +302,8 @@ const HomeSectionCustomizer = ({
           </div>
 
           <div
-            className="flex-1 overflow-y-auto px-5 pb-[max(env(safe-area-inset-bottom),1rem)] overscroll-y-contain"
-            style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+            className="flex-1 min-h-0 overflow-y-scroll px-5 pb-[max(env(safe-area-inset-bottom),1rem)] overscroll-y-contain"
+            style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain" }}
           >
             <Reorder.Group
               axis="y"
