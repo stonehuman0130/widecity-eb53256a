@@ -84,13 +84,6 @@ const Index = () => {
     saveEnabledPages(activeGroup?.id ?? null, updated);
   };
 
-  // Swipe right on inner pages → back to launcher
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    if (activeTab !== "launcher" && info.offset.x > 100 && info.velocity.x > 200) {
-      handleBackToLauncher();
-    }
-  };
-
   const pages: Record<string, React.ReactNode> = {
     launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} />,
     home: <HomePage onBackToLauncher={handleBackToLauncher} onOpenSettings={handleOpenSettings} />,
@@ -107,20 +100,15 @@ const Index = () => {
 
   return (
     <AppProvider>
-      <div className="flex flex-col w-full max-w-md mx-auto bg-background min-h-svh relative overflow-hidden">
+      <div className="flex flex-col w-full max-w-md mx-auto bg-background h-svh relative overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, x: activeTab === "launcher" ? -20 : 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: activeTab === "launcher" ? 20 : -20 }}
-            transition={{ duration: 0.15 }}
-            className={`flex-1 overflow-y-auto ${isInnerPage ? "pb-24" : ""}`}
-            drag={isInnerPage ? "x" : false}
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.2}
-            onDragEnd={handleDragEnd}
-            style={{ touchAction: isInnerPage ? "pan-y" : "auto" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+            className={`flex-1 overflow-y-auto scroll-smooth-touch ${isInnerPage ? "pb-24" : ""}`}
           >
             {pages[activeTab]}
           </motion.div>
