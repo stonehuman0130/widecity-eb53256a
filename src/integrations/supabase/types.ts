@@ -16,10 +16,15 @@ export type Database = {
     Tables: {
       events: {
         Row: {
+          all_day: boolean
           assignee: string
           created_at: string
           day: number
           description: string | null
+          end_day: number | null
+          end_month: number | null
+          end_time: string
+          end_year: number | null
           group_id: string | null
           hidden_from_partner: boolean
           id: string
@@ -30,10 +35,15 @@ export type Database = {
           year: number
         }
         Insert: {
+          all_day?: boolean
           assignee?: string
           created_at?: string
           day: number
           description?: string | null
+          end_day?: number | null
+          end_month?: number | null
+          end_time?: string
+          end_year?: number | null
           group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
@@ -44,10 +54,15 @@ export type Database = {
           year: number
         }
         Update: {
+          all_day?: boolean
           assignee?: string
           created_at?: string
           day?: number
           description?: string | null
+          end_day?: number | null
+          end_month?: number | null
+          end_time?: string
+          end_year?: number | null
           group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
