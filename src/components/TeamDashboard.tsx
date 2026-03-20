@@ -44,6 +44,22 @@ interface TeamDashboardProps {
   onCongrats: () => void;
 }
 
+function parseTimeToMinutes(time?: string): number {
+  if (!time || time === "" || time === "All day") return -1;
+  const match24 = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (match24) return parseInt(match24[1], 10) * 60 + parseInt(match24[2], 10);
+  const match12 = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (match12) {
+    let h = parseInt(match12[1], 10);
+    const m = parseInt(match12[2], 10);
+    const isPM = match12[3].toUpperCase() === "PM";
+    if (isPM && h !== 12) h += 12;
+    if (!isPM && h === 12) h = 0;
+    return h * 60 + m;
+  }
+  return -1;
+}
+
 const TeamDashboard = ({
   myTasks, myEvents, partnerTasks, partnerEvents, gcalEvents,
   toggleTask, toggleEventCompletion, onCongrats,
