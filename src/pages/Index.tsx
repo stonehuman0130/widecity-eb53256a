@@ -96,6 +96,7 @@ const Index = () => {
     home: <HomePage onBackToLauncher={handleBackToLauncher} onOpenSettings={handleOpenSettings} />,
     workout: <WorkoutsPage onOpenSettings={handleOpenSettings} />,
     habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
+    sobriety: <SobrietyPage onOpenSettings={handleOpenSettings} />,
     calendar: <CalendarPage onOpenSettings={handleOpenSettings} />,
     chat: <ChatPage onOpenSettings={handleOpenSettings} />,
     settings: <SettingsPage />,
