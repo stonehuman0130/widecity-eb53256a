@@ -6,6 +6,7 @@ import GroupSelector from "@/components/GroupSelector";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import SettingsButton from "@/components/SettingsButton";
+import { useModalScrollLock } from "@/hooks/useModalScrollLock";
 
 interface SpecialDay {
   id: string;
@@ -75,6 +76,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
   const [formDate, setFormDate] = useState(fmtDate(new Date()));
   const [formDirection, setFormDirection] = useState<"since" | "until">("since");
   const [formRepeats, setFormRepeats] = useState(false);
+  useModalScrollLock(showForm);
 
   const loadDays = async () => {
     if (!user) return;
@@ -334,7 +336,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center pb-[env(safe-area-inset-bottom)]"
+            className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center pb-[env(safe-area-inset-bottom)] overscroll-none"
             onClick={() => setShowForm(false)}
           >
             <motion.div
@@ -343,7 +345,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[82svh] flex flex-col"
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg h-[min(82svh,calc(100svh-env(safe-area-inset-top)-0.5rem))] min-h-0 flex flex-col"
             >
               <div className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 border-b border-border flex items-center justify-between px-5 pt-5 pb-3">
                 <h3 className="text-lg font-bold">
@@ -358,8 +360,8 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
               </div>
 
               <div
-                className="px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 space-y-4 flex-1 overflow-y-auto overscroll-y-contain"
-                style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+                className="px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 space-y-4 flex-1 min-h-0 overflow-y-scroll overscroll-y-contain"
+                style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain" }}
               >
                 {/* Icon Picker */}
                 <div>
