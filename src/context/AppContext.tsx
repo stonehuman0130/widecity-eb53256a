@@ -734,6 +734,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         end_time: event.endTime ?? (isAllDay ? "" : (event.time || "")),
         all_day: isAllDay,
         assignee: event.user,
+        done: false,
+        completed_at: null,
+        completed_by: null,
         group_id: groupId,
       })
       .select()
@@ -745,6 +748,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         time: isAllDay ? "All day" : (event.time || "All day"),
         id: data.id,
         groupId,
+        done: false,
+        completedAt: null,
+        completedBy: null,
+        updatedAt: data.updated_at ?? null,
         endDay: event.endDay ?? event.day,
         endMonth: event.endMonth ?? event.month,
         endYear: event.endYear ?? event.year,
@@ -766,18 +773,65 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("events").update({ day, month, year }).eq("id", id);
   };
 
+  const applyTaskCompletionState = (taskId: string, done: boolean, completedAt: string | null, completedBy: string | null) => {
+    setTasks((prev) => prev.map((item) => item.id === taskId ? { ...item, done, completedAt, completedBy } : item));
+    setPartnerTasks((prev) => prev.map((item) => item.id === taskId ? { ...item, done, completedAt, completedBy } : item));
+  };
+
+  const applyEventCompletionState = (eventId: string, done: boolean, completedAt: string | null, completedBy: string | null) => {
+    setEvents((prev) => prev.map((item) => item.id === eventId ? { ...item, done, completedAt, completedBy } : item));
+    setPartnerEvents((prev) => prev.map((item) => item.id === eventId ? { ...item, done, completedAt, completedBy } : item));
+  };
+
   const toggleTask = async (id: string) => {
-    const task = tasks.find((t) => t.id === id);
+    if (!user) return;
+    const task = tasks.find((t) => t.id === id) || partnerTasks.find((t) => t.id === id);
     if (!task) return;
 
     const newDone = !task.done;
-    setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: newDone } : item)));
+    const optimisticCompletedAt = newDone ? new Date().toISOString() : null;
+    const optimisticCompletedBy = newDone ? user.id : null;
+    applyTaskCompletionState(id, newDone, optimisticCompletedAt, optimisticCompletedBy);
 
-    const { error } = await supabase.from("tasks").update({ done: newDone }).eq("id", id);
+    const { data, error } = await supabase.rpc("toggle_task_completion", {
+      _task_id: id,
+      _completed: newDone,
+    });
+
     if (error) {
       console.error("Failed to persist task toggle:", error);
-      // Rollback optimistic update
-      setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: task.done } : item)));
+      applyTaskCompletionState(id, task.done, task.completedAt ?? null, task.completedBy ?? null);
+      return;
+    }
+
+    if (data) {
+      applyTaskCompletionState(id, data.done, data.completed_at ?? null, data.completed_by ?? null);
+    }
+  };
+
+  const toggleEventCompletion = async (id: string) => {
+    if (!user) return;
+    const event = events.find((e) => e.id === id) || partnerEvents.find((e) => e.id === id);
+    if (!event) return;
+
+    const newDone = !event.done;
+    const optimisticCompletedAt = newDone ? new Date().toISOString() : null;
+    const optimisticCompletedBy = newDone ? user.id : null;
+    applyEventCompletionState(id, newDone, optimisticCompletedAt, optimisticCompletedBy);
+
+    const { data, error } = await supabase.rpc("toggle_event_completion", {
+      _event_id: id,
+      _completed: newDone,
+    });
+
+    if (error) {
+      console.error("Failed to persist event toggle:", error);
+      applyEventCompletionState(id, event.done ?? false, event.completedAt ?? null, event.completedBy ?? null);
+      return;
+    }
+
+    if (data) {
+      applyEventCompletionState(id, data.done ?? false, data.completed_at ?? null, data.completed_by ?? null);
     }
   };
 
@@ -793,6 +847,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         tag: task.tag,
         assignee: task.assignee,
         done: false,
+        completed_at: null,
+        completed_by: null,
         scheduled_day: task.scheduledDay,
         scheduled_month: task.scheduledMonth,
         scheduled_year: task.scheduledYear,
@@ -802,7 +858,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (data && !error) {
-      setTasks((t) => [...t, { ...task, id: data.id, done: false, groupId }]);
+      setTasks((t) => [...t, {
+        ...task,
+        id: data.id,
+        done: false,
+        completedAt: null,
+        completedBy: null,
+        updatedAt: data.updated_at ?? null,
+        groupId,
+      }]);
     }
   };
 
