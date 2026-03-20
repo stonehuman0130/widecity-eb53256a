@@ -538,7 +538,20 @@ ${scheduleContext}`;
 
     const data = await response.json();
     const toolCalls = data.choices?.[0]?.message?.tool_calls;
-    if (!toolCalls || toolCalls.length === 0) throw new Error("No tool call in response");
+    if (!toolCalls || toolCalls.length === 0) {
+      // Model returned text instead of a tool call — treat as conversational response
+      const textContent = data.choices?.[0]?.message?.content || "";
+      if (textContent) {
+        return new Response(JSON.stringify({
+          type: "query_response",
+          answer: textContent,
+          spokenResponse: textContent,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error("No tool call in response");
+    }
 
     const tc = toolCalls[0];
     const parsed = JSON.parse(tc.function.arguments);
