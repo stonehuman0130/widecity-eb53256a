@@ -5,7 +5,7 @@ import {
 } from "@/components/ui/drawer";
 import { Dumbbell, Heart, Clock, Sparkles } from "lucide-react";
 
-export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "calendar" | "chat" | "settings";
+export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "calendar" | "chat" | "settings" | "more";
 
 export interface EnabledPages {
   workout: boolean;
