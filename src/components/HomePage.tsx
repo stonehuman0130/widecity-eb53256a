@@ -360,6 +360,8 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const selDay = sd.getDate();
   const selMonth = sd.getMonth();
   const selYear = sd.getFullYear();
+  const selDateStr = `${selYear}-${String(selMonth + 1).padStart(2, "0")}-${String(selDay).padStart(2, "0")}`;
+  const isTodayDate = (() => { const d = new Date(); return selDay === d.getDate() && selMonth === d.getMonth() && selYear === d.getFullYear(); })();
 
   const isSelectedDate = (day?: number, month?: number, year?: number) => {
     if (day === undefined || month === undefined || year === undefined) return true;
