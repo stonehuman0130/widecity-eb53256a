@@ -41,13 +41,68 @@ const VIEW_LABELS: Record<ViewMode, string> = { month: "Month", list: "List", da
 
 // ── Helpers ────────────────────────────────────────────────
 
-function timeToHour(time: string): number | null {
+function parseTimeToMinutes(time: string): number | null {
   if (!time || time === "All day") return null;
-  const match = time.match(/^(\d{1,2}):(\d{2})$/);
-  if (match) return parseInt(match[1]) + parseInt(match[2]) / 60;
-  const d = new Date(time);
-  if (!isNaN(d.getTime())) return d.getHours() + d.getMinutes() / 60;
+
+  const twelveHourMatch = time.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (twelveHourMatch) {
+    let hour = parseInt(twelveHourMatch[1], 10);
+    const minute = parseInt(twelveHourMatch[2], 10);
+    const period = twelveHourMatch[3].toUpperCase();
+
+    if (period === "AM" && hour === 12) hour = 0;
+    if (period === "PM" && hour < 12) hour += 12;
+
+    return hour * 60 + minute;
+  }
+
+  const twentyFourHourMatch = time.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (twentyFourHourMatch) {
+    const hour = parseInt(twentyFourHourMatch[1], 10);
+    const minute = parseInt(twentyFourHourMatch[2], 10);
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      return hour * 60 + minute;
+    }
+  }
+
+  const parsed = new Date(time);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.getHours() * 60 + parsed.getMinutes();
+  }
+
   return null;
+}
+
+function minutesToHour(minutes: number | null): number | null {
+  return minutes == null ? null : minutes / 60;
+}
+
+function timeToHour(time: string): number | null {
+  return minutesToHour(parseTimeToMinutes(time));
+}
+
+function parseGoogleDateValue(value?: string | null): Date | null {
+  if (!value) return null;
+
+  const dateOnly = value.split("T")[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value) || (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly) && !value.includes("T"))) {
+    const [yy, mm, dd] = dateOnly.split("-").map(Number);
+    return new Date(yy, mm - 1, dd, 12, 0, 0, 0);
+  }
+
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getLocalDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function dateWithMinutes(baseDate: Date, minutes: number) {
+  const dt = new Date(baseDate);
+  dt.setHours(0, 0, 0, 0);
+  dt.setMinutes(Math.max(0, minutes));
+  return dt;
 }
 
 function getGroupColorIndex(groupId: string | null | undefined, groups: Group[]): number {
@@ -93,6 +148,8 @@ interface CalItem {
   isMultiDay?: boolean;
   isStart?: boolean;
   isEnd?: boolean;
+  startDateTime?: Date | null;
+  endDateTime?: Date | null;
 }
 
 // ── Main Component ──────────────────────────────────────────
@@ -140,12 +197,16 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   // ── Build unified items for a given date ──────────────
 
   const getItemsForDate = useCallback((d: number, m: number, y: number): CalItem[] => {
-    const dateStr = dateToKey(d, m, y);
+    const activeDate = new Date(y, m, d);
     const items: CalItem[] = [];
 
     filteredEvents.forEach((e) => {
-      const startD = e.day, startM = e.month, startY = e.year;
-      const endD = e.endDay ?? e.day, endM = e.endMonth ?? e.month, endY = e.endYear ?? e.year;
+      const startD = e.day;
+      const startM = e.month;
+      const startY = e.year;
+      const endD = e.endDay ?? e.day;
+      const endM = e.endMonth ?? e.month;
+      const endY = e.endYear ?? e.year;
       const isAllDay = e.allDay ?? (!e.time || e.time === "All day");
       const isMultiDay = !(startD === endD && startM === endM && startY === endY);
 
@@ -154,75 +215,195 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       const isStartDay = d === startD && m === startM && y === startY;
       const isEndDay = d === endD && m === endM && y === endY;
 
+      const startMinutes = parseTimeToMinutes(e.time) ?? 0;
+      const parsedEndMinutes = parseTimeToMinutes(e.endTime || "");
+      const fallbackEndMinutes = Math.min(startMinutes + 60, 24 * 60);
+      const endMinutes = parsedEndMinutes ?? fallbackEndMinutes;
+
       let hour: number | null = null;
       let endHour: number | null = null;
+      let startDateTime: Date | null = null;
+      let endDateTime: Date | null = null;
 
-      if (!isAllDay) {
-        if (isMultiDay) {
-          if (isStartDay) {
-            hour = timeToHour(e.time);
-            endHour = 24;
-          } else if (isEndDay) {
-            hour = 0;
-            endHour = timeToHour(e.endTime || "") ?? 24;
-          } else {
-            hour = 0;
-            endHour = 24;
-          }
+      if (isAllDay) {
+        startDateTime = new Date(y, m, d, 0, 0, 0, 0);
+        endDateTime = new Date(y, m, d, 23, 59, 59, 999);
+      } else if (isMultiDay) {
+        if (isStartDay) {
+          hour = minutesToHour(startMinutes);
+          endHour = 24;
+          startDateTime = dateWithMinutes(activeDate, startMinutes);
+          endDateTime = dateWithMinutes(activeDate, 24 * 60);
+        } else if (isEndDay) {
+          hour = 0;
+          endHour = minutesToHour(endMinutes) ?? 24;
+          startDateTime = dateWithMinutes(activeDate, 0);
+          endDateTime = dateWithMinutes(activeDate, endMinutes);
         } else {
-          hour = timeToHour(e.time);
-          endHour = timeToHour(e.endTime || "") ?? (hour != null ? hour + 1 : null);
+          hour = 0;
+          endHour = 24;
+          startDateTime = dateWithMinutes(activeDate, 0);
+          endDateTime = dateWithMinutes(activeDate, 24 * 60);
         }
+      } else {
+        hour = minutesToHour(startMinutes);
+        endHour = minutesToHour(endMinutes);
+        startDateTime = dateWithMinutes(activeDate, startMinutes);
+        endDateTime = dateWithMinutes(activeDate, endMinutes);
       }
 
       items.push({
-        id: `ev-${e.id}`, title: e.title, time: e.time,
+        id: `ev-${e.id}`,
+        title: e.title,
+        time: e.time,
         endTime: e.endTime,
-        allDay: isAllDay, hour, endHour,
-        assignee: e.user, done: e.done ?? false, hidden: e.hiddenFromPartner,
-        groupId: e.groupId, type: "event", raw: e,
-        isMultiDay, isStart: isStartDay, isEnd: isEndDay,
+        allDay: isAllDay,
+        hour,
+        endHour,
+        assignee: e.user,
+        done: e.done ?? false,
+        hidden: e.hiddenFromPartner,
+        groupId: e.groupId,
+        type: "event",
+        raw: e,
+        isMultiDay,
+        isStart: isStartDay,
+        isEnd: isEndDay,
+        startDateTime,
+        endDateTime,
       });
     });
 
     filteredTasks
       .filter((t) => t.scheduledDay === d && t.scheduledMonth === m && t.scheduledYear === y)
       .forEach((t) => {
+        const taskIsAllDay = !t.time || t.time === "All day";
+        const taskStartMinutes = parseTimeToMinutes(t.time) ?? 0;
+        const taskEndMinutes = Math.min(taskStartMinutes + 60, 24 * 60);
+
         items.push({
-          id: `tk-${t.id}`, title: t.title, time: t.time,
-          allDay: !t.time, hour: timeToHour(t.time), endHour: null,
-          assignee: t.assignee, done: t.done, tag: t.tag,
-          groupId: t.groupId, type: "task", raw: t,
+          id: `tk-${t.id}`,
+          title: t.title,
+          time: t.time || "All day",
+          allDay: taskIsAllDay,
+          hour: taskIsAllDay ? null : minutesToHour(taskStartMinutes),
+          endHour: taskIsAllDay ? null : minutesToHour(taskEndMinutes),
+          assignee: t.assignee,
+          done: t.done,
+          tag: t.tag,
+          groupId: t.groupId,
+          type: "task",
+          raw: t,
+          startDateTime: taskIsAllDay ? new Date(y, m, d, 0, 0, 0, 0) : dateWithMinutes(activeDate, taskStartMinutes),
+          endDateTime: taskIsAllDay ? new Date(y, m, d, 23, 59, 59, 999) : dateWithMinutes(activeDate, taskEndMinutes),
         });
       });
 
     if (showGoogleCalendar) {
-      googleCalendarEvents
-        .filter((ge) => {
-          if (ge.allDay) {
-            const startDate = ge.start?.split("T")[0] || ge.start;
-            const endDate = ge.end?.split("T")[0] || ge.end;
-            return dateStr >= startDate && dateStr <= (endDate || startDate);
+      googleCalendarEvents.forEach((ge) => {
+        const gcalStart = parseGoogleDateValue(ge.start);
+        const gcalEnd = parseGoogleDateValue(ge.end) ?? gcalStart;
+        if (!gcalStart || !gcalEnd) return;
+
+        let rangeEnd = new Date(gcalEnd);
+        if (ge.allDay && getLocalDateKey(gcalStart) !== getLocalDateKey(gcalEnd)) {
+          rangeEnd.setDate(rangeEnd.getDate() - 1);
+        }
+
+        const includeInDate = dateInRange(
+          d,
+          m,
+          y,
+          gcalStart.getDate(),
+          gcalStart.getMonth(),
+          gcalStart.getFullYear(),
+          rangeEnd.getDate(),
+          rangeEnd.getMonth(),
+          rangeEnd.getFullYear(),
+        );
+
+        if (!includeInDate) return;
+
+        const isMultiDay =
+          gcalStart.getDate() !== rangeEnd.getDate() ||
+          gcalStart.getMonth() !== rangeEnd.getMonth() ||
+          gcalStart.getFullYear() !== rangeEnd.getFullYear();
+
+        const isStartDay =
+          d === gcalStart.getDate() &&
+          m === gcalStart.getMonth() &&
+          y === gcalStart.getFullYear();
+
+        const isEndDay =
+          d === rangeEnd.getDate() &&
+          m === rangeEnd.getMonth() &&
+          y === rangeEnd.getFullYear();
+
+        const startMinutes = gcalStart.getHours() * 60 + gcalStart.getMinutes();
+        const endMinutes = gcalEnd.getHours() * 60 + gcalEnd.getMinutes();
+
+        let hour: number | null = null;
+        let endHour: number | null = null;
+        let startDateTime: Date | null = null;
+        let endDateTime: Date | null = null;
+
+        if (ge.allDay) {
+          startDateTime = new Date(y, m, d, 0, 0, 0, 0);
+          endDateTime = new Date(y, m, d, 23, 59, 59, 999);
+        } else if (isMultiDay) {
+          if (isStartDay) {
+            hour = minutesToHour(startMinutes);
+            endHour = 24;
+            startDateTime = dateWithMinutes(activeDate, startMinutes);
+            endDateTime = dateWithMinutes(activeDate, 24 * 60);
+          } else if (isEndDay) {
+            hour = 0;
+            endHour = minutesToHour(endMinutes) ?? 24;
+            startDateTime = dateWithMinutes(activeDate, 0);
+            endDateTime = dateWithMinutes(activeDate, endMinutes);
+          } else {
+            hour = 0;
+            endHour = 24;
+            startDateTime = dateWithMinutes(activeDate, 0);
+            endDateTime = dateWithMinutes(activeDate, 24 * 60);
           }
-          const startDate = ge.start?.split("T")[0] || ge.start;
-          return startDate === dateStr;
-        })
-        .forEach((ge) => {
-          const h = ge.allDay ? null : (ge.start ? new Date(ge.start).getHours() + new Date(ge.start).getMinutes() / 60 : null);
-          const eh = ge.allDay ? null : (ge.end ? new Date(ge.end).getHours() + new Date(ge.end).getMinutes() / 60 : null);
-          items.push({
-            id: `gcal-${ge.id}`, title: ge.title, time: ge.start || "All day",
-            allDay: ge.allDay, hour: h, endHour: eh,
-            assignee: ge.assignee || "me", groupId: null,
-            type: "gcal", raw: ge, done: ge.done ?? false,
-          });
+        } else {
+          hour = minutesToHour(startMinutes);
+          endHour = minutesToHour(endMinutes);
+          startDateTime = dateWithMinutes(activeDate, startMinutes);
+          endDateTime = dateWithMinutes(activeDate, endMinutes);
+        }
+
+        items.push({
+          id: `gcal-${ge.id}`,
+          title: ge.title,
+          time: ge.start || "All day",
+          allDay: ge.allDay,
+          hour,
+          endHour,
+          assignee: ge.assignee || "me",
+          groupId: null,
+          type: "gcal",
+          raw: ge,
+          done: ge.done ?? false,
+          isMultiDay,
+          isStart: isStartDay,
+          isEnd: isEndDay,
+          startDateTime,
+          endDateTime,
         });
+      });
     }
 
     items.sort((a, b) => {
       if (a.allDay && !b.allDay) return -1;
       if (!a.allDay && b.allDay) return 1;
-      return (a.hour ?? 0) - (b.hour ?? 0);
+
+      const aStart = a.startDateTime?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bStart = b.startDateTime?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      if (aStart !== bStart) return aStart - bStart;
+
+      return a.title.localeCompare(b.title);
     });
 
     return items;
