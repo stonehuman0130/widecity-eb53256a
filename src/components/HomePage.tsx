@@ -41,6 +41,9 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const [voiceMode, setVoiceMode] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
+  const [showCustomizer, setShowCustomizer] = useState(false);
+  const [sectionOrder, setSectionOrder] = useState<string[]>([]);
+  const [sectionVisible, setSectionVisible] = useState<Set<string>>(new Set());
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, toggleEventCompletion, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
     partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
