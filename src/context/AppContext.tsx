@@ -1250,6 +1250,40 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }, { onConflict: "user_id,gcal_event_id" });
   };
 
+  const toggleGcalCompletion = async (eventId: string) => {
+    if (!user) return;
+    const ge = googleCalendarEvents.find((e) => e.id === eventId);
+    if (!ge) return;
+    const newDone = !ge.done;
+
+    // Optimistic update
+    setGoogleCalendarEvents((prev) =>
+      prev.map((e) => e.id === eventId ? {
+        ...e,
+        done: newDone,
+        completedAt: newDone ? new Date().toISOString() : null,
+        completedBy: newDone ? user.id : null,
+      } : e)
+    );
+
+    const { error } = await supabase.from("gcal_event_completions" as any).upsert({
+      user_id: user.id,
+      gcal_event_id: eventId,
+      group_id: activeGroup?.id || null,
+      done: newDone,
+      completed_at: newDone ? new Date().toISOString() : null,
+      completed_by: newDone ? user.id : null,
+    }, { onConflict: "user_id,gcal_event_id" });
+
+    if (error) {
+      console.error("Failed to toggle gcal completion:", error);
+      // Rollback
+      setGoogleCalendarEvents((prev) =>
+        prev.map((e) => e.id === eventId ? { ...e, done: ge.done, completedAt: ge.completedAt, completedBy: ge.completedBy } : e)
+      );
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
@@ -1258,7 +1292,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
       workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
-      googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
+      googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
       filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, filteredPartnerWorkouts,
       getPartnerWorkoutsForDate, getPartnerHabitsForDate, getPartnerHabitStreak,
