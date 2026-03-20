@@ -13,7 +13,6 @@ interface BottomNavProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   enabledPages: EnabledPages;
-  onTogglePage: (page: keyof EnabledPages) => void;
 }
 
 const OPTIONAL_PAGES: { id: keyof EnabledPages; label: string; icon: typeof Dumbbell; desc: string }[] = [
