@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ArrowLeft, MessageCircle } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import GroupSelector from "@/components/GroupSelector";
@@ -15,7 +15,7 @@ interface Message {
   sender_avatar?: string;
 }
 
-const ChatPage = () => {
+const ChatPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const { user, activeGroup, groups, profile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -156,9 +156,16 @@ const ChatPage = () => {
   if (!activeGroup) {
     return (
       <div className="px-5">
-        <header className="pt-12 pb-4">
-          <h1 className="text-[1.75rem] font-bold tracking-display">Chat</h1>
-          <p className="text-sm text-muted-foreground mt-1">Select a group to start chatting</p>
+        <header className="pt-12 pb-4 flex items-start justify-between">
+          <div>
+            <h1 className="text-[1.75rem] font-bold tracking-display">Chat</h1>
+            <p className="text-sm text-muted-foreground mt-1">Select a group to start chatting</p>
+          </div>
+          {onOpenSettings && (
+            <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors mt-1" aria-label="Settings">
+              <Settings size={18} />
+            </button>
+          )}
         </header>
         <GroupSelector />
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -181,6 +188,11 @@ const ChatPage = () => {
               {activeGroup.members.length} member{activeGroup.members.length !== 1 ? "s" : ""}
             </p>
           </div>
+          {onOpenSettings && (
+            <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" aria-label="Settings">
+              <Settings size={18} />
+            </button>
+          )}
         </div>
       </header>
 

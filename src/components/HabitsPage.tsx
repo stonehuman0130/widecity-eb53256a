@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import GroupBadge from "@/components/GroupBadge";
-import { Plus, Flame, Check, Droplets, Bell, Users, MoreVertical, Trash2 } from "lucide-react";
+import { Plus, Flame, Check, Droplets, Bell, Users, MoreVertical, Trash2, Settings } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,7 @@ const todayStr = () => {
 
 type ViewFilter = "mine" | "partner";
 
-const HabitsPage = () => {
+const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const { habits, filteredHabits, filteredPartnerHabits, toggleHabit, addHabit, removeHabit, addSharedHabit, getHabitStreak, getPartnerHabitStreak } = useAppContext();
   const { user, partner } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
@@ -114,6 +114,11 @@ const HabitsPage = () => {
           <h1 className="text-[1.75rem] font-bold tracking-display">Habits</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Build a better routine, one day at a time</p>
         </div>
+        {onOpenSettings && (
+          <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors mt-1" aria-label="Settings">
+            <Settings size={18} />
+          </button>
+        )}
       </header>
 
       {/* Group Selector */}

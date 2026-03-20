@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
-import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Mic, Copy, Pencil, Replace } from "lucide-react";
+import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Mic, Copy, Pencil, Replace, Settings } from "lucide-react";
 import GroupBadge from "@/components/GroupBadge";
 import { useAppContext, Workout } from "@/context/AppContext";
 import ItemActionMenu from "@/components/ItemActionMenu";
@@ -72,7 +72,7 @@ function detectManagementIntent(prompt: string): { type: "delete"; filter: "all"
 
 type ViewFilter = "mine" | "partner";
 
-const WorkoutsPage = () => {
+const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const { workouts, filteredWorkouts, filteredPartnerWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, getPartnerWorkoutsForDate } = useAppContext();
   const { partner } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
@@ -382,9 +382,16 @@ const WorkoutsPage = () => {
         </DialogContent>
       </Dialog>
 
-      <header className="pt-12 pb-4">
-        <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Stay active and healthy together</p>
+      <header className="pt-12 pb-4 flex items-start justify-between">
+        <div>
+          <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Stay active and healthy together</p>
+        </div>
+        {onOpenSettings && (
+          <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors mt-1" aria-label="Settings">
+            <Settings size={18} />
+          </button>
+        )}
       </header>
 
       <GroupSelector />

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft, EyeOff, Eye } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft, EyeOff, Eye, Settings } from "lucide-react";
 import GroupBadge from "@/components/GroupBadge";
 import ItemActionMenu from "@/components/ItemActionMenu";
 import GroupSelector from "@/components/GroupSelector";
@@ -27,7 +27,7 @@ interface ClarificationState {
   conversationHistory: { role: string; content: string }[];
 }
 
-const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
+const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () => void; onOpenSettings?: () => void }) => {
   const { profile, partner, groups, activeGroup, setActiveGroup } = useAuth();
   const [filter, setFilter] = useState<Filter>("mine");
   const [input, setInput] = useState("");
@@ -426,12 +426,23 @@ const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
             <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, {profile?.display_name || "there"}</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="w-11 h-11 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card mt-1"
-        >
-          <Plus size={22} />
-        </button>
+        <div className="flex items-center gap-1.5 mt-1">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card"
+          >
+            <Plus size={18} />
+          </button>
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label="Settings"
+            >
+              <Settings size={18} />
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Date Selector */}
