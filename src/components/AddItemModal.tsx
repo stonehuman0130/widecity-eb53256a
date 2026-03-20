@@ -17,8 +17,11 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
 
   // Calendar form state
   const [calTitle, setCalTitle] = useState("");
-  const [calDate, setCalDate] = useState("");
-  const [calTime, setCalTime] = useState("");
+  const [calStartDate, setCalStartDate] = useState("");
+  const [calStartTime, setCalStartTime] = useState("");
+  const [calEndDate, setCalEndDate] = useState("");
+  const [calEndTime, setCalEndTime] = useState("");
+  const [calAllDay, setCalAllDay] = useState(false);
   const [calDesc, setCalDesc] = useState("");
   const [calUser, setCalUser] = useState<"me" | "partner" | "both">("me");
   const [calTag, setCalTag] = useState<"Work" | "Personal" | "Household">("Personal");
@@ -29,8 +32,11 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const reset = () => {
     setStep("choose");
     setCalTitle("");
-    setCalDate("");
-    setCalTime("");
+    setCalStartDate("");
+    setCalStartTime("");
+    setCalEndDate("");
+    setCalEndTime("");
+    setCalAllDay(false);
     setCalDesc("");
     setCalUser("me");
     setCalTag("Personal");
