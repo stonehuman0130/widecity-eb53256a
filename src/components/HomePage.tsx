@@ -53,6 +53,19 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const aiRequestInFlightRef = useRef(false);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
 
+  // Load section preferences
+  useEffect(() => {
+    const prefs = loadSectionPrefs(activeGroup?.id ?? null);
+    setSectionOrder(prefs.order);
+    setSectionVisible(prefs.visible);
+  }, [activeGroup?.id]);
+
+  const handleSaveSections = (order: string[], visible: Set<string>) => {
+    setSectionOrder(order);
+    setSectionVisible(visible);
+    saveSectionPrefs(activeGroup?.id ?? null, order, visible);
+  };
+
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
     onResult: (transcript) => {
       if (voiceModeRef.current) {
