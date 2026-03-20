@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
-import BottomNav from "@/components/BottomNav";
+import BottomNav, { type Tab, type EnabledPages } from "@/components/BottomNav";
 import HomePage from "@/components/HomePage";
 import WorkoutsPage from "@/components/WorkoutsPage";
 import HabitsPage from "@/components/HabitsPage";
@@ -13,11 +13,35 @@ import { AppProvider } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 
-type Tab = "launcher" | "home" | "workout" | "habits" | "calendar" | "chat" | "settings";
+type FullTab = "launcher" | Tab;
+
+const DEFAULT_ENABLED: EnabledPages = { workout: false, habits: false, sobriety: false };
+
+function getStorageKey(groupId: string | null) {
+  return `enabledPages_${groupId || "personal"}`;
+}
+
+function loadEnabledPages(groupId: string | null): EnabledPages {
+  try {
+    const raw = localStorage.getItem(getStorageKey(groupId));
+    if (raw) return { ...DEFAULT_ENABLED, ...JSON.parse(raw) };
+  } catch {}
+  return { ...DEFAULT_ENABLED };
+}
+
+function saveEnabledPages(groupId: string | null, pages: EnabledPages) {
+  localStorage.setItem(getStorageKey(groupId), JSON.stringify(pages));
+}
 
 const Index = () => {
-  const { user, loading, groups, setActiveGroup } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("launcher");
+  const { user, loading, groups, activeGroup, setActiveGroup } = useAuth();
+  const [activeTab, setActiveTab] = useState<FullTab>("launcher");
+  const [enabledPages, setEnabledPages] = useState<EnabledPages>(DEFAULT_ENABLED);
+
+  // Load enabled pages when active group changes
+  useEffect(() => {
+    setEnabledPages(loadEnabledPages(activeGroup?.id ?? null));
+  }, [activeGroup?.id]);
 
   if (loading) {
     return (
@@ -45,12 +69,18 @@ const Index = () => {
     setActiveTab("launcher");
   };
 
-  const handleOpenSettingsFromLauncher = () => {
+  const handleOpenSettings = () => {
     setActiveTab("settings");
   };
 
-  const handleTabChange = (tab: "home" | "workout" | "habits" | "calendar" | "chat" | "settings") => {
+  const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
+  };
+
+  const handleTogglePage = (page: keyof EnabledPages) => {
+    const updated = { ...enabledPages, [page]: !enabledPages[page] };
+    setEnabledPages(updated);
+    saveEnabledPages(activeGroup?.id ?? null, updated);
   };
 
   // Swipe right on inner pages → back to launcher
@@ -61,16 +91,17 @@ const Index = () => {
   };
 
   const pages: Record<string, React.ReactNode> = {
-    launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettingsFromLauncher} />,
-    home: <HomePage onBackToLauncher={handleBackToLauncher} />,
-    workout: <WorkoutsPage />,
-    habits: <HabitsPage />,
-    calendar: <CalendarPage />,
-    chat: <ChatPage />,
+    launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} />,
+    home: <HomePage onBackToLauncher={handleBackToLauncher} onOpenSettings={handleOpenSettings} />,
+    workout: <WorkoutsPage onOpenSettings={handleOpenSettings} />,
+    habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
+    calendar: <CalendarPage onOpenSettings={handleOpenSettings} />,
+    chat: <ChatPage onOpenSettings={handleOpenSettings} />,
     settings: <SettingsPage />,
   };
 
   const isInnerPage = activeTab !== "launcher";
+  const showBottomNav = isInnerPage && activeTab !== "settings";
 
   return (
     <AppProvider>
@@ -92,8 +123,13 @@ const Index = () => {
             {pages[activeTab]}
           </motion.div>
         </AnimatePresence>
-        {isInnerPage && (
-          <BottomNav activeTab={activeTab as "home" | "workout" | "habits" | "calendar" | "chat" | "settings"} onTabChange={handleTabChange} />
+        {showBottomNav && (
+          <BottomNav
+            activeTab={activeTab as Tab}
+            onTabChange={handleTabChange}
+            enabledPages={enabledPages}
+            onTogglePage={handleTogglePage}
+          />
         )}
       </div>
     </AppProvider>
