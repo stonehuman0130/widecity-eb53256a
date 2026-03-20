@@ -169,7 +169,7 @@ const TeamDashboard = ({
         </div>
         {item.tag && (
           <div className="mt-1.5 ml-7">
-            <TaskTag tag={item.tag} />
+            <TaskTag tag={item.tag as "Work" | "Personal" | "Household"} />
           </div>
         )}
       </motion.div>
