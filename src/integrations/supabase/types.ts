@@ -428,6 +428,85 @@ export type Database = {
           },
         ]
       }
+      sobriety_categories: {
+        Row: {
+          created_at: string
+          group_id: string | null
+          icon: string
+          id: string
+          label: string
+          money_per_day: number | null
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id?: string | null
+          icon?: string
+          id?: string
+          label: string
+          money_per_day?: number | null
+          start_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string | null
+          icon?: string
+          id?: string
+          label?: string
+          money_per_day?: number | null
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sobriety_categories_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sobriety_checkins: {
+        Row: {
+          category_id: string
+          check_date: string
+          created_at: string
+          id: string
+          note: string | null
+          stayed_on_track: boolean
+          user_id: string
+        }
+        Insert: {
+          category_id: string
+          check_date: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          stayed_on_track?: boolean
+          user_id: string
+        }
+        Update: {
+          category_id?: string
+          check_date?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          stayed_on_track?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sobriety_checkins_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "sobriety_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee: string
