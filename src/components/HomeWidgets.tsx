@@ -333,7 +333,7 @@ export const HomeOtherHabitsWidget = ({ selectedDate }: { selectedDate: Date }) 
               </div>
               {streak > 0 && (
                 <div className="flex items-center gap-1 ml-6">
-                  <Flame size={10} className="text-orange-500" />
+                  <Flame size={10} className="text-destructive" />
                   <span className="text-[9px] text-muted-foreground">{streak}d streak</span>
                 </div>
               )}
