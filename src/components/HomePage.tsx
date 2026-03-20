@@ -27,7 +27,7 @@ interface ClarificationState {
   conversationHistory: { role: string; content: string }[];
 }
 
-const HomePage = ({ onBackToLauncher }: { onBackToLauncher?: () => void }) => {
+const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () => void; onOpenSettings?: () => void }) => {
   const { profile, partner, groups, activeGroup, setActiveGroup } = useAuth();
   const [filter, setFilter] = useState<Filter>("mine");
   const [input, setInput] = useState("");
