@@ -611,16 +611,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (existingRows && existingRows.length > 0) return;
 
     const groupId = activeGroup?.id ?? null;
+    const isAllDay = event.allDay ?? (!event.time || event.time === "All day");
     const { data, error } = await supabase
       .from("events")
       .insert({
         user_id: user.id,
         title: event.title,
-        time: event.time || "All day",
+        time: isAllDay ? "All day" : (event.time || "All day"),
         description: event.description,
         day: event.day,
         month: event.month,
         year: event.year,
+        end_day: event.endDay ?? event.day,
+        end_month: event.endMonth ?? event.month,
+        end_year: event.endYear ?? event.year,
+        end_time: event.endTime ?? (isAllDay ? "" : (event.time || "")),
+        all_day: isAllDay,
         assignee: event.user,
         group_id: groupId,
       })
@@ -628,7 +634,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (data && !error) {
-      setEvents((e) => [...e, { ...event, time: event.time || "All day", id: data.id, groupId }]);
+      setEvents((e) => [...e, {
+        ...event,
+        time: isAllDay ? "All day" : (event.time || "All day"),
+        id: data.id,
+        groupId,
+        endDay: event.endDay ?? event.day,
+        endMonth: event.endMonth ?? event.month,
+        endYear: event.endYear ?? event.year,
+        endTime: event.endTime ?? (isAllDay ? "" : (event.time || "")),
+        allDay: isAllDay,
+      }]);
     }
   };
 
