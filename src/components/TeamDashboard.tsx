@@ -1,15 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Clock, Check, Users } from "lucide-react";
+import { Clock, Check, Users, GripVertical } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import TaskTag from "@/components/TaskTag";
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable";
 import {
   DashboardMember,
   buildColumnIndexMap,
@@ -70,6 +65,54 @@ const TeamDashboard = ({
 }: TeamDashboardProps) => {
   const { user, profile, partner, activeGroup } = useAuth();
 
+  // ── Resizable column state ──
+  const [splitPercent, setSplitPercent] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const pct = Math.min(80, Math.max(20, (x / rect.width) * 100));
+      setSplitPercent(pct);
+    };
+
+    const onMouseUp = () => {
+      isDragging.current = false;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    isDragging.current = true;
+
+    const onTouchMove = (ev: TouchEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = ev.touches[0].clientX - rect.left;
+      const pct = Math.min(80, Math.max(20, (x / rect.width) * 100));
+      setSplitPercent(pct);
+    };
+
+    const onTouchEnd = () => {
+      isDragging.current = false;
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", onTouchEnd);
+    };
+
+    document.addEventListener("touchmove", onTouchMove);
+    document.addEventListener("touchend", onTouchEnd);
+  }, []);
+
   // ── Stable userId-based column members ──
   const columnMembers = useMemo<DashboardMember[]>(() => {
     if (!user) return [];
@@ -96,33 +139,42 @@ const TeamDashboard = ({
   );
   const columnIndexByUserId = useMemo(() => buildColumnIndexMap(columnMembers), [columnMembers]);
 
-  // ── Build unified items with userId-based assignment ──
+  // ── Build unified items ──
   const allItems = useMemo(() => {
     if (!selfUserId || columnMembers.length === 0) return [] as UnifiedItem[];
     const items: UnifiedItem[] = [];
+    const seenIds = new Set<string>();
 
-    myTasks.forEach((t) => items.push({
+    const addItem = (item: UnifiedItem) => {
+      // Deduplicate: partner items that are shared might duplicate with own items
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id);
+        items.push(item);
+      }
+    };
+
+    myTasks.forEach((t) => addItem({
       id: t.id, type: "task", title: t.title, time: t.time,
       sortMinutes: parseTimeToMinutes(t.time), assignee: t.assignee,
       assignedUserIds: resolveAssignedUserIds({ assignee: t.assignee, sourceUserId: selfUserId, selfUserId, members: columnMembers }),
       sourceUserId: selfUserId, done: t.done, isOwn: true, tag: t.tag, original: t,
     }));
 
-    myEvents.forEach((e) => items.push({
+    myEvents.forEach((e) => addItem({
       id: e.id, type: "event", title: e.title, time: e.time,
       sortMinutes: parseTimeToMinutes(e.time), assignee: e.user,
       assignedUserIds: resolveAssignedUserIds({ assignee: e.user, sourceUserId: selfUserId, selfUserId, members: columnMembers }),
       sourceUserId: selfUserId, done: false, isOwn: true, original: e,
     }));
 
-    partnerTasks.forEach((t) => items.push({
+    partnerTasks.forEach((t) => addItem({
       id: `p-${t.id}`, type: "task", title: t.title, time: t.time,
       sortMinutes: parseTimeToMinutes(t.time), assignee: t.assignee,
       assignedUserIds: resolveAssignedUserIds({ assignee: t.assignee, sourceUserId: primaryOtherUserId, selfUserId, members: columnMembers }),
       sourceUserId: primaryOtherUserId, done: t.done, isOwn: false, tag: t.tag, original: t,
     }));
 
-    partnerEvents.forEach((e) => items.push({
+    partnerEvents.forEach((e) => addItem({
       id: `p-${e.id}`, type: "event", title: e.title, time: e.time,
       sortMinutes: parseTimeToMinutes(e.time), assignee: e.user,
       assignedUserIds: resolveAssignedUserIds({ assignee: e.user, sourceUserId: primaryOtherUserId, selfUserId, members: columnMembers }),
@@ -133,7 +185,7 @@ const TeamDashboard = ({
       const timeStr = ge.allDay ? "" : ge.start ? new Date(ge.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "";
       const src = ge.ownerUserId || selfUserId;
       const assignee = ge.assignee || "me";
-      items.push({
+      addItem({
         id: `gcal-${ge.id}`, type: "gcal", title: ge.title, time: timeStr,
         sortMinutes: ge.allDay || !ge.start ? -1 : new Date(ge.start).getHours() * 60 + new Date(ge.start).getMinutes(),
         assignee, assignedUserIds: resolveAssignedUserIds({ assignee, sourceUserId: src, selfUserId, members: columnMembers }),
@@ -152,33 +204,30 @@ const TeamDashboard = ({
 
   const colCount = columnMembers.length;
 
-  // ── Per-column item buckets ──
-  const columnTimedItems = useMemo(() => {
-    const buckets: UnifiedItem[][] = Array.from({ length: colCount }, () => []);
-    timedItems.forEach((item) => {
-      const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
-      if (cols.length > 1) {
-        // shared: add to all columns
-        cols.forEach((ci) => buckets[ci]?.push(item));
-      } else if (cols.length === 1) {
-        buckets[cols[0]]?.push(item);
-      }
-    });
-    return buckets;
-  }, [timedItems, columnIndexByUserId, colCount]);
+  // ── Separate shared vs individual items ──
+  const categorizeItems = useCallback((items: UnifiedItem[]) => {
+    const individual: UnifiedItem[][] = Array.from({ length: colCount }, () => []);
+    const shared: UnifiedItem[] = [];
 
-  const columnUntimedItems = useMemo(() => {
-    const buckets: UnifiedItem[][] = Array.from({ length: colCount }, () => []);
-    untimedItems.forEach((item) => {
+    items.forEach((item) => {
       const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
       if (cols.length > 1) {
-        cols.forEach((ci) => buckets[ci]?.push(item));
+        shared.push(item);
       } else if (cols.length === 1) {
-        buckets[cols[0]]?.push(item);
+        individual[cols[0]]?.push(item);
       }
     });
-    return buckets;
-  }, [untimedItems, columnIndexByUserId, colCount]);
+
+    return { individual, shared };
+  }, [columnIndexByUserId, colCount]);
+
+  const timedCategorized = useMemo(() => categorizeItems(timedItems), [categorizeItems, timedItems]);
+  const untimedCategorized = useMemo(() => categorizeItems(untimedItems), [categorizeItems, untimedItems]);
+
+  // Grid template with divider gap
+  const gridTemplate = colCount === 2
+    ? `${splitPercent}% 0px ${100 - splitPercent}%`
+    : columnMembers.map(() => "1fr").join(" ");
 
   // ── Render helpers ──
   const renderCard = (item: UnifiedItem) => {
@@ -243,22 +292,71 @@ const TeamDashboard = ({
     );
   };
 
-  const renderColumnSection = (colIndex: number, items: UnifiedItem[], label: string, icon: React.ReactNode) => {
-    if (items.length === 0) return null;
+  const renderSection = (
+    label: string,
+    icon: React.ReactNode,
+    categorized: { individual: UnifiedItem[][]; shared: UnifiedItem[] },
+  ) => {
+    const hasAny = categorized.shared.length > 0 || categorized.individual.some((b) => b.length > 0);
+    if (!hasAny) return null;
+
     return (
       <div>
-        <div className="flex items-center gap-1 px-2 py-1 bg-secondary/50">
-          {icon}
-          <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
-        </div>
-        <div className="flex flex-col gap-1 px-1.5 py-1">
-          {items.map((item) => (
-            <div key={item.id}>{renderCard(item)}</div>
+        {/* Section label row */}
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: colCount === 2 ? `${splitPercent}% 5px ${100 - splitPercent}%` : gridTemplate }}
+        >
+          <div className="flex items-center gap-1 px-2 py-1 bg-secondary/50 col-span-1">
+            {icon}
+            <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
+          </div>
+          {colCount === 2 && <div />}
+          {Array.from({ length: colCount - 1 }).map((_, i) => (
+            <div key={i} className="bg-secondary/50 py-1" />
           ))}
         </div>
+
+        {/* Individual items row */}
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: colCount === 2 ? `${splitPercent}% 5px ${100 - splitPercent}%` : gridTemplate }}
+        >
+          {columnMembers.map((_, ci) => (
+            <div key={ci} className="flex flex-col gap-1 px-1.5 py-1 min-w-0">
+              {(categorized.individual[ci] || []).map((item) => (
+                <div key={item.id}>{renderCard(item)}</div>
+              ))}
+            </div>
+          )).reduce<React.ReactNode[]>((acc, el, i) => {
+            if (i > 0 && colCount === 2) {
+              acc.push(<div key={`div-${i}`} />);
+            }
+            acc.push(el);
+            return acc;
+          }, [])}
+        </div>
+
+        {/* Shared items - span full width */}
+        {categorized.shared.map((item) => (
+          <div key={item.id} className="px-1.5 py-0.5">
+            {renderCard(item)}
+          </div>
+        ))}
       </div>
     );
   };
+
+  const totalPerCol = useMemo(() => {
+    return columnMembers.map((_, index) => {
+      return allItems.filter((item) => {
+        const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
+        return cols.includes(index);
+      }).length;
+    });
+  }, [allItems, columnIndexByUserId, columnMembers]);
+
+  const hasAnyItems = timedItems.length > 0 || untimedItems.length > 0;
 
   return (
     <section className="mb-6">
@@ -267,51 +365,72 @@ const TeamDashboard = ({
         <h2 className="text-base font-semibold tracking-display">Team Dashboard</h2>
       </div>
 
-      <ResizablePanelGroup direction="horizontal" className="rounded-xl border border-border bg-secondary/30">
-        {columnMembers.map((member, index) => (
-          <div key={member.userId} className="contents">
-            {index > 0 && <ResizableHandle withHandle />}
-            <ResizablePanel defaultSize={Math.floor(100 / colCount)} minSize={20}>
-              <div className="h-full flex flex-col">
-                {/* Header */}
-                <div className="flex items-center gap-1.5 px-2 py-2 border-b border-border">
-                  <div className={`w-5 h-5 rounded-full ${member.isSelf ? "bg-user-a" : "bg-user-b"} flex items-center justify-center text-[9px] font-bold text-primary-foreground`}>
-                    {member.name.charAt(0).toUpperCase()}
+      <div
+        ref={containerRef}
+        className="rounded-xl border border-border bg-secondary/30 overflow-hidden relative"
+      >
+        {/* Header row */}
+        <div
+          className="grid relative"
+          style={{ gridTemplateColumns: colCount === 2 ? `${splitPercent}% 5px ${100 - splitPercent}%` : gridTemplate }}
+        >
+          {columnMembers.map((member, index) => (
+            <div key={member.userId} className="contents">
+              {index > 0 && colCount === 2 && (
+                <div className="relative flex items-center justify-center">
+                  {/* Divider handle */}
+                  <div
+                    className="absolute inset-y-0 w-5 -ml-2.5 cursor-col-resize z-20 flex items-center justify-center"
+                    onMouseDown={handleMouseDown}
+                    onTouchStart={handleTouchStart}
+                  >
+                    <div className="w-[3px] h-full bg-border" />
+                    <div className="absolute w-4 h-6 rounded bg-border flex items-center justify-center">
+                      <GripVertical size={10} className="text-muted-foreground" />
+                    </div>
                   </div>
-                  <span className="text-xs font-semibold text-foreground truncate">{member.name}</span>
-                  <span className="text-[9px] text-muted-foreground bg-secondary px-1 py-0.5 rounded-full ml-auto flex-shrink-0">
-                    {allItems.filter((item) => {
-                      const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
-                      return cols.includes(index);
-                    }).length}
-                  </span>
                 </div>
-
-                {/* Scheduled section */}
-                {renderColumnSection(
-                  index,
-                  columnTimedItems[index] || [],
-                  "Scheduled",
-                  <Clock size={10} className="text-muted-foreground" />,
-                )}
-
-                {/* To Do section */}
-                {renderColumnSection(
-                  index,
-                  columnUntimedItems[index] || [],
-                  "To Do",
-                  <span className="w-1.5 h-1.5 rounded-full bg-foreground" />,
-                )}
-
-                {/* Empty state */}
-                {(columnTimedItems[index]?.length || 0) === 0 && (columnUntimedItems[index]?.length || 0) === 0 && (
-                  <p className="text-[10px] text-muted-foreground text-center py-4 opacity-50">No items</p>
-                )}
+              )}
+              <div className="flex items-center gap-1.5 px-2 py-2 border-b border-border min-w-0">
+                <div className={`w-5 h-5 rounded-full ${member.isSelf ? "bg-user-a" : "bg-user-b"} flex items-center justify-center text-[9px] font-bold text-primary-foreground flex-shrink-0`}>
+                  {member.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-xs font-semibold text-foreground truncate">{member.name}</span>
+                <span className="text-[9px] text-muted-foreground bg-secondary px-1 py-0.5 rounded-full ml-auto flex-shrink-0">
+                  {totalPerCol[index] || 0}
+                </span>
               </div>
-            </ResizablePanel>
-          </div>
-        ))}
-      </ResizablePanelGroup>
+            </div>
+          ))}
+        </div>
+
+        {/* Divider line that runs through content */}
+        {colCount === 2 && (
+          <div
+            className="absolute top-0 bottom-0 w-[1px] bg-border z-10 pointer-events-none"
+            style={{ left: `${splitPercent}%` }}
+          />
+        )}
+
+        {/* Scheduled section */}
+        {renderSection(
+          "Scheduled",
+          <Clock size={10} className="text-muted-foreground" />,
+          timedCategorized,
+        )}
+
+        {/* To Do section */}
+        {renderSection(
+          "To Do",
+          <span className="w-1.5 h-1.5 rounded-full bg-foreground" />,
+          untimedCategorized,
+        )}
+
+        {/* Empty state */}
+        {!hasAnyItems && (
+          <p className="text-[10px] text-muted-foreground text-center py-4 opacity-50">No items</p>
+        )}
+      </div>
     </section>
   );
 };
