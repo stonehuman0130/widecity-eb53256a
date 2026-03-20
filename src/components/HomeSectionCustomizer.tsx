@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { GripVertical, Eye, EyeOff, X, Lock } from "lucide-react";
 
@@ -58,6 +58,14 @@ interface Props {
 const HomeSectionCustomizer = ({ open, onClose, order, visible, onSave }: Props) => {
   const [localOrder, setLocalOrder] = useState<string[]>([...order]);
   const [localVisible, setLocalVisible] = useState<Set<string>>(new Set(visible));
+
+  // Re-sync local state whenever the modal opens
+  useEffect(() => {
+    if (open) {
+      setLocalOrder([...order]);
+      setLocalVisible(new Set(visible));
+    }
+  }, [open, order, visible]);
 
   // Ensure all sections appear in order list (new ones get appended)
   const fullOrder = (() => {
