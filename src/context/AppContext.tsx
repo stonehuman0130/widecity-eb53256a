@@ -521,52 +521,79 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadPartnerData();
   }, [contextOtherUserId, user]);
 
-  // ── Realtime subscription for tasks (cross-user sync) ──
+  // ── Realtime subscription for tasks/events (cross-user sync) ──
   useEffect(() => {
     if (!user) return;
 
+    const applyTaskUpdate = (row: any) => ({
+      done: row.done,
+      completedAt: row.completed_at ?? null,
+      completedBy: row.completed_by ?? null,
+      updatedAt: row.updated_at ?? null,
+      time: row.time ?? "",
+      assignee: row.assignee as "me" | "partner" | "both",
+      scheduledDay: row.scheduled_day,
+      scheduledMonth: row.scheduled_month,
+      scheduledYear: row.scheduled_year,
+      hiddenFromPartner: row.hidden_from_partner || false,
+      groupId: row.group_id || null,
+      tag: row.tag as "Work" | "Personal" | "Household",
+      title: row.title,
+    });
+
+    const applyEventUpdate = (row: any) => ({
+      done: row.done ?? false,
+      completedAt: row.completed_at ?? null,
+      completedBy: row.completed_by ?? null,
+      updatedAt: row.updated_at ?? null,
+      title: row.title,
+      time: row.time || "",
+      description: row.description,
+      day: row.day,
+      month: row.month,
+      year: row.year,
+      endDay: row.end_day ?? row.day,
+      endMonth: row.end_month ?? row.month,
+      endYear: row.end_year ?? row.year,
+      endTime: row.end_time ?? "",
+      allDay: row.all_day ?? false,
+      hiddenFromPartner: row.hidden_from_partner || false,
+      groupId: row.group_id || null,
+      user: row.assignee as "me" | "partner" | "both",
+    });
+
     const channel = supabase
-      .channel('tasks-realtime')
+      .channel("items-realtime")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tasks' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tasks" },
         (payload) => {
-          if (payload.eventType === 'UPDATE') {
+          if (payload.eventType === "UPDATE") {
             const updated = payload.new as any;
-            // Update own tasks
-            setTasks((prev) =>
-              prev.map((t) => t.id === updated.id ? { ...t, done: updated.done } : t)
-            );
-            // Update partner tasks
-            setPartnerTasks((prev) =>
-              prev.map((t) => t.id === updated.id ? { ...t, done: updated.done } : t)
-            );
-          } else if (payload.eventType === 'DELETE') {
+            setTasks((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...applyTaskUpdate(updated) } : t)));
+            setPartnerTasks((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...applyTaskUpdate(updated), assignee: toViewerPerspective(updated.assignee as Assignee, false) } : t)));
+          } else if (payload.eventType === "DELETE") {
             const deletedId = payload.old?.id;
             if (deletedId) {
               setTasks((prev) => prev.filter((t) => t.id !== deletedId));
               setPartnerTasks((prev) => prev.filter((t) => t.id !== deletedId));
             }
-          } else if (payload.eventType === 'INSERT') {
-            const inserted = payload.new as any;
-            // If it belongs to partner, add to partner tasks
-            if (inserted.user_id === contextOtherUserId) {
-              setPartnerTasks((prev) => {
-                if (prev.some((t) => t.id === inserted.id)) return prev;
-                return [...prev, {
-                  id: inserted.id,
-                  title: inserted.title,
-                  time: inserted.time || "",
-                  tag: inserted.tag as "Work" | "Personal" | "Household",
-                  assignee: toViewerPerspective(inserted.assignee as Assignee, false),
-                  done: inserted.done,
-                  scheduledDay: inserted.scheduled_day,
-                  scheduledMonth: inserted.scheduled_month,
-                  scheduledYear: inserted.scheduled_year,
-                  hiddenFromPartner: inserted.hidden_from_partner || false,
-                  groupId: inserted.group_id || null,
-                }];
-              });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        (payload) => {
+          if (payload.eventType === "UPDATE") {
+            const updated = payload.new as any;
+            setEvents((prev) => prev.map((e) => (e.id === updated.id ? { ...e, ...applyEventUpdate(updated) } : e)));
+            setPartnerEvents((prev) => prev.map((e) => (e.id === updated.id ? { ...e, ...applyEventUpdate(updated), user: toViewerPerspective(updated.assignee as Assignee, false) } : e)));
+          } else if (payload.eventType === "DELETE") {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setEvents((prev) => prev.filter((e) => e.id !== deletedId));
+              setPartnerEvents((prev) => prev.filter((e) => e.id !== deletedId));
             }
           }
         }
@@ -576,7 +603,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, contextOtherUserId]);
+  }, [user]);
 
   const toggleHabit = async (id: string) => {
     const dateKey = todayStr();
