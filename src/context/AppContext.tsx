@@ -52,7 +52,20 @@ export interface Task {
 }
 
 export interface Workout {
-...
+  id: string;
+  title: string;
+  duration: string;
+  cal: number;
+  tag: string;
+  emoji: string;
+  done: boolean;
+  scheduledDate?: string;
+  completedDate?: string;
+  exercises?: { name: string; sets: number; reps: string }[];
+  hiddenFromPartner?: boolean;
+  groupId?: string | null;
+}
+
 interface AppContextType {
   habits: Habit[];
   filteredHabits: Habit[];
