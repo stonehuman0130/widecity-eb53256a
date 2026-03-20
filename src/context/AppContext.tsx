@@ -106,6 +106,8 @@ interface AppContextType {
   setWaterIntake: (amount: number) => void;
   setWaterGoal: (goal: number) => void;
   resetWater: () => void;
+  partnerWaterIntake: number;
+  partnerWaterGoal: number;
   workouts: Workout[];
   filteredWorkouts: Workout[];
   toggleWorkout: (id: string) => void;
