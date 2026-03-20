@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { GripVertical, Eye, EyeOff, X, Lock } from "lucide-react";
 
