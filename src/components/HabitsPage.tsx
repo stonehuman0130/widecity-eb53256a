@@ -517,7 +517,7 @@ interface MorningHabitRowProps {
   nudgeLabel?: string;
 }
 
-const MorningHabitRow = ({ habit, onToggle, onDelete, streak, partner, isViewingPartner, onNudge }: MorningHabitRowProps) => {
+const MorningHabitRow = ({ habit, onToggle, onDelete, streak, isViewingPartner, onNudge, nudgeLabel }: MorningHabitRowProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
