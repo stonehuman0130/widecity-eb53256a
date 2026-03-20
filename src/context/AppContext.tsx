@@ -535,6 +535,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             groupId: w.group_id || null,
           })));
         }
+
+        // Load partner water tracking for today
+        const { data: pWaterData } = await supabase
+          .from("water_tracking")
+          .select("*")
+          .eq("user_id", contextOtherUserId)
+          .eq("date", todayStr())
+          .maybeSingle();
+
+        if (pWaterData) {
+          setPartnerWaterIntake(Number(pWaterData.intake));
+          setPartnerWaterGoal(Number(pWaterData.goal));
+        } else {
+          setPartnerWaterIntake(0);
+          setPartnerWaterGoal(3);
+        }
       } catch (err) {
         console.error("Error loading partner data:", err);
       }
