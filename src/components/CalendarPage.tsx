@@ -447,9 +447,7 @@ const CalendarPage = () => {
               <Plus size={16} />
             </button>
 
-            <button onClick={goToday} className="px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-full">
-              Today
-            </button>
+
             <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground">
               <ChevronLeft size={18} />
             </button>
