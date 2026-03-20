@@ -202,15 +202,17 @@ const TeamDashboard = ({
   // ── Render a single card ──
   const renderCard = (item: UnifiedItem) => {
     const isShared = item.assignedUserIds.length > 1 || item.assignee === "both";
-    const canToggle = item.type !== "gcal" && item.assignedUserIds.includes(selfUserId);
+    const canToggle = item.assignedUserIds.includes(selfUserId);
 
     const handleToggle = () => {
-      if (!canToggle || item.type === "gcal") return;
+      if (!canToggle) return;
       if (!item.done) onCongrats();
       if (item.type === "task") {
         toggleTask((item.original as Task).id);
-      } else {
+      } else if (item.type === "event") {
         toggleEventCompletion?.((item.original as ScheduledEvent).id);
+      } else if (item.type === "gcal") {
+        toggleGcalCompletion?.((item.original as GoogleCalendarEvent).id);
       }
     };
 
@@ -232,19 +234,15 @@ const TeamDashboard = ({
           </div>
         )}
         <div className="flex items-center gap-1.5">
-          {item.type === "gcal" ? (
-            <span className="w-3.5 h-3.5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-[8px]">📅</span>
-          ) : (
-            <button
-              onClick={handleToggle}
-              disabled={!canToggle}
-              className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                item.done ? "bg-habit-green border-habit-green" : "border-muted"
-              } ${!canToggle ? "opacity-60" : ""}`}
-            >
-              {item.done && <Check size={7} className="text-primary-foreground" />}
-            </button>
-          )}
+          <button
+            onClick={handleToggle}
+            disabled={!canToggle}
+            className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+              item.done ? "bg-habit-green border-habit-green" : "border-muted"
+            } ${!canToggle ? "opacity-60" : ""}`}
+          >
+            {item.done && <Check size={7} className="text-primary-foreground" />}
+          </button>
           <span className={`flex-1 text-[11px] font-medium leading-tight truncate ${item.done ? "line-through opacity-40" : ""}`}>
             {item.title}
           </span>
