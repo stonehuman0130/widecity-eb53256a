@@ -780,28 +780,31 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                       {filter === "partner" ? `${partnerName}'s Morning Habits` : "Morning Habits"}
                     </h2>
                     <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-                      {displayMorningHabits.map((habit) => (
-                        <button
-                          key={habit.id}
-                          onClick={() => !isViewingPartner && handleToggleHabit(habit.id)}
-                          disabled={isViewingPartner}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
-                            habit.done
-                              ? "border-habit-green bg-habit-green/10 text-habit-green"
-                              : "border-border bg-card text-foreground"
-                          } ${isViewingPartner ? "opacity-80" : ""}`}
-                        >
-                          {habit.done ? (
-                            <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
-                              <Check size={12} className="text-primary-foreground" />
-                            </span>
-                          ) : (
-                            <span className="w-5 h-5 rounded-full border-2 border-muted" />
-                          )}
-                          {habit.label}
-                          <GroupBadge groupId={habit.groupId} />
-                        </button>
-                      ))}
+                      {displayMorningHabits.map((habit) => {
+                        const doneForDate = habit.completionDates.includes(selDateStr);
+                        return (
+                          <button
+                            key={habit.id}
+                            onClick={() => !isViewingPartner && isTodayDate && handleToggleHabit(habit.id)}
+                            disabled={isViewingPartner || !isTodayDate}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
+                              doneForDate
+                                ? "border-habit-green bg-habit-green/10 text-habit-green"
+                                : "border-border bg-card text-foreground"
+                            } ${(isViewingPartner || !isTodayDate) ? "opacity-80" : ""}`}
+                          >
+                            {doneForDate ? (
+                              <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
+                                <Check size={12} className="text-primary-foreground" />
+                              </span>
+                            ) : (
+                              <span className="w-5 h-5 rounded-full border-2 border-muted" />
+                            )}
+                            {habit.label}
+                            <GroupBadge groupId={habit.groupId} />
+                          </button>
+                        );
+                      })}
                       {displayMorningHabits.length === 0 && (
                         <p className="text-sm text-muted-foreground py-2">
                           {isViewingPartner ? `${partnerName} has no morning habits yet` : "No morning habits yet"}
