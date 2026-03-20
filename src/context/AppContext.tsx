@@ -165,6 +165,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [waterIntake, setWaterIntakeState] = useState(0);
   const [waterGoal, setWaterGoalState] = useState(3);
+  const [partnerWaterIntake, setPartnerWaterIntake] = useState(0);
+  const [partnerWaterGoal, setPartnerWaterGoal] = useState(3);
   const [workouts, setWorkoutsState] = useState<Workout[]>([]);
   const [partnerHabits, setPartnerHabits] = useState<Habit[]>([]);
   const [partnerEvents, setPartnerEvents] = useState<ScheduledEvent[]>([]);
