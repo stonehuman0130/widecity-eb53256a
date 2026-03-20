@@ -939,7 +939,13 @@ const EventCard = ({ event, onToggle, onRemove, onToggleVisibility, onReschedule
   );
 };
 
-const GCalEventCard = ({ event, onHide, onDesignate }: { event: GoogleCalendarEvent; onHide?: (eventId: string) => void; onDesignate?: (eventId: string, assignee: "me" | "partner" | "both") => void }) => {
+const GCalEventCard = ({ event, onToggle, onHide, onDesignate, onCongrats }: {
+  event: GoogleCalendarEvent;
+  onToggle?: (eventId: string) => void;
+  onHide?: (eventId: string) => void;
+  onDesignate?: (eventId: string, assignee: "me" | "partner" | "both") => void;
+  onCongrats?: () => void;
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const timeStr = event.allDay
     ? "All day"
@@ -947,10 +953,16 @@ const GCalEventCard = ({ event, onHide, onDesignate }: { event: GoogleCalendarEv
     ? new Date(event.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
     : "";
 
+  const handleToggle = () => {
+    if (!onToggle) return;
+    if (!event.done && onCongrats) onCongrats();
+    onToggle(event.id);
+  };
+
   return (
     <motion.div
       layout
-      className="bg-card rounded-xl p-4 shadow-card border border-primary/20 transition-transform active:scale-[0.99]"
+      className={`bg-card rounded-xl p-4 shadow-card border transition-transform active:scale-[0.99] ${event.done ? "border-habit-green/50" : "border-primary/20"}`}
     >
       {timeStr && timeStr !== "All day" && (
         <div className="flex items-center gap-2 mb-2">
@@ -960,8 +972,16 @@ const GCalEventCard = ({ event, onHide, onDesignate }: { event: GoogleCalendarEv
         </div>
       )}
       <div className="flex items-center gap-3">
-        <span className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-xs">📅</span>
-        <span className="flex-1 text-[15px] font-medium tracking-body">{event.title}</span>
+        <button
+          onClick={handleToggle}
+          disabled={!onToggle}
+          className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+            event.done ? "bg-habit-green border-habit-green" : "border-muted"
+          } ${!onToggle ? "opacity-60" : ""}`}
+        >
+          {event.done && <Check size={14} className="text-primary-foreground" />}
+        </button>
+        <span className={`flex-1 text-[15px] font-medium tracking-body ${event.done ? "line-through opacity-40" : ""}`}>{event.title}</span>
         <UserBadge user={event.assignee || "me"} />
         {event.htmlLink && (
           <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-medium">
