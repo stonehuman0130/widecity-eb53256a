@@ -114,6 +114,7 @@ const Index = () => {
     calendar: <CalendarPage onOpenSettings={handleOpenSettings} />,
     chat: renderChatView(),
     settings: <SettingsPage />,
+    more: <MorePage onOpenSettings={handleOpenSettings} enabledPages={enabledPages} onTogglePage={handleTogglePage} />,
   };
 
   const isInnerPage = activeTab !== "launcher";
