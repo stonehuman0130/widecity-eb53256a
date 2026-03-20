@@ -3,14 +3,15 @@ import { useState } from "react";
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
 } from "@/components/ui/drawer";
-import { Dumbbell, Heart, Clock } from "lucide-react";
+import { Dumbbell, Heart, Clock, Sparkles } from "lucide-react";
 
-export type Tab = "home" | "workout" | "habits" | "sobriety" | "calendar" | "chat" | "settings";
+export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "calendar" | "chat" | "settings";
 
 export interface EnabledPages {
   workout: boolean;
   habits: boolean;
   sobriety: boolean;
+  specialdays: boolean;
 }
 
 interface BottomNavProps {
@@ -24,6 +25,7 @@ const OPTIONAL_PAGES: { id: keyof EnabledPages; label: string; icon: typeof Dumb
   { id: "workout", label: "Workout", icon: Dumbbell, desc: "Track workouts and exercise plans" },
   { id: "habits", label: "Habits", icon: Heart, desc: "Daily habit tracking and streaks" },
   { id: "sobriety", label: "Sobriety Day Count", icon: Clock, desc: "Track sobriety milestones" },
+  { id: "specialdays", label: "Special Days", icon: Sparkles, desc: "Track anniversaries, birthdays & milestones" },
 ];
 
 const BottomNav = ({ activeTab, onTabChange, enabledPages, onTogglePage }: BottomNavProps) => {
@@ -38,6 +40,7 @@ const BottomNav = ({ activeTab, onTabChange, enabledPages, onTogglePage }: Botto
   if (enabledPages.workout) coreTabs.push({ id: "workout", label: "Workout", icon: Dumbbell });
   if (enabledPages.habits) coreTabs.push({ id: "habits", label: "Habits", icon: Heart });
   if (enabledPages.sobriety) coreTabs.push({ id: "sobriety", label: "Sobriety", icon: Clock });
+  if (enabledPages.specialdays) coreTabs.push({ id: "specialdays", label: "Special", icon: Sparkles });
 
   coreTabs.push(
     { id: "calendar", label: "Calendar", icon: CalendarDays },

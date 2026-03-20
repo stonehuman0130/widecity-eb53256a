@@ -8,6 +8,7 @@ import CalendarPage from "@/components/CalendarPage";
 import ChatListPage from "@/components/ChatListPage";
 import ChatPage from "@/components/ChatPage";
 import SobrietyPage from "@/components/SobrietyPage";
+import SpecialDaysPage from "@/components/SpecialDaysPage";
 import SettingsPage from "@/components/SettingsPage";
 import LauncherPage from "@/components/LauncherPage";
 import AuthPage from "@/components/AuthPage";
@@ -17,7 +18,7 @@ import { Loader2 } from "lucide-react";
 
 type FullTab = "launcher" | Tab;
 
-const DEFAULT_ENABLED: EnabledPages = { workout: false, habits: false, sobriety: false };
+const DEFAULT_ENABLED: EnabledPages = { workout: false, habits: false, sobriety: false, specialdays: false };
 
 function getStorageKey(groupId: string | null) {
   return `enabledPages_${groupId || "personal"}`;
@@ -109,6 +110,7 @@ const Index = () => {
     workout: <WorkoutsPage onOpenSettings={handleOpenSettings} />,
     habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
     sobriety: <SobrietyPage onOpenSettings={handleOpenSettings} />,
+    specialdays: <SpecialDaysPage onOpenSettings={handleOpenSettings} />,
     calendar: <CalendarPage onOpenSettings={handleOpenSettings} />,
     chat: renderChatView(),
     settings: <SettingsPage />,
