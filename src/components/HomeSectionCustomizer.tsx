@@ -13,6 +13,7 @@ export const ALL_SECTIONS: HomeSection[] = [
   { id: "morning-habits", label: "Morning Habits", icon: "🌅" },
   { id: "scheduled", label: "Scheduled", icon: "🕐", locked: true },
   { id: "justdoit", label: "Just Do It", icon: "⚡", locked: true },
+  { id: "other-habits", label: "Other Habits", icon: "🌙" },
   { id: "water", label: "Water Intake", icon: "💧" },
   { id: "workout", label: "Today's Workout", icon: "💪" },
   { id: "sobriety", label: "Sobriety Tracker", icon: "🏆" },

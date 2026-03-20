@@ -12,7 +12,7 @@ import TeamDashboard from "@/components/TeamDashboard";
 import AddItemModal from "@/components/AddItemModal";
 import CongratsPopup from "@/components/CongratsPopup";
 import HomeSectionCustomizer, { loadSectionPrefs, saveSectionPrefs } from "@/components/HomeSectionCustomizer";
-import { HomeWaterWidget, HomeWorkoutWidget, HomeSobrietyWidget } from "@/components/HomeWidgets";
+import { HomeWaterWidget, HomeWorkoutWidget, HomeSobrietyWidget, HomeOtherHabitsWidget } from "@/components/HomeWidgets";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
@@ -360,6 +360,8 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const selDay = sd.getDate();
   const selMonth = sd.getMonth();
   const selYear = sd.getFullYear();
+  const selDateStr = `${selYear}-${String(selMonth + 1).padStart(2, "0")}-${String(selDay).padStart(2, "0")}`;
+  const isTodayDate = (() => { const d = new Date(); return selDay === d.getDate() && selMonth === d.getMonth() && selYear === d.getFullYear(); })();
 
   const isSelectedDate = (day?: number, month?: number, year?: number) => {
     if (day === undefined || month === undefined || year === undefined) return true;
@@ -778,28 +780,31 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                       {filter === "partner" ? `${partnerName}'s Morning Habits` : "Morning Habits"}
                     </h2>
                     <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-                      {displayMorningHabits.map((habit) => (
-                        <button
-                          key={habit.id}
-                          onClick={() => !isViewingPartner && handleToggleHabit(habit.id)}
-                          disabled={isViewingPartner}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
-                            habit.done
-                              ? "border-habit-green bg-habit-green/10 text-habit-green"
-                              : "border-border bg-card text-foreground"
-                          } ${isViewingPartner ? "opacity-80" : ""}`}
-                        >
-                          {habit.done ? (
-                            <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
-                              <Check size={12} className="text-primary-foreground" />
-                            </span>
-                          ) : (
-                            <span className="w-5 h-5 rounded-full border-2 border-muted" />
-                          )}
-                          {habit.label}
-                          <GroupBadge groupId={habit.groupId} />
-                        </button>
-                      ))}
+                      {displayMorningHabits.map((habit) => {
+                        const doneForDate = habit.completionDates.includes(selDateStr);
+                        return (
+                          <button
+                            key={habit.id}
+                            onClick={() => !isViewingPartner && isTodayDate && handleToggleHabit(habit.id)}
+                            disabled={isViewingPartner || !isTodayDate}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
+                              doneForDate
+                                ? "border-habit-green bg-habit-green/10 text-habit-green"
+                                : "border-border bg-card text-foreground"
+                            } ${(isViewingPartner || !isTodayDate) ? "opacity-80" : ""}`}
+                          >
+                            {doneForDate ? (
+                              <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
+                                <Check size={12} className="text-primary-foreground" />
+                              </span>
+                            ) : (
+                              <span className="w-5 h-5 rounded-full border-2 border-muted" />
+                            )}
+                            {habit.label}
+                            <GroupBadge groupId={habit.groupId} />
+                          </button>
+                        );
+                      })}
                       {displayMorningHabits.length === 0 && (
                         <p className="text-sm text-muted-foreground py-2">
                           {isViewingPartner ? `${partnerName} has no morning habits yet` : "No morning habits yet"}
@@ -852,17 +857,24 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   </section>
                 );
 
+              case "other-habits":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <HomeOtherHabitsWidget selectedDate={selectedDate} />
+                  </section>
+                );
+
               case "water":
                 return (
                   <section key={sectionId} className="mb-6">
-                    <HomeWaterWidget />
+                    <HomeWaterWidget selectedDate={selectedDate} />
                   </section>
                 );
 
               case "workout":
                 return (
                   <section key={sectionId} className="mb-6">
-                    <HomeWorkoutWidget />
+                    <HomeWorkoutWidget selectedDate={selectedDate} />
                   </section>
                 );
 
