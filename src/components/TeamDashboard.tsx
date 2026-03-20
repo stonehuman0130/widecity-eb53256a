@@ -152,29 +152,57 @@ const TeamDashboard = ({
 
   const colCount = columnMembers.length;
 
+  // ── Per-column item buckets ──
+  const columnTimedItems = useMemo(() => {
+    const buckets: UnifiedItem[][] = Array.from({ length: colCount }, () => []);
+    timedItems.forEach((item) => {
+      const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
+      if (cols.length > 1) {
+        // shared: add to all columns
+        cols.forEach((ci) => buckets[ci]?.push(item));
+      } else if (cols.length === 1) {
+        buckets[cols[0]]?.push(item);
+      }
+    });
+    return buckets;
+  }, [timedItems, columnIndexByUserId, colCount]);
+
+  const columnUntimedItems = useMemo(() => {
+    const buckets: UnifiedItem[][] = Array.from({ length: colCount }, () => []);
+    untimedItems.forEach((item) => {
+      const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
+      if (cols.length > 1) {
+        cols.forEach((ci) => buckets[ci]?.push(item));
+      } else if (cols.length === 1) {
+        buckets[cols[0]]?.push(item);
+      }
+    });
+    return buckets;
+  }, [untimedItems, columnIndexByUserId, colCount]);
+
   // ── Render helpers ──
-  const renderCard = (item: UnifiedItem, compact = false) => {
+  const renderCard = (item: UnifiedItem) => {
     const isShared = item.assignedUserIds.length > 1 || item.assignee === "both";
     return (
       <motion.div
         key={item.id}
         layout
-        className={`rounded-xl p-3 shadow-card border transition-all ${
+        className={`rounded-lg p-2 shadow-sm border transition-all ${
           item.done ? "border-habit-green/50 bg-card" : "border-border bg-card"
         } ${isShared ? "border-primary/30 bg-primary/5" : ""}`}
       >
         {item.sortMinutes >= 0 && (
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Clock size={11} className="text-muted-foreground" />
-            <span className="text-[11px] font-medium text-muted-foreground">{formatTime(item.time)}</span>
+          <div className="flex items-center gap-1 mb-1">
+            <Clock size={10} className="text-muted-foreground" />
+            <span className="text-[10px] font-medium text-muted-foreground">{formatTime(item.time)}</span>
             {item.type === "gcal" && (
-              <span className="text-[9px] font-semibold text-primary bg-primary/10 px-1 py-0.5 rounded">Google</span>
+              <span className="text-[8px] font-semibold text-primary bg-primary/10 px-1 py-0.5 rounded">Google</span>
             )}
           </div>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {item.type === "gcal" ? (
-            <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-[10px]">📅</span>
+            <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 text-[9px]">📅</span>
           ) : (
             <button
               onClick={() => {
@@ -183,31 +211,31 @@ const TeamDashboard = ({
                 toggleTask((item.original as Task).id);
               }}
               disabled={!item.isOwn || item.type !== "task"}
-              className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+              className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
                 item.done ? "bg-habit-green border-habit-green" : "border-muted"
               } ${!item.isOwn ? "opacity-60" : ""}`}
             >
-              {item.done && <Check size={10} className="text-primary-foreground" />}
+              {item.done && <Check size={8} className="text-primary-foreground" />}
             </button>
           )}
-          <span className={`flex-1 text-[13px] font-medium tracking-body leading-tight ${item.done ? "line-through opacity-40" : ""} ${compact ? "truncate" : ""}`}>
+          <span className={`flex-1 text-[12px] font-medium leading-tight truncate ${item.done ? "line-through opacity-40" : ""}`}>
             {item.title}
           </span>
           {isShared && (
-            <div className="flex -space-x-1.5">
+            <div className="flex -space-x-1">
               {columnMembers.filter((m) => item.assignedUserIds.includes(m.userId)).map((m) => (
-                <div key={m.userId} className={`w-4 h-4 rounded-full ${m.isSelf ? "bg-user-a" : "bg-user-b"} flex items-center justify-center text-[8px] font-bold text-primary-foreground ring-1 ring-card`}>
+                <div key={m.userId} className={`w-3.5 h-3.5 rounded-full ${m.isSelf ? "bg-user-a" : "bg-user-b"} flex items-center justify-center text-[7px] font-bold text-primary-foreground ring-1 ring-card`}>
                   {m.name.charAt(0).toUpperCase()}
                 </div>
               ))}
             </div>
           )}
           {item.type === "gcal" && item.sortMinutes < 0 && (
-            <span className="text-[9px] font-semibold text-primary bg-primary/10 px-1 py-0.5 rounded flex-shrink-0">Google</span>
+            <span className="text-[8px] font-semibold text-primary bg-primary/10 px-1 py-0.5 rounded flex-shrink-0">Google</span>
           )}
         </div>
         {item.tag && (
-          <div className="mt-1.5 ml-7">
+          <div className="mt-1 ml-6">
             <TaskTag tag={item.tag as "Work" | "Personal" | "Household"} />
           </div>
         )}
@@ -215,96 +243,75 @@ const TeamDashboard = ({
     );
   };
 
-  /** Render a single item row inside the resizable board. Shared items span full width; individual items sit in their column. */
-  const renderItemRow = (item: UnifiedItem) => {
-    const columnIndexes = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
-    if (columnIndexes.length === 0) return null;
-
-    const isShared = columnIndexes.length > 1;
-
-    if (isShared) {
-      // Shared card spans full width inside the board
-      return (
-        <div key={item.id} className="px-2 py-1">
-          {renderCard(item)}
-        </div>
-      );
-    }
-
-    // Individual item: render in correct column
-    const targetCol = columnIndexes[0];
+  const renderColumnSection = (colIndex: number, items: UnifiedItem[], label: string, icon: React.ReactNode) => {
+    if (items.length === 0) return null;
     return (
-      <div key={item.id} className="flex">
-        {Array.from({ length: colCount }).map((_, ci) => (
-          <div
-            key={ci}
-            className="flex-1 px-2 py-1"
-            style={{ minWidth: 0 }}
-          >
-            {ci === targetCol ? renderCard(item, true) : null}
-          </div>
-        ))}
+      <div>
+        <div className="flex items-center gap-1 px-2 py-1 bg-secondary/50">
+          {icon}
+          <span className="text-[10px] font-semibold text-muted-foreground">{label}</span>
+        </div>
+        <div className="flex flex-col gap-1 px-1.5 py-1">
+          {items.map((item) => (
+            <div key={item.id}>{renderCard(item)}</div>
+          ))}
+        </div>
       </div>
     );
   };
 
   return (
     <section className="mb-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Users size={18} className="text-muted-foreground" />
-        <h2 className="text-lg font-semibold tracking-display">Team Dashboard</h2>
+      <div className="flex items-center gap-2 mb-3">
+        <Users size={16} className="text-muted-foreground" />
+        <h2 className="text-base font-semibold tracking-display">Team Dashboard</h2>
       </div>
 
-      <ResizablePanelGroup direction="horizontal" className="min-h-[200px] rounded-xl border border-border bg-secondary/30">
+      <ResizablePanelGroup direction="horizontal" className="rounded-xl border border-border bg-secondary/30">
         {columnMembers.map((member, index) => (
           <div key={member.userId} className="contents">
             {index > 0 && <ResizableHandle withHandle />}
-            <ResizablePanel defaultSize={Math.floor(100 / colCount)} minSize={25}>
-              <div className="p-3 h-full" data-column-header-user-id={member.userId}>
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-                  <div className={`w-6 h-6 rounded-full ${member.isSelf ? "bg-user-a" : "bg-user-b"} flex items-center justify-center text-[10px] font-bold text-primary-foreground`}>
+            <ResizablePanel defaultSize={Math.floor(100 / colCount)} minSize={20}>
+              <div className="h-full flex flex-col">
+                {/* Header */}
+                <div className="flex items-center gap-1.5 px-2 py-2 border-b border-border">
+                  <div className={`w-5 h-5 rounded-full ${member.isSelf ? "bg-user-a" : "bg-user-b"} flex items-center justify-center text-[9px] font-bold text-primary-foreground`}>
                     {member.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-sm font-semibold text-foreground">{member.name}</span>
-                  <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">
+                  <span className="text-xs font-semibold text-foreground truncate">{member.name}</span>
+                  <span className="text-[9px] text-muted-foreground bg-secondary px-1 py-0.5 rounded-full ml-auto flex-shrink-0">
                     {allItems.filter((item) => {
                       const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
                       return cols.includes(index);
                     }).length}
                   </span>
                 </div>
+
+                {/* Scheduled section */}
+                {renderColumnSection(
+                  index,
+                  columnTimedItems[index] || [],
+                  "Scheduled",
+                  <Clock size={10} className="text-muted-foreground" />,
+                )}
+
+                {/* To Do section */}
+                {renderColumnSection(
+                  index,
+                  columnUntimedItems[index] || [],
+                  "To Do",
+                  <span className="w-1.5 h-1.5 rounded-full bg-foreground" />,
+                )}
+
+                {/* Empty state */}
+                {(columnTimedItems[index]?.length || 0) === 0 && (columnUntimedItems[index]?.length || 0) === 0 && (
+                  <p className="text-[10px] text-muted-foreground text-center py-4 opacity-50">No items</p>
+                )}
               </div>
             </ResizablePanel>
           </div>
         ))}
       </ResizablePanelGroup>
-
-      {/* All items rendered inside the board area below the headers */}
-      <div className="rounded-b-xl border border-t-0 border-border bg-secondary/30 -mt-[1px] overflow-hidden">
-        {timedItems.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-secondary/50 border-b border-border">
-              <Clock size={12} className="text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground">Scheduled</span>
-            </div>
-            {timedItems.map((item) => renderItemRow(item))}
-          </div>
-        )}
-
-        {untimedItems.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-secondary/50 border-b border-border">
-              <span className="w-1.5 h-1.5 rounded-full bg-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground">To Do</span>
-            </div>
-            {untimedItems.map((item) => renderItemRow(item))}
-          </div>
-        )}
-
-        {allItems.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-6 opacity-60">Nothing scheduled for today</p>
-        )}
-      </div>
     </section>
   );
 };
