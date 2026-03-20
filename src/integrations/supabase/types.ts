@@ -94,6 +94,50 @@ export type Database = {
           },
         ]
       }
+      gcal_event_completions: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          done: boolean
+          gcal_event_id: string
+          group_id: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          done?: boolean
+          gcal_event_id: string
+          group_id?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          done?: boolean
+          gcal_event_id?: string
+          group_id?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gcal_event_completions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gcal_event_designations: {
         Row: {
           assignee: string
