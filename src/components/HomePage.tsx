@@ -713,50 +713,70 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         </div>
       </section>
 
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Clock size={18} className="text-muted-foreground" />
-          <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
-        </div>
-        {scheduledTasks.length > 0 || timedEvents.length > 0 || gcalTimed.length > 0 ? (
-          <div className="space-y-3">
-            {scheduledTasks.map((task) => (
-              <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-            ))}
-            {timedEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-            ))}
-            {gcalTimed.map((ge) => (
-              <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">No scheduled items</p>
-        )}
-      </section>
+      {filter === "household" ? (
+        <TeamDashboard
+          myTasks={householdMyTasks}
+          myEvents={householdMyEvents}
+          partnerTasks={householdPartnerTasks}
+          partnerEvents={householdPartnerEvents}
+          gcalEvents={gcalEventsForDay}
+          toggleTask={toggleTask}
+          removeEvent={removeEvent}
+          removeTask={removeTask}
+          toggleEventVisibility={toggleEventVisibility}
+          rescheduleEvent={rescheduleEvent}
+          hideGcalEvent={hideGcalEvent}
+          designateGcalEvent={designateGcalEvent}
+          onCongrats={() => setCongratsType("task")}
+        />
+      ) : (
+        <>
+          <section className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={18} className="text-muted-foreground" />
+              <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
+            </div>
+            {scheduledTasks.length > 0 || timedEvents.length > 0 || gcalTimed.length > 0 ? (
+              <div className="space-y-3">
+                {scheduledTasks.map((task) => (
+                  <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                ))}
+                {timedEvents.map((event) => (
+                  <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                ))}
+                {gcalTimed.map((ge) => (
+                  <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No scheduled items</p>
+            )}
+          </section>
 
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="w-2 h-2 rounded-full bg-foreground" />
-          <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
-          <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
-        </div>
-        {justDoIt.length > 0 || allDayEvents.length > 0 || gcalAllDay.length > 0 ? (
-          <div className="space-y-3">
-            {justDoIt.map((task) => (
-              <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-            ))}
-            {allDayEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-            ))}
-            {gcalAllDay.map((ge) => (
-              <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
-        )}
-      </section>
+          <section className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-foreground" />
+              <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
+              <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
+            </div>
+            {justDoIt.length > 0 || allDayEvents.length > 0 || gcalAllDay.length > 0 ? (
+              <div className="space-y-3">
+                {justDoIt.map((task) => (
+                  <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                ))}
+                {allDayEvents.map((event) => (
+                  <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                ))}
+                {gcalAllDay.map((ge) => (
+                  <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
+            )}
+          </section>
+        </>
+      )}
 
       <AddItemModal open={showAddModal} onClose={() => setShowAddModal(false)} />
     </div>
