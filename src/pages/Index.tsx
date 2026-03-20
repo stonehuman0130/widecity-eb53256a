@@ -5,13 +5,14 @@ import HomePage from "@/components/HomePage";
 import WorkoutsPage from "@/components/WorkoutsPage";
 import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
+import ChatListPage from "@/components/ChatListPage";
 import ChatPage from "@/components/ChatPage";
 import SobrietyPage from "@/components/SobrietyPage";
 import SettingsPage from "@/components/SettingsPage";
 import LauncherPage from "@/components/LauncherPage";
 import AuthPage from "@/components/AuthPage";
 import { AppProvider } from "@/context/AppContext";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, Group } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 
 type FullTab = "launcher" | Tab;
@@ -38,8 +39,8 @@ const Index = () => {
   const { user, loading, groups, activeGroup, setActiveGroup } = useAuth();
   const [activeTab, setActiveTab] = useState<FullTab>("launcher");
   const [enabledPages, setEnabledPages] = useState<EnabledPages>(DEFAULT_ENABLED);
+  const [chatGroup, setChatGroup] = useState<Group | null>(null);
 
-  // Load enabled pages when active group changes
   useEffect(() => {
     setEnabledPages(loadEnabledPages(activeGroup?.id ?? null));
   }, [activeGroup?.id]);
@@ -75,6 +76,9 @@ const Index = () => {
   };
 
   const handleTabChange = (tab: Tab) => {
+    if (tab === "chat") {
+      setChatGroup(null); // always go to list first
+    }
     setActiveTab(tab);
   };
 
@@ -84,6 +88,21 @@ const Index = () => {
     saveEnabledPages(activeGroup?.id ?? null, updated);
   };
 
+  const handleOpenChat = (group: Group) => {
+    setChatGroup(group);
+  };
+
+  const handleBackToList = () => {
+    setChatGroup(null);
+  };
+
+  const renderChatView = () => {
+    if (chatGroup) {
+      return <ChatPage group={chatGroup} onBack={handleBackToList} />;
+    }
+    return <ChatListPage onOpenChat={handleOpenChat} onOpenSettings={handleOpenSettings} />;
+  };
+
   const pages: Record<string, React.ReactNode> = {
     launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} />,
     home: <HomePage onBackToLauncher={handleBackToLauncher} onOpenSettings={handleOpenSettings} />,
@@ -91,7 +110,7 @@ const Index = () => {
     habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
     sobriety: <SobrietyPage onOpenSettings={handleOpenSettings} />,
     calendar: <CalendarPage onOpenSettings={handleOpenSettings} />,
-    chat: <ChatPage onOpenSettings={handleOpenSettings} />,
+    chat: renderChatView(),
     settings: <SettingsPage />,
   };
 
@@ -103,7 +122,7 @@ const Index = () => {
       <div className="flex flex-col w-full max-w-md mx-auto bg-background h-svh relative overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeTab}
+            key={activeTab === "chat" ? `chat-${chatGroup?.id || "list"}` : activeTab}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
