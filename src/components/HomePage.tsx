@@ -721,6 +721,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
           partnerEvents={householdPartnerEvents}
           gcalEvents={gcalEventsForDay}
           toggleTask={toggleTask}
+          toggleEventCompletion={toggleEventCompletion}
           removeEvent={removeEvent}
           removeTask={removeTask}
           toggleEventVisibility={toggleEventVisibility}
@@ -742,7 +743,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
                 ))}
                 {timedEvents.map((event) => (
-                  <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                  <EventCard key={event.id} event={event} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
                 ))}
                 {gcalTimed.map((ge) => (
                   <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
@@ -765,7 +766,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
                 ))}
                 {allDayEvents.map((event) => (
-                  <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                  <EventCard key={event.id} event={event} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
                 ))}
                 {gcalAllDay.map((ge) => (
                   <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
