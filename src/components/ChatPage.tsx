@@ -15,7 +15,7 @@ interface Message {
   sender_avatar?: string;
 }
 
-const ChatPage = () => {
+const ChatPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const { user, activeGroup, groups, profile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
