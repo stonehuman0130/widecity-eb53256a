@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import GroupBadge from "@/components/GroupBadge";
-import { Plus, Flame, Check, Droplets, Bell, Users, MoreVertical, Trash2, Settings } from "lucide-react";
+import { Plus, Flame, Check, Bell, Users, MoreVertical, Trash2, Settings } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import WaterSlider from "@/components/WaterSlider";
+import WaterGaugeCircle from "@/components/WaterGaugeCircle";
 import HabitDateViewer from "@/components/HabitDateViewer";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
@@ -16,28 +17,57 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-type ViewFilter = "mine" | "partner";
+type ViewFilter = "mine" | "partner" | "together";
 
 const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
-  const { habits, filteredHabits, filteredPartnerHabits, toggleHabit, addHabit, removeHabit, addSharedHabit, getHabitStreak, getPartnerHabitStreak } = useAppContext();
-  const { user, partner } = useAuth();
+  const {
+    habits, filteredHabits, filteredPartnerHabits,
+    toggleHabit, addHabit, removeHabit, addSharedHabit,
+    getHabitStreak, getPartnerHabitStreak,
+    waterIntake, waterGoal, partnerWaterIntake, partnerWaterGoal,
+  } = useAppContext();
+  const { user, partner, profile } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
   const [addingTo, setAddingTo] = useState<"morning" | "other" | null>(null);
   const [assignTo, setAssignTo] = useState<"me" | "both">("me");
   const [showCongrats, setShowCongrats] = useState(false);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
 
+  const { hasOther, otherName } = useGroupContext();
+
   const isViewingPartner = viewFilter === "partner";
+  const isViewingTogether = viewFilter === "together";
+
+  // Choose which habits to show for individual views
   const displayHabits = isViewingPartner ? filteredPartnerHabits : filteredHabits;
 
   const morningHabits = displayHabits.filter((h) => h.category === "morning");
   const otherHabits = displayHabits.filter((h) => h.category === "other");
-
   const totalCompleted = displayHabits.filter((h) => h.done).length;
   const total = displayHabits.length;
   const morningCompleted = morningHabits.filter((h) => h.done).length;
-
   const streakFn = isViewingPartner ? getPartnerHabitStreak : getHabitStreak;
+
+  // Together view data
+  const myHabits = filteredHabits;
+  const theirHabits = filteredPartnerHabits;
+  const myMorning = myHabits.filter((h) => h.category === "morning");
+  const myOther = myHabits.filter((h) => h.category === "other");
+  const theirMorning = theirHabits.filter((h) => h.category === "morning");
+  const theirOther = theirHabits.filter((h) => h.category === "other");
+
+  const myName = profile?.display_name || "Me";
+  const partnerName = otherName;
+
+  // Build tab filters
+  const tabFilters = useMemo(() => {
+    const tabs: { id: ViewFilter; label: string }[] = [{ id: "mine", label: "Mine" }];
+    if (hasOther) {
+      tabs.push({ id: "partner", label: `${partnerName}'s` });
+      tabs.push({ id: "together", label: "Together" });
+    }
+    return tabs;
+  }, [hasOther, partnerName]);
 
   // Check for incoming nudges
   useEffect(() => {
@@ -100,9 +130,129 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     }
   };
 
-  const { twoTabFilters, hasOther, otherName } = useGroupContext();
-  const partnerName = otherName;
+  // ── TOGETHER VIEW ──
+  if (isViewingTogether && hasOther) {
+    const myTotal = myHabits.length;
+    const myDone = myHabits.filter((h) => h.done).length;
+    const theirTotal = theirHabits.length;
+    const theirDone = theirHabits.filter((h) => h.done).length;
 
+    return (
+      <div className="px-5">
+        {showCongrats && (
+          <CongratsPopup type="habit" show={true} onClose={() => setShowCongrats(false)} />
+        )}
+
+        <header className="pt-12 pb-4 flex items-start justify-between">
+          <div>
+            <h1 className="text-[1.75rem] font-bold tracking-display">Habits</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Build a better routine, one day at a time</p>
+          </div>
+          {onOpenSettings && (
+            <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors mt-1" aria-label="Settings">
+              <Settings size={18} />
+            </button>
+          )}
+        </header>
+
+        <GroupSelector />
+
+        {/* View tabs */}
+        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
+          {tabFilters.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setViewFilter(f.id)}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                viewFilter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Side-by-side progress */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-card rounded-xl p-4 border border-border shadow-card">
+            <p className="text-[10px] text-muted-foreground font-medium mb-1">{myName}</p>
+            <p className="text-2xl font-bold tracking-display">{myDone}/{myTotal}</p>
+            <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${myTotal > 0 ? (myDone / myTotal) * 100 : 0}%` }} />
+            </div>
+          </div>
+          <div className="bg-card rounded-xl p-4 border border-border shadow-card">
+            <p className="text-[10px] text-muted-foreground font-medium mb-1">{partnerName}</p>
+            <p className="text-2xl font-bold tracking-display">{theirDone}/{theirTotal}</p>
+            <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${theirTotal > 0 ? (theirDone / theirTotal) * 100 : 0}%` }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Water gauges side by side */}
+        <section className="mb-6">
+          <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">💧 Water Intake</h2>
+          <div className="bg-card rounded-xl p-5 border border-border shadow-card flex justify-around">
+            <WaterGaugeCircle intake={waterIntake} goal={waterGoal} label={myName} />
+            <WaterGaugeCircle intake={partnerWaterIntake} goal={partnerWaterGoal} label={partnerName} />
+          </div>
+        </section>
+
+        {/* Morning Habits side-by-side */}
+        <section className="mb-6">
+          <h2 className="text-lg font-semibold tracking-display mb-3">☀️ Morning Habits</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{myName}</p>
+              <div className="space-y-2">
+                {myMorning.length === 0 && <p className="text-xs text-muted-foreground">No morning habits</p>}
+                {myMorning.map((h) => (
+                  <TogetherHabitCard key={h.id} habit={h} streak={getHabitStreak(h.id)} onToggle={handleToggle} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{partnerName}</p>
+              <div className="space-y-2">
+                {theirMorning.length === 0 && <p className="text-xs text-muted-foreground">No morning habits</p>}
+                {theirMorning.map((h) => (
+                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly />
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Other Habits side-by-side */}
+        <section className="mb-6">
+          <h2 className="text-lg font-semibold tracking-display mb-3">🌙 Other Habits</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{myName}</p>
+              <div className="space-y-2">
+                {myOther.length === 0 && <p className="text-xs text-muted-foreground">No other habits</p>}
+                {myOther.map((h) => (
+                  <TogetherHabitCard key={h.id} habit={h} streak={getHabitStreak(h.id)} onToggle={handleToggle} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{partnerName}</p>
+              <div className="space-y-2">
+                {theirOther.length === 0 && <p className="text-xs text-muted-foreground">No other habits</p>}
+                {theirOther.map((h) => (
+                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly />
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  // ── MINE / PARTNER INDIVIDUAL VIEW ──
   return (
     <div className="px-5">
       {showCongrats && (
@@ -121,15 +271,14 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
         )}
       </header>
 
-      {/* Group Selector */}
       <GroupSelector />
 
       {hasOther && (
         <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
-          {twoTabFilters.map((f) => (
+          {tabFilters.map((f) => (
             <button
               key={f.id}
-              onClick={() => setViewFilter(f.id as ViewFilter)}
+              onClick={() => setViewFilter(f.id)}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
                 viewFilter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
               }`}
@@ -162,8 +311,16 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
         </p>
       </div>
 
-      {/* Water Slider - only for own view */}
+      {/* Water Slider */}
       {!isViewingPartner && <WaterSlider />}
+      {isViewingPartner && (
+        <section className="mb-6">
+          <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">💧 {partnerName}'s Water Intake</h2>
+          <div className="bg-card rounded-xl p-5 border border-border shadow-card flex justify-center">
+            <WaterGaugeCircle intake={partnerWaterIntake} goal={partnerWaterGoal} label={partnerName} />
+          </div>
+        </section>
+      )}
 
       {/* Past Date Viewer - only for own view */}
       {!isViewingPartner && <HabitDateViewer />}
@@ -182,39 +339,15 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           )}
         </div>
         {addingTo === "morning" && !isViewingPartner && (
-          <div className="space-y-2 mb-3">
-            <input
-              value={newHabitLabel}
-              onChange={(e) => setNewHabitLabel(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              placeholder="New morning habit..."
-              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
-              autoFocus
-            />
-            {partner && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setAssignTo("me")}
-                  className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
-                    assignTo === "me" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                  }`}
-                >
-                  Just Me
-                </button>
-                <button
-                  onClick={() => setAssignTo("both")}
-                  className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1 ${
-                    assignTo === "both" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                  }`}
-                >
-                  <Users size={12} /> Both
-                </button>
-              </div>
-            )}
-            <button onClick={handleAdd} className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
-              {assignTo === "both" ? "Add for Both" : "Add"}
-            </button>
-          </div>
+          <AddHabitForm
+            value={newHabitLabel}
+            onChange={setNewHabitLabel}
+            onSubmit={handleAdd}
+            assignTo={assignTo}
+            setAssignTo={setAssignTo}
+            hasPartner={!!partner}
+            placeholder="New morning habit..."
+          />
         )}
         <div className="space-y-2">
           {morningHabits.map((habit) => (
@@ -256,39 +389,15 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           )}
         </div>
         {addingTo === "other" && !isViewingPartner && (
-          <div className="space-y-2 mb-3">
-            <input
-              value={newHabitLabel}
-              onChange={(e) => setNewHabitLabel(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              placeholder="New habit..."
-              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
-              autoFocus
-            />
-            {partner && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setAssignTo("me")}
-                  className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
-                    assignTo === "me" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                  }`}
-                >
-                  Just Me
-                </button>
-                <button
-                  onClick={() => setAssignTo("both")}
-                  className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1 ${
-                    assignTo === "both" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                  }`}
-                >
-                  <Users size={12} /> Both
-                </button>
-              </div>
-            )}
-            <button onClick={handleAdd} className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
-              {assignTo === "both" ? "Add for Both" : "Add"}
-            </button>
-          </div>
+          <AddHabitForm
+            value={newHabitLabel}
+            onChange={setNewHabitLabel}
+            onSubmit={handleAdd}
+            assignTo={assignTo}
+            setAssignTo={setAssignTo}
+            hasPartner={!!partner}
+            placeholder="New habit..."
+          />
         )}
         <div className="grid grid-cols-2 gap-3">
           {otherHabits.map((habit) => (
@@ -312,6 +421,92 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   );
 };
 
+// ── Shared Add Habit Form ──
+const AddHabitForm = ({
+  value, onChange, onSubmit, assignTo, setAssignTo, hasPartner, placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  assignTo: "me" | "both";
+  setAssignTo: (v: "me" | "both") => void;
+  hasPartner: boolean;
+  placeholder: string;
+}) => (
+  <div className="space-y-2 mb-3">
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+      placeholder={placeholder}
+      className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+      autoFocus
+    />
+    {hasPartner && (
+      <div className="flex gap-2">
+        <button
+          onClick={() => setAssignTo("me")}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
+            assignTo === "me" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+          }`}
+        >
+          Just Me
+        </button>
+        <button
+          onClick={() => setAssignTo("both")}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1 ${
+            assignTo === "both" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+          }`}
+        >
+          <Users size={12} /> Both
+        </button>
+      </div>
+    )}
+    <button onClick={onSubmit} className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+      {assignTo === "both" ? "Add for Both" : "Add"}
+    </button>
+  </div>
+);
+
+// ── Together View Compact Habit Card ──
+const TogetherHabitCard = ({
+  habit,
+  streak,
+  onToggle,
+  readOnly,
+}: {
+  habit: { id: string; label: string; done: boolean; groupId?: string | null };
+  streak: number;
+  onToggle?: (id: string) => void;
+  readOnly?: boolean;
+}) => (
+  <button
+    onClick={() => !readOnly && onToggle?.(habit.id)}
+    disabled={readOnly}
+    className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-left ${
+      habit.done
+        ? "border-habit-green bg-habit-green/5"
+        : "border-border bg-card"
+    } ${readOnly ? "opacity-90" : "active:scale-[0.98]"}`}
+  >
+    {habit.done ? (
+      <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center flex-shrink-0">
+        <Check size={11} className="text-primary-foreground" />
+      </span>
+    ) : (
+      <span className="w-5 h-5 rounded-full border-2 border-muted flex-shrink-0" />
+    )}
+    <span className={`flex-1 text-xs font-medium truncate ${habit.done ? "line-through opacity-50" : ""}`}>
+      {habit.label}
+    </span>
+    <div className="flex items-center gap-0.5 text-accent flex-shrink-0">
+      <Flame size={10} />
+      <span className="text-[10px] font-bold">{streak}d</span>
+    </div>
+  </button>
+);
+
+// ── Morning Habit Row (individual view) ──
 interface MorningHabitRowProps {
   habit: { id: string; label: string; done: boolean; groupId?: string | null };
   onToggle: (id: string) => void;
@@ -387,6 +582,7 @@ const MorningHabitRow = ({ habit, onToggle, onDelete, streak, partner, isViewing
   );
 };
 
+// ── Other Habit Card (individual view) ──
 interface OtherHabitCardProps {
   habit: { id: string; label: string; done: boolean; groupId?: string | null };
   onToggle: (id: string) => void;

@@ -106,6 +106,8 @@ interface AppContextType {
   setWaterIntake: (amount: number) => void;
   setWaterGoal: (goal: number) => void;
   resetWater: () => void;
+  partnerWaterIntake: number;
+  partnerWaterGoal: number;
   workouts: Workout[];
   filteredWorkouts: Workout[];
   toggleWorkout: (id: string) => void;
@@ -163,6 +165,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [waterIntake, setWaterIntakeState] = useState(0);
   const [waterGoal, setWaterGoalState] = useState(3);
+  const [partnerWaterIntake, setPartnerWaterIntake] = useState(0);
+  const [partnerWaterGoal, setPartnerWaterGoal] = useState(3);
   const [workouts, setWorkoutsState] = useState<Workout[]>([]);
   const [partnerHabits, setPartnerHabits] = useState<Habit[]>([]);
   const [partnerEvents, setPartnerEvents] = useState<ScheduledEvent[]>([]);
@@ -530,6 +534,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             hiddenFromPartner: w.hidden_from_partner || false,
             groupId: w.group_id || null,
           })));
+        }
+
+        // Load partner water tracking for today
+        const { data: pWaterData } = await supabase
+          .from("water_tracking")
+          .select("*")
+          .eq("user_id", contextOtherUserId)
+          .eq("date", todayStr())
+          .maybeSingle();
+
+        if (pWaterData) {
+          setPartnerWaterIntake(Number(pWaterData.intake));
+          setPartnerWaterGoal(Number(pWaterData.goal));
+        } else {
+          setPartnerWaterIntake(0);
+          setPartnerWaterGoal(3);
         }
       } catch (err) {
         console.error("Error loading partner data:", err);
@@ -1290,6 +1310,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       events, filteredEvents, addEvent, removeEvent, rescheduleEvent, toggleEventCompletion,
       tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,
+      partnerWaterIntake, partnerWaterGoal,
       workouts, filteredWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade,
       getHabitStreak, getHabitsForDate, getWorkoutsForDate,
       googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
