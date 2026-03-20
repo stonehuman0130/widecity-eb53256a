@@ -44,6 +44,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const [showCustomizer, setShowCustomizer] = useState(false);
   const [sectionOrder, setSectionOrder] = useState<string[]>([]);
   const [sectionVisible, setSectionVisible] = useState<Set<string>>(new Set());
+  const [selectedSobrietyIds, setSelectedSobrietyIds] = useState<string[]>([]);
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, toggleEventCompletion, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
     partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
