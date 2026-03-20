@@ -6,6 +6,7 @@ import WorkoutsPage from "@/components/WorkoutsPage";
 import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
 import ChatPage from "@/components/ChatPage";
+import SobrietyPage from "@/components/SobrietyPage";
 import SettingsPage from "@/components/SettingsPage";
 import LauncherPage from "@/components/LauncherPage";
 import AuthPage from "@/components/AuthPage";
