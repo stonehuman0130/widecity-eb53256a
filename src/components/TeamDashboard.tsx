@@ -380,7 +380,7 @@ const TeamDashboard = ({
 
         {/* Scrollable board content */}
         <div
-          className="overflow-y-auto"
+          className="overflow-y-auto scroll-smooth-touch"
           style={{ maxHeight: "min(65vh, 500px)" }}
         >
           <div
