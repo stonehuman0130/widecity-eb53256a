@@ -20,6 +20,11 @@ export interface ScheduledEvent {
   day: number;
   month: number;
   year: number;
+  endDay?: number;
+  endMonth?: number;
+  endYear?: number;
+  endTime?: string;
+  allDay?: boolean;
   user: "me" | "partner" | "both";
   hiddenFromPartner?: boolean;
   groupId?: string | null;
