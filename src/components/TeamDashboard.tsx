@@ -150,23 +150,7 @@ const TeamDashboard = ({
   );
   const untimedItems = useMemo(() => allItems.filter((i) => i.sortMinutes < 0), [allItems]);
 
-  // ── Per-column item buckets (for the resizable panel layout) ──
-  const itemsByColumnIndex = useMemo(() => {
-    const buckets: Map<number, UnifiedItem[]> = new Map();
-    columnMembers.forEach((_, i) => buckets.set(i, []));
-    return buckets;
-  }, [columnMembers]);
-
-  // Shared items span full width; individual items go in their column
-  const sharedTimedItems = useMemo(() => timedItems.filter((i) => {
-    const cols = resolveColumnIndexes(i.assignedUserIds, columnIndexByUserId);
-    return cols.length > 1;
-  }), [timedItems, columnIndexByUserId]);
-
-  const sharedUntimedItems = useMemo(() => untimedItems.filter((i) => {
-    const cols = resolveColumnIndexes(i.assignedUserIds, columnIndexByUserId);
-    return cols.length > 1;
-  }), [untimedItems, columnIndexByUserId]);
+  const colCount = columnMembers.length;
 
   // ── Render helpers ──
   const renderCard = (item: UnifiedItem, compact = false) => {
@@ -218,6 +202,9 @@ const TeamDashboard = ({
               ))}
             </div>
           )}
+          {item.type === "gcal" && item.sortMinutes < 0 && (
+            <span className="text-[9px] font-semibold text-primary bg-primary/10 px-1 py-0.5 rounded flex-shrink-0">Google</span>
+          )}
         </div>
         {item.tag && (
           <div className="mt-1.5 ml-7">
@@ -228,52 +215,38 @@ const TeamDashboard = ({
     );
   };
 
-  const renderColumn = (memberIndex: number) => {
-    const member = columnMembers[memberIndex];
-    if (!member) return null;
+  /** Render a single item row inside the resizable board. Shared items span full width; individual items sit in their column. */
+  const renderItemRow = (item: UnifiedItem) => {
+    const columnIndexes = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
+    if (columnIndexes.length === 0) return null;
 
-    const myTimedItems = timedItems.filter((item) => {
-      const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
-      return cols.length === 1 && cols[0] === memberIndex;
-    });
+    const isShared = columnIndexes.length > 1;
 
-    const myUntimedItems = untimedItems.filter((item) => {
-      const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
-      return cols.length === 1 && cols[0] === memberIndex;
-    });
+    if (isShared) {
+      // Shared card spans full width inside the board
+      return (
+        <div key={item.id} className="px-2 py-1">
+          {renderCard(item)}
+        </div>
+      );
+    }
 
+    // Individual item: render in correct column
+    const targetCol = columnIndexes[0];
     return (
-      <div className="space-y-3">
-        {myTimedItems.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <Clock size={12} className="text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground">Scheduled</span>
-            </div>
-            <div className="space-y-2">
-              {myTimedItems.map((item) => renderCard(item, true))}
-            </div>
+      <div key={item.id} className="flex">
+        {Array.from({ length: colCount }).map((_, ci) => (
+          <div
+            key={ci}
+            className="flex-1 px-2 py-1"
+            style={{ minWidth: 0 }}
+          >
+            {ci === targetCol ? renderCard(item, true) : null}
           </div>
-        )}
-        {myUntimedItems.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground">To Do</span>
-            </div>
-            <div className="space-y-2">
-              {myUntimedItems.map((item) => renderCard(item))}
-            </div>
-          </div>
-        )}
-        {myTimedItems.length === 0 && myUntimedItems.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4 opacity-60">Nothing here</p>
-        )}
+        ))}
       </div>
     );
   };
-
-  const colCount = columnMembers.length;
 
   return (
     <section className="mb-6">
@@ -282,19 +255,6 @@ const TeamDashboard = ({
         <h2 className="text-lg font-semibold tracking-display">Team Dashboard</h2>
       </div>
 
-      {/* Shared items spanning full width, sorted chronologically with all other items */}
-      {(sharedTimedItems.length > 0 || sharedUntimedItems.length > 0) && (
-        <div className="mb-4">
-          <div className="flex items-center gap-1.5 mb-2">
-            <span className="text-xs font-semibold text-primary">Shared Responsibilities</span>
-          </div>
-          <div className="space-y-2">
-            {[...sharedTimedItems, ...sharedUntimedItems].map((item) => renderCard(item))}
-          </div>
-        </div>
-      )}
-
-      {/* Per-member columns with resizable panels */}
       <ResizablePanelGroup direction="horizontal" className="min-h-[200px] rounded-xl border border-border bg-secondary/30">
         {columnMembers.map((member, index) => (
           <div key={member.userId} className="contents">
@@ -307,18 +267,44 @@ const TeamDashboard = ({
                   </div>
                   <span className="text-sm font-semibold text-foreground">{member.name}</span>
                   <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">
-                    {timedItems.concat(untimedItems).filter((item) => {
+                    {allItems.filter((item) => {
                       const cols = resolveColumnIndexes(item.assignedUserIds, columnIndexByUserId);
                       return cols.includes(index);
                     }).length}
                   </span>
                 </div>
-                {renderColumn(index)}
               </div>
             </ResizablePanel>
           </div>
         ))}
       </ResizablePanelGroup>
+
+      {/* All items rendered inside the board area below the headers */}
+      <div className="rounded-b-xl border border-t-0 border-border bg-secondary/30 -mt-[1px] overflow-hidden">
+        {timedItems.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 px-3 py-2 bg-secondary/50 border-b border-border">
+              <Clock size={12} className="text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground">Scheduled</span>
+            </div>
+            {timedItems.map((item) => renderItemRow(item))}
+          </div>
+        )}
+
+        {untimedItems.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 px-3 py-2 bg-secondary/50 border-b border-border">
+              <span className="w-1.5 h-1.5 rounded-full bg-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground">To Do</span>
+            </div>
+            {untimedItems.map((item) => renderItemRow(item))}
+          </div>
+        )}
+
+        {allItems.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-6 opacity-60">Nothing scheduled for today</p>
+        )}
+      </div>
     </section>
   );
 };
