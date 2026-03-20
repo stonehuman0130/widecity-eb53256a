@@ -664,8 +664,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
 
-    setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: !item.done } : item)));
-    await supabase.from("tasks").update({ done: !task.done }).eq("id", id);
+    const newDone = !task.done;
+    setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: newDone } : item)));
+
+    const { error } = await supabase.from("tasks").update({ done: newDone }).eq("id", id);
+    if (error) {
+      console.error("Failed to persist task toggle:", error);
+      // Rollback optimistic update
+      setTasks((t) => t.map((item) => (item.id === id ? { ...item, done: task.done } : item)));
+    }
   };
 
   const addTask = async (task: Omit<Task, "id" | "done">) => {
