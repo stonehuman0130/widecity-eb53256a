@@ -18,7 +18,7 @@ import { Loader2 } from "lucide-react";
 
 type FullTab = "launcher" | Tab;
 
-const DEFAULT_ENABLED: EnabledPages = { workout: false, habits: false, sobriety: false };
+const DEFAULT_ENABLED: EnabledPages = { workout: false, habits: false, sobriety: false, specialdays: false };
 
 function getStorageKey(groupId: string | null) {
   return `enabledPages_${groupId || "personal"}`;
