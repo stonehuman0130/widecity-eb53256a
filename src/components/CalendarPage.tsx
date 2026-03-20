@@ -97,7 +97,7 @@ interface CalItem {
 
 // ── Main Component ──────────────────────────────────────────
 
-const CalendarPage = () => {
+const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const {
     events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
     tasks, filteredTasks, toggleTask, removeTask, updateTask,
