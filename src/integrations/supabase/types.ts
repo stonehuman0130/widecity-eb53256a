@@ -563,6 +563,56 @@ export type Database = {
           },
         ]
       }
+      special_days: {
+        Row: {
+          count_direction: string
+          created_at: string
+          event_date: string
+          group_id: string | null
+          icon: string
+          id: string
+          is_featured: boolean
+          repeats_yearly: boolean
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          count_direction?: string
+          created_at?: string
+          event_date: string
+          group_id?: string | null
+          icon?: string
+          id?: string
+          is_featured?: boolean
+          repeats_yearly?: boolean
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          count_direction?: string
+          created_at?: string
+          event_date?: string
+          group_id?: string | null
+          icon?: string
+          id?: string
+          is_featured?: boolean
+          repeats_yearly?: boolean
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_days_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee: string
