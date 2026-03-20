@@ -35,6 +35,7 @@ interface TeamDashboardProps {
   gcalEvents: GoogleCalendarEvent[];
   toggleTask: (id: string) => void;
   toggleEventCompletion?: (id: string) => void;
+  toggleGcalCompletion?: (eventId: string) => void;
   removeEvent: (id: string) => void;
   removeTask?: (id: string) => void;
   toggleEventVisibility?: (id: string) => void;

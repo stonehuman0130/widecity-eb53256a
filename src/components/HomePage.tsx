@@ -768,6 +768,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
           gcalEvents={gcalEventsForDay}
           toggleTask={toggleTask}
           toggleEventCompletion={toggleEventCompletion}
+          toggleGcalCompletion={toggleGcalCompletion}
           removeEvent={removeEvent}
           removeTask={removeTask}
           toggleEventVisibility={toggleEventVisibility}
