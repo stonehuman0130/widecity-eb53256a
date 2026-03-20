@@ -40,7 +40,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [congratsType, setCongratsType] = useState<"task" | "habit" | null>(null);
   const {
-    habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
+    habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, toggleEventCompletion, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
     partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleEventVisibility, designateGcalEvent,
   } = useAppContext();
 
