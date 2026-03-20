@@ -18,7 +18,7 @@ const todayStr = () => {
 
 type ViewFilter = "mine" | "partner";
 
-const HabitsPage = () => {
+const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const { habits, filteredHabits, filteredPartnerHabits, toggleHabit, addHabit, removeHabit, addSharedHabit, getHabitStreak, getPartnerHabitStreak } = useAppContext();
   const { user, partner } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
