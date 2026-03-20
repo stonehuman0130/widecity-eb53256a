@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft, EyeOff, Eye, Settings } from "lucide-react";
@@ -8,6 +8,7 @@ import GroupSelector from "@/components/GroupSelector";
 import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
+import TeamDashboard from "@/components/TeamDashboard";
 import AddItemModal from "@/components/AddItemModal";
 import CongratsPopup from "@/components/CongratsPopup";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
@@ -347,25 +348,77 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     return day === selDay && month === selMonth && year === selYear;
   };
 
+  // INDIVIDUAL VIEW: show items assigned to me (or partner) PLUS jointly assigned items
   // Partner filter: show PARTNER's data, not own data with assignee="partner"
   let dayTasks: Task[];
   let visibleEvents: ScheduledEvent[];
 
   if (filter === "mine") {
-    dayTasks = filteredTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    visibleEvents = filteredEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
-  } else if (filter === "partner") {
-    dayTasks = filteredPartnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    visibleEvents = filteredPartnerEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear);
-  } else {
-    const myHousehold = filteredTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    const partnerHousehold = filteredPartnerTasks.filter((t) => (t.tag === "Household" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear));
-    dayTasks = [...myHousehold, ...partnerHousehold];
+    // My tasks where I'm responsible (assignee=me or both) + partner's tasks assigned to me (assignee=partner from their perspective = me doing it) or both
+    const myResponsible = filteredTasks.filter((t) =>
+      (t.assignee === "me" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
+    );
+    const partnerAssignedToMe = filteredPartnerTasks.filter((t) =>
+      (t.assignee === "partner" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
+    );
+    // Deduplicate "both" items by title+time to avoid showing same shared task twice
+    const seenKeys = new Set(myResponsible.map((t) => `${t.title}|${t.time}|${t.scheduledDay}`));
+    const uniquePartner = partnerAssignedToMe.filter((t) => !seenKeys.has(`${t.title}|${t.time}|${t.scheduledDay}`));
+    dayTasks = [...myResponsible, ...uniquePartner];
 
-    const myHouseholdEvents = filteredEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
-    const partnerHouseholdEvents = filteredPartnerEvents.filter((e) => (e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear);
-    visibleEvents = [...myHouseholdEvents, ...partnerHouseholdEvents];
+    const myEvents = filteredEvents.filter((e) =>
+      (e.user === "me" || e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear
+    );
+    const partnerEventsForMe = filteredPartnerEvents.filter((e) =>
+      (e.user === "partner" || e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear
+    );
+    const seenEventKeys = new Set(myEvents.map((e) => `${e.title}|${e.time}|${e.day}`));
+    const uniquePartnerEvents = partnerEventsForMe.filter((e) => !seenEventKeys.has(`${e.title}|${e.time}|${e.day}`));
+    visibleEvents = [...myEvents, ...uniquePartnerEvents];
+  } else if (filter === "partner") {
+    // Partner's own tasks (assignee=me from their view) + partner's shared (both) + my tasks assigned to partner
+    const partnerOwn = filteredPartnerTasks.filter((t) =>
+      (t.assignee === "me" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
+    );
+    const myAssignedToPartner = filteredTasks.filter((t) =>
+      (t.assignee === "partner" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
+    );
+    const seenKeys = new Set(partnerOwn.map((t) => `${t.title}|${t.time}|${t.scheduledDay}`));
+    const uniqueMy = myAssignedToPartner.filter((t) => !seenKeys.has(`${t.title}|${t.time}|${t.scheduledDay}`));
+    dayTasks = [...partnerOwn, ...uniqueMy];
+
+    const partnerOwnEvents = filteredPartnerEvents.filter((e) =>
+      (e.user === "me" || e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear
+    );
+    const myEventsForPartner = filteredEvents.filter((e) =>
+      (e.user === "partner" || e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear
+    );
+    const seenEventKeys = new Set(partnerOwnEvents.map((e) => `${e.title}|${e.time}|${e.day}`));
+    const uniqueMyEvents = myEventsForPartner.filter((e) => !seenEventKeys.has(`${e.title}|${e.time}|${e.day}`));
+    visibleEvents = [...partnerOwnEvents, ...uniqueMyEvents];
+  } else {
+    // "Together" / household: collect ALL items for TeamDashboard (handled separately in render)
+    dayTasks = [];
+    visibleEvents = [];
   }
+
+  // For Together view: pass all items to TeamDashboard
+  const householdMyTasks = useMemo(() =>
+    filteredTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)),
+    [filteredTasks, selDay, selMonth, selYear]
+  );
+  const householdMyEvents = useMemo(() =>
+    filteredEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear),
+    [filteredEvents, selDay, selMonth, selYear]
+  );
+  const householdPartnerTasks = useMemo(() =>
+    filteredPartnerTasks.filter((t) => isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)),
+    [filteredPartnerTasks, selDay, selMonth, selYear]
+  );
+  const householdPartnerEvents = useMemo(() =>
+    filteredPartnerEvents.filter((e) => e.day === selDay && e.month === selMonth && e.year === selYear),
+    [filteredPartnerEvents, selDay, selMonth, selYear]
+  );
 
   const hasSpecificTime = (time?: string) => Boolean(time) && time !== "" && time !== "All day";
   const isTaskScheduled = (t: Task) => hasSpecificTime(t.time);
@@ -376,16 +429,15 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
 
-  // Google Calendar events for the selected date — filtered by assignee like regular events
+  // Google Calendar events for the selected date — in individual views include shared items
   const gcalEventsForDay = showGoogleCalendar ? googleCalendarEvents.filter((ge) => {
     const startDate = ge.start?.split("T")[0] || ge.start;
     const selDateStr = `${selYear}-${String(selMonth + 1).padStart(2, "0")}-${String(selDay).padStart(2, "0")}`;
     if (startDate !== selDateStr) return false;
     const assignee = ge.assignee || "me";
-    if (filter === "mine") return assignee === "me";
-    if (filter === "partner") return assignee === "partner";
-    if (filter === "household") return assignee === "both";
-    return true;
+    if (filter === "mine") return assignee === "me" || assignee === "both";
+    if (filter === "partner") return assignee === "partner" || assignee === "both";
+    return true; // household shows all
   }) : [];
   const gcalTimed = gcalEventsForDay.filter((ge) => !ge.allDay);
   const gcalAllDay = gcalEventsForDay.filter((ge) => ge.allDay);
@@ -661,50 +713,70 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         </div>
       </section>
 
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Clock size={18} className="text-muted-foreground" />
-          <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
-        </div>
-        {scheduledTasks.length > 0 || timedEvents.length > 0 || gcalTimed.length > 0 ? (
-          <div className="space-y-3">
-            {scheduledTasks.map((task) => (
-              <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-            ))}
-            {timedEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-            ))}
-            {gcalTimed.map((ge) => (
-              <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">No scheduled items</p>
-        )}
-      </section>
+      {filter === "household" ? (
+        <TeamDashboard
+          myTasks={householdMyTasks}
+          myEvents={householdMyEvents}
+          partnerTasks={householdPartnerTasks}
+          partnerEvents={householdPartnerEvents}
+          gcalEvents={gcalEventsForDay}
+          toggleTask={toggleTask}
+          removeEvent={removeEvent}
+          removeTask={removeTask}
+          toggleEventVisibility={toggleEventVisibility}
+          rescheduleEvent={rescheduleEvent}
+          hideGcalEvent={hideGcalEvent}
+          designateGcalEvent={designateGcalEvent}
+          onCongrats={() => setCongratsType("task")}
+        />
+      ) : (
+        <>
+          <section className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={18} className="text-muted-foreground" />
+              <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
+            </div>
+            {scheduledTasks.length > 0 || timedEvents.length > 0 || gcalTimed.length > 0 ? (
+              <div className="space-y-3">
+                {scheduledTasks.map((task) => (
+                  <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                ))}
+                {timedEvents.map((event) => (
+                  <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                ))}
+                {gcalTimed.map((ge) => (
+                  <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No scheduled items</p>
+            )}
+          </section>
 
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="w-2 h-2 rounded-full bg-foreground" />
-          <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
-          <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
-        </div>
-        {justDoIt.length > 0 || allDayEvents.length > 0 || gcalAllDay.length > 0 ? (
-          <div className="space-y-3">
-            {justDoIt.map((task) => (
-              <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-            ))}
-            {allDayEvents.map((event) => (
-              <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
-            ))}
-            {gcalAllDay.map((ge) => (
-              <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
-        )}
-      </section>
+          <section className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-foreground" />
+              <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
+              <span className="text-sm text-muted-foreground">({justDoIt.length})</span>
+            </div>
+            {justDoIt.length > 0 || allDayEvents.length > 0 || gcalAllDay.length > 0 ? (
+              <div className="space-y-3">
+                {justDoIt.map((task) => (
+                  <TaskCard key={task.id} task={task} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                ))}
+                {allDayEvents.map((event) => (
+                  <EventCard key={event.id} event={event} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />
+                ))}
+                {gcalAllDay.map((ge) => (
+                  <GCalEventCard key={`gcal-${ge.id}`} event={ge} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
+            )}
+          </section>
+        </>
+      )}
 
       <AddItemModal open={showAddModal} onClose={() => setShowAddModal(false)} />
     </div>
