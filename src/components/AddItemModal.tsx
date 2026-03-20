@@ -55,20 +55,33 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     let month = now.getMonth();
     let year = now.getFullYear();
 
-    if (calDate) {
-      const [y, m, d] = calDate.split("-").map(Number);
+    if (calStartDate) {
+      const [y, m, d] = calStartDate.split("-").map(Number);
       day = d;
       month = m - 1;
       year = y;
     }
 
+    let endDay = day, endMonth = month, endYear = year;
+    if (calEndDate) {
+      const [y, m, d] = calEndDate.split("-").map(Number);
+      endDay = d;
+      endMonth = m - 1;
+      endYear = y;
+    }
+
     addEvent({
       title: calTitle.trim(),
-      time: calTime || "All day",
+      time: calAllDay ? "All day" : (calStartTime || "All day"),
       description: calDesc,
       day,
       month,
       year,
+      endDay,
+      endMonth,
+      endYear,
+      endTime: calAllDay ? "" : (calEndTime || calStartTime || ""),
+      allDay: calAllDay,
       user: calUser,
     });
 
