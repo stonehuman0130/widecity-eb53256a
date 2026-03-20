@@ -154,19 +154,14 @@ const TeamDashboard = ({
       id: e.id, type: "event", title: e.title, time: e.time,
       sortMinutes: parseTimeToMinutes(e.time), assignee: e.user,
       assignedUserIds: resolveAssignedUserIds({ assignee: e.user, sourceUserId: selfUserId, selfUserId, members: columnMembers }),
-      sourceUserId: selfUserId, done: false, isOwn: true, original: e,
+      sourceUserId: selfUserId, done: e.done ?? false, isOwn: true, original: e,
     }));
-    partnerTasks.forEach((t) => addItem({
-      id: `p-${t.id}`, type: "task", title: t.title, time: t.time,
-      sortMinutes: parseTimeToMinutes(t.time), assignee: t.assignee,
-      assignedUserIds: resolveAssignedUserIds({ assignee: t.assignee, sourceUserId: primaryOtherUserId, selfUserId, members: columnMembers }),
-      sourceUserId: primaryOtherUserId, done: t.done, isOwn: false, tag: t.tag, original: t,
-    }));
+...
     partnerEvents.forEach((e) => addItem({
       id: `p-${e.id}`, type: "event", title: e.title, time: e.time,
       sortMinutes: parseTimeToMinutes(e.time), assignee: e.user,
       assignedUserIds: resolveAssignedUserIds({ assignee: e.user, sourceUserId: primaryOtherUserId, selfUserId, members: columnMembers }),
-      sourceUserId: primaryOtherUserId, done: false, isOwn: false, original: e,
+      sourceUserId: primaryOtherUserId, done: e.done ?? false, isOwn: false, original: e,
     }));
     gcalEvents.forEach((ge) => {
       const timeStr = ge.allDay ? "" : ge.start ? new Date(ge.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "";
