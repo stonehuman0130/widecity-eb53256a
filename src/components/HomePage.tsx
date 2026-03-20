@@ -852,17 +852,24 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   </section>
                 );
 
+              case "other-habits":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <HomeOtherHabitsWidget selectedDate={selectedDate} />
+                  </section>
+                );
+
               case "water":
                 return (
                   <section key={sectionId} className="mb-6">
-                    <HomeWaterWidget />
+                    <HomeWaterWidget selectedDate={selectedDate} />
                   </section>
                 );
 
               case "workout":
                 return (
                   <section key={sectionId} className="mb-6">
-                    <HomeWorkoutWidget />
+                    <HomeWorkoutWidget selectedDate={selectedDate} />
                   </section>
                 );
 
