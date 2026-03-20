@@ -40,6 +40,7 @@ const BottomNav = ({ activeTab, onTabChange, enabledPages, onTogglePage }: Botto
   if (enabledPages.workout) coreTabs.push({ id: "workout", label: "Workout", icon: Dumbbell });
   if (enabledPages.habits) coreTabs.push({ id: "habits", label: "Habits", icon: Heart });
   if (enabledPages.sobriety) coreTabs.push({ id: "sobriety", label: "Sobriety", icon: Clock });
+  if (enabledPages.specialdays) coreTabs.push({ id: "specialdays", label: "Special", icon: Sparkles });
 
   coreTabs.push(
     { id: "calendar", label: "Calendar", icon: CalendarDays },
