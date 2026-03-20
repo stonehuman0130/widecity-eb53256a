@@ -59,12 +59,14 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const prefs = loadSectionPrefs(activeGroup?.id ?? null);
     setSectionOrder(prefs.order);
     setSectionVisible(prefs.visible);
+    setSelectedSobrietyIds(prefs.selectedSobrietyIds);
   }, [activeGroup?.id]);
 
-  const handleSaveSections = (order: string[], visible: Set<string>) => {
+  const handleSaveSections = (order: string[], visible: Set<string>, sobrietyIds: string[]) => {
     setSectionOrder(order);
     setSectionVisible(visible);
-    saveSectionPrefs(activeGroup?.id ?? null, order, visible);
+    setSelectedSobrietyIds(sobrietyIds);
+    saveSectionPrefs(activeGroup?.id ?? null, order, visible, sobrietyIds);
   };
 
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
