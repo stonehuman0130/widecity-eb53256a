@@ -344,25 +344,6 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
         </AnimatePresence>
       </motion.div>
 
-      {/* Settings Button */}
-      {onOpenSettings && (
-        <motion.button
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          onClick={onOpenSettings}
-          className="mt-6 w-full flex items-center gap-4 p-4 rounded-2xl bg-card border border-border hover:border-primary/30 hover:shadow-card transition-all active:scale-[0.98] text-left"
-        >
-          <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
-            <Settings size={20} className="text-muted-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-semibold">Settings</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Account, groups & preferences</p>
-          </div>
-          <ChevronRight size={16} className="text-muted-foreground flex-shrink-0" />
-        </motion.button>
-      )}
 
       {/* Group Calendars List */}
       <motion.div
