@@ -567,14 +567,14 @@ const MorningHabitRow = ({ habit, onToggle, onDelete, streak, isViewingPartner, 
           </div>
         )}
       </div>
-      {partner && !isViewingPartner && !habit.done && (
+      {onNudge && !habit.done && (
         <div className="flex items-center justify-end ml-10 mt-1 mb-1">
           <button
             onClick={onNudge}
             className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold hover:bg-primary/20 transition-colors"
           >
             <Bell size={10} />
-            Nudge {partner.display_name}
+            {nudgeLabel || "Nudge"}
           </button>
         </div>
       )}
