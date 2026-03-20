@@ -94,42 +94,13 @@ export const HomeWaterWidget = ({ selectedDate }: { selectedDate: Date }) => {
 
       <div className="bg-card rounded-xl p-4 shadow-card border border-border">
         {gaugeStyle === "circle" ? (
-          <div className="flex items-center gap-4">
-            <div className="relative w-14 h-14 flex-shrink-0">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 56 56">
-                <circle cx="28" cy="28" r="24" fill="none" stroke="hsl(var(--secondary))" strokeWidth="4" />
-                <circle
-                  cx="28" cy="28" r="24" fill="none"
-                  stroke="hsl(var(--primary))" strokeWidth="4" strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 24}
-                  strokeDashoffset={2 * Math.PI * 24 * (1 - percent / 100)}
-                  className="transition-all duration-500"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[11px] font-bold">{intake.toFixed(1)}L</span>
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">{intake.toFixed(1)}L / {goal}L</p>
-              <p className="text-xs text-muted-foreground">
-                {percent >= 100 ? "🎉 Goal reached!" : `${Math.round(percent)}%`}
-              </p>
-            </div>
-            {isToday && (
-              <div className="flex gap-1">
-                {[0.25, 0.5].map((amt) => (
-                  <button
-                    key={amt}
-                    onClick={() => handleSetIntake(Math.round((intake + amt) * 10) / 10)}
-                    className="px-2 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-semibold hover:bg-primary/20 active:scale-95 transition-all"
-                  >
-                    +{amt * 1000}ml
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <CircleWaterGauge
+            intake={intake}
+            goal={goal}
+            percent={percent}
+            isToday={isToday}
+            onSetIntake={handleSetIntake}
+          />
         ) : (
           <>
             <div className="flex items-center justify-between mb-1">
