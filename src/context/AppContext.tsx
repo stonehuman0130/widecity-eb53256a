@@ -121,6 +121,7 @@ interface AppContextType {
   getWorkoutsForDate: (date: string) => Workout[];
   googleCalendarEvents: GoogleCalendarEvent[];
   hideGcalEvent: (eventId: string) => Promise<void>;
+  toggleGcalCompletion: (eventId: string) => Promise<void>;
   toggleEventVisibility: (eventId: string) => Promise<void>;
   designateGcalEvent: (eventId: string, assignee: "me" | "partner" | "both") => Promise<void>;
   // Partner data (raw)
