@@ -3,7 +3,9 @@ import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion
 import { GripVertical, Eye, EyeOff, X, Lock, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { useAppContext } from "@/context/AppContext";
 import { useModalScrollLock } from "@/hooks/useModalScrollLock";
+import { getHabitSections, HabitSectionMeta } from "@/lib/habitSections";
 
 export interface HomeSection {
   id: string;
@@ -12,19 +14,28 @@ export interface HomeSection {
   locked?: boolean;
 }
 
-export const ALL_SECTIONS: HomeSection[] = [
-  { id: "morning-habits", label: "Morning Habits", icon: "🌅" },
+// Core fixed sections (non-habit)
+export const FIXED_SECTIONS: HomeSection[] = [
   { id: "scheduled", label: "Scheduled", icon: "🕐", locked: true },
   { id: "justdoit", label: "Just Do It", icon: "⚡", locked: true },
-  { id: "other-habits", label: "Other Habits", icon: "🌙" },
   { id: "water", label: "Water Intake", icon: "💧" },
   { id: "workout", label: "Today's Workout", icon: "💪" },
   { id: "sobriety", label: "Sobriety Tracker", icon: "🏆" },
   { id: "special-days", label: "Special Days", icon: "❤️" },
 ];
 
-export const DEFAULT_ORDER = ["morning-habits", "scheduled", "justdoit"];
-export const DEFAULT_VISIBLE = new Set(["morning-habits", "scheduled", "justdoit"]);
+// Build dynamic ALL_SECTIONS based on user's habit sections
+export function buildAllSections(habitSections: HabitSectionMeta[]): HomeSection[] {
+  const habitHomeSections: HomeSection[] = habitSections.map((s) => ({
+    id: `habit:${s.key}`,
+    label: s.label,
+    icon: s.icon,
+  }));
+  return [...habitHomeSections, ...FIXED_SECTIONS];
+}
+
+export const DEFAULT_ORDER = ["habit:morning", "scheduled", "justdoit"];
+export const DEFAULT_VISIBLE = new Set(["habit:morning", "scheduled", "justdoit"]);
 
 function getStorageKey(groupId: string | null) {
   return `homeSections_${groupId || "personal"}`;
