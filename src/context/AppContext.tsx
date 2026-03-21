@@ -717,7 +717,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("habits").delete().eq("id", id);
   };
 
-  const addSharedHabit = async (label: string, category: "morning" | "other") => {
+  const addSharedHabit = async (label: string, category: string) => {
     if (!user) return;
     const { data, error } = await supabase.rpc("create_shared_habit", {
       _label: label,
