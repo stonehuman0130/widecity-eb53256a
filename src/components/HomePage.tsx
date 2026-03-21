@@ -352,7 +352,10 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     }
   };
 
-  // Morning habits: show own when "mine", partner's when "partner"
+  // Habit sections from user preferences
+  const habitSections = getHabitSections(activeGroup?.id ?? null);
+
+  // Morning habits: show own when "mine", partner's when "partner" — use first habit section
   const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
   const partnerMorningHabits = filteredPartnerHabits.filter((h) => h.category === "morning");
   const displayMorningHabits = filter === "partner" ? partnerMorningHabits : myMorningHabits;
