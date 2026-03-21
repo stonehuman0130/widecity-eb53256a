@@ -15,7 +15,9 @@ interface AddItemModalProps {
 
 const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const { addEvent, addHabit, addTask } = useAppContext();
+  const { activeGroup } = useAuth();
   const [step, setStep] = useState<ModalStep>("choose");
+  const [selectedCategory, setSelectedCategory] = useState("");
 
   // Calendar form state
   const [calTitle, setCalTitle] = useState("");
