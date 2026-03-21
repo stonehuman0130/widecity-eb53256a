@@ -123,7 +123,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
           {/* Fixed header */}
           <div className="flex items-center justify-between p-5 pb-3 flex-shrink-0">
             <h2 className="text-lg font-bold tracking-display">
-              {step === "choose" ? "Add New" : step === "calendar" ? "Schedule Event" : step === "morning-habit" ? "Morning Habit" : "New Habit"}
+              {step === "choose" ? "Add New" : step === "calendar" ? "Schedule Event" : "New Habit"}
             </h2>
             <button onClick={handleClose} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
               <X size={16} />
