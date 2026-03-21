@@ -14,7 +14,7 @@ interface AddItemModalProps {
 }
 
 const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
-  const { addEvent, addHabit, addTask } = useAppContext();
+  const { addEvent, addHabit, addTask, habitSections } = useAppContext();
   const { activeGroup } = useAuth();
   const [step, setStep] = useState<ModalStep>("choose");
   const [selectedCategory, setSelectedCategory] = useState("");
