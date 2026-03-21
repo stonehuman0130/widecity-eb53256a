@@ -523,6 +523,17 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
         );
       })}
 
+      {/* Add Section button at bottom */}
+      {!isViewingPartner && !showAddSection && activeSections.length > 0 && (
+        <button
+          onClick={() => setShowAddSection(true)}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all mb-6"
+        >
+          <FolderPlus size={16} />
+          <span className="text-sm font-medium">Add Section</span>
+        </button>
+      )}
+
       {/* Show empty state if no sections at all */}
       {activeSections.length === 0 && !isViewingPartner && (
         <div className="text-center py-8">
