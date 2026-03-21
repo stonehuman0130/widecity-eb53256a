@@ -168,8 +168,8 @@ const HomeSectionCustomizer = ({
   const [sobrietyExpanded, setSobrietyExpanded] = useState(false);
   const [specialDaysExpanded, setSpecialDaysExpanded] = useState(false);
 
-  // Build ALL_SECTIONS dynamically from user's habit sections
-  const habitSections = getHabitSections(activeGroup?.id ?? null);
+  // Build ALL_SECTIONS dynamically from user's habit sections (from context)
+  const { habitSections } = useAppContext();
   const ALL_SECTIONS = buildAllSections(habitSections);
 
   useEffect(() => {
