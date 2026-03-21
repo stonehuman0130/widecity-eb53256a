@@ -269,17 +269,14 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           </div>
         </section>
 
-        {/* Dynamic habit sections side-by-side */}
-        {Array.from(allCategories).map((category) => {
-          const sectionMeta = activeSections.find((s) => s.key === category);
-          const label = sectionMeta?.label || category;
-          const icon = sectionMeta?.icon || "📋";
-          const mySection = myHabits.filter((h) => h.category === category);
-          const theirSection = theirHabits.filter((h) => h.category === category);
+        {/* Dynamic habit sections side-by-side — unified across users */}
+        {unifiedSections.map((section, idx) => {
+          const mySection = myHabits.filter((h) => section.myKeys.includes(h.category));
+          const theirSection = theirHabits.filter((h) => section.theirKeys.includes(h.category));
 
           return (
-            <section key={category} className="mb-6">
-              <h2 className="text-lg font-semibold tracking-display mb-3">{icon} {label}</h2>
+            <section key={idx} className="mb-6">
+              <h2 className="text-lg font-semibold tracking-display mb-3">{section.icon} {section.label}</h2>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{myName}</p>
