@@ -99,6 +99,12 @@ interface AppContextType {
   addSharedHabit: (label: string, category: string) => Promise<void>;
   renameHabitCategory: (oldCategory: string, newCategory: string) => Promise<void>;
   deleteHabitCategory: (category: string) => Promise<void>;
+  // Habit sections (DB-backed)
+  habitSections: HabitSectionMeta[];
+  addHabitSection: (label: string, icon?: string, forEveryone?: boolean) => Promise<void>;
+  renameHabitSection: (oldKey: string, newLabel: string) => Promise<void>;
+  deleteHabitSection: (key: string) => Promise<void>;
+  refreshHabitSections: () => Promise<void>;
   events: ScheduledEvent[];
   filteredEvents: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
