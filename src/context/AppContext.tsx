@@ -678,7 +678,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addHabit = async (label: string, category: "morning" | "other") => {
+  const addHabit = async (label: string, category: string) => {
     if (!user) return;
     const groupId = activeGroup?.id ?? null;
     const { data, error } = await supabase
@@ -690,6 +690,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (data && !error) {
       setHabits((h) => [...h, { id: data.id, label, done: false, category, completionDates: [], groupId }]);
     }
+  };
+
+  const renameHabitCategory = async (oldCategory: string, newCategory: string) => {
+    if (!user || oldCategory === newCategory) return;
+    // Update all habits with old category to new category
+    const habitIds = habits.filter((h) => h.category === oldCategory).map((h) => h.id);
+    if (habitIds.length === 0) return;
+    await supabase.from("habits").update({ category: newCategory }).in("id", habitIds);
+    setHabits((h) => h.map((item) => item.category === oldCategory ? { ...item, category: newCategory } : item));
+  };
+
+  const deleteHabitCategory = async (category: string) => {
+    if (!user) return;
+    const toDelete = habits.filter((h) => h.category === category);
+    for (const h of toDelete) {
+      await supabase.from("habit_completions").delete().eq("habit_id", h.id);
+      await supabase.from("habits").delete().eq("id", h.id);
+    }
+    setHabits((h) => h.filter((item) => item.category !== category));
   };
 
   const removeHabit = async (id: string) => {
