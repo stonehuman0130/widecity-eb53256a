@@ -181,8 +181,32 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     const theirTotal = theirHabits.length;
     const theirDone = theirHabits.filter((h) => h.done).length;
 
-    // Get all categories from both users
-    const allCategories = new Set([...myHabits.map((h) => h.category), ...theirHabits.map((h) => h.category)]);
+    // Normalize keys for cross-user matching: "morning-habits" and "morning" → same bucket
+    const normalizeKey = (key: string) => key.toLowerCase().replace(/[\s_-]+/g, "").replace(/habits$/, "");
+
+    // Build unified section groups: merge categories that normalize to the same key
+    type UnifiedSection = { label: string; icon: string; myKeys: string[]; theirKeys: string[] };
+    const unifiedMap = new Map<string, UnifiedSection>();
+
+    for (const cat of new Set(myHabits.map((h) => h.category))) {
+      const norm = normalizeKey(cat);
+      if (!unifiedMap.has(norm)) {
+        const meta = activeSections.find((s) => s.key === cat);
+        unifiedMap.set(norm, { label: meta?.label || cat, icon: meta?.icon || "📋", myKeys: [], theirKeys: [] });
+      }
+      unifiedMap.get(norm)!.myKeys.push(cat);
+    }
+
+    for (const cat of new Set(theirHabits.map((h) => h.category))) {
+      const norm = normalizeKey(cat);
+      if (!unifiedMap.has(norm)) {
+        const meta = activeSections.find((s) => s.key === cat);
+        unifiedMap.set(norm, { label: meta?.label || cat, icon: meta?.icon || "📋", myKeys: [], theirKeys: [] });
+      }
+      unifiedMap.get(norm)!.theirKeys.push(cat);
+    }
+
+    const unifiedSections = Array.from(unifiedMap.values());
 
     return (
       <div className="px-5">
@@ -245,17 +269,14 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           </div>
         </section>
 
-        {/* Dynamic habit sections side-by-side */}
-        {Array.from(allCategories).map((category) => {
-          const sectionMeta = activeSections.find((s) => s.key === category);
-          const label = sectionMeta?.label || category;
-          const icon = sectionMeta?.icon || "📋";
-          const mySection = myHabits.filter((h) => h.category === category);
-          const theirSection = theirHabits.filter((h) => h.category === category);
+        {/* Dynamic habit sections side-by-side — unified across users */}
+        {unifiedSections.map((section, idx) => {
+          const mySection = myHabits.filter((h) => section.myKeys.includes(h.category));
+          const theirSection = theirHabits.filter((h) => section.theirKeys.includes(h.category));
 
           return (
-            <section key={category} className="mb-6">
-              <h2 className="text-lg font-semibold tracking-display mb-3">{icon} {label}</h2>
+            <section key={idx} className="mb-6">
+              <h2 className="text-lg font-semibold tracking-display mb-3">{section.icon} {section.label}</h2>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{myName}</p>
