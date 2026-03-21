@@ -143,36 +143,18 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     }
   };
 
-  const handleAddSection = () => {
+  const handleAddSection = async () => {
     if (!newSectionName.trim()) return;
-    const key = newSectionName.trim().toLowerCase().replace(/\s+/g, "-");
-    const newSection: HabitSectionMeta = {
-      key,
-      label: newSectionName.trim(),
-      icon: "📋",
-    };
-    const updated = [...sections, newSection];
-    setSections(updated);
-    setHabitSections(groupId, updated);
+    await addHabitSection(newSectionName.trim(), "📋", newSectionForEveryone && !!groupId);
     setNewSectionName("");
     setShowAddSection(false);
-    toast.success(`Section "${newSectionName.trim()}" created`);
+    setNewSectionForEveryone(false);
+    toast.success(`Section "${newSectionName.trim()}" created${newSectionForEveryone && groupId ? " for everyone" : ""}`);
   };
 
   const handleRenameSection = async (oldKey: string) => {
     if (!renameValue.trim()) return;
-    const newKey = renameValue.trim().toLowerCase().replace(/\s+/g, "-");
-    const updated = sections.map((s) =>
-      s.key === oldKey ? { ...s, key: newKey, label: renameValue.trim() } : s
-    );
-    setSections(updated);
-    setHabitSections(groupId, updated);
-
-    // Rename category on all habits
-    if (oldKey !== newKey) {
-      await renameHabitCategory(oldKey, newKey);
-    }
-
+    await renameHabitSection(oldKey, renameValue.trim());
     setRenamingSection(null);
     setRenameValue("");
     toast.success("Section renamed");
@@ -182,15 +164,12 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     const sectionHabits = displayHabits.filter((h) => h.category === key);
     if (sectionHabits.length > 0) {
       const confirmed = window.confirm(
-        `This will delete ${sectionHabits.length} habit(s) in this section. Are you sure?`
+        `This will delete ${sectionHabits.length} habit(s) in this section for you only. Others in the group keep theirs. Are you sure?`
       );
       if (!confirmed) return;
     }
-    await deleteHabitCategory(key);
-    const updated = sections.filter((s) => s.key !== key);
-    setSections(updated);
-    setHabitSections(groupId, updated);
-    toast.success("Section deleted");
+    await deleteHabitSection(key);
+    toast.success("Section deleted (only for you)");
   };
 
   // ── TOGETHER VIEW ──
