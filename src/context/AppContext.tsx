@@ -6,7 +6,7 @@ export interface Habit {
   id: string;
   label: string;
   done: boolean;
-  category: "morning" | "other";
+  category: string;
   completionDates: string[];
   hiddenFromPartner?: boolean;
   groupId?: string | null;
