@@ -26,7 +26,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     toggleHabit, addHabit, removeHabit, addSharedHabit,
     getHabitStreak, getPartnerHabitStreak,
     waterIntake, waterGoal, partnerWaterIntake, partnerWaterGoal,
-    renameHabitCategory, deleteHabitCategory,
+    habitSections, addHabitSection, renameHabitSection, deleteHabitSection,
   } = useAppContext();
   const { user, partner, profile, activeGroup } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
@@ -38,6 +38,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   // Section management state
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
+  const [newSectionForEveryone, setNewSectionForEveryone] = useState(false);
   const [renamingSection, setRenamingSection] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [sectionMenuOpen, setSectionMenuOpen] = useState<string | null>(null);
@@ -45,19 +46,11 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   const groupId = activeGroup?.id ?? null;
   const { hasOther, otherName } = useGroupContext();
 
-  // Load section metadata from localStorage
-  const [sections, setSections] = useState<HabitSectionMeta[]>(() => getHabitSections(groupId));
-
-  useEffect(() => {
-    setSections(getHabitSections(groupId));
-  }, [groupId]);
-
-  // Derive sections from actual habit categories + stored metadata
+  // Derive active sections from DB sections + discovered habit categories
   const activeSections = useMemo(() => {
-    const storedSections = sections;
+    const storedSections = habitSections;
     const habitCategories = new Set(filteredHabits.map((h) => h.category));
 
-    // Merge: stored sections first, then any new categories found in habits
     const result: HabitSectionMeta[] = [...storedSections];
     const knownKeys = new Set(storedSections.map((s) => s.key));
 
@@ -68,7 +61,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     });
 
     return result;
-  }, [sections, filteredHabits]);
+  }, [habitSections, filteredHabits]);
 
   const isViewingPartner = viewFilter === "partner";
   const isViewingTogether = viewFilter === "together";
