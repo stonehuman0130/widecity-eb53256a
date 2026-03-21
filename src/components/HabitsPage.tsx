@@ -181,8 +181,32 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     const theirTotal = theirHabits.length;
     const theirDone = theirHabits.filter((h) => h.done).length;
 
-    // Get all categories from both users
-    const allCategories = new Set([...myHabits.map((h) => h.category), ...theirHabits.map((h) => h.category)]);
+    // Normalize keys for cross-user matching: "morning-habits" and "morning" → same bucket
+    const normalizeKey = (key: string) => key.toLowerCase().replace(/[\s_-]+/g, "").replace(/habits$/, "");
+
+    // Build unified section groups: merge categories that normalize to the same key
+    type UnifiedSection = { label: string; icon: string; myKeys: string[]; theirKeys: string[] };
+    const unifiedMap = new Map<string, UnifiedSection>();
+
+    for (const cat of new Set(myHabits.map((h) => h.category))) {
+      const norm = normalizeKey(cat);
+      if (!unifiedMap.has(norm)) {
+        const meta = activeSections.find((s) => s.key === cat);
+        unifiedMap.set(norm, { label: meta?.label || cat, icon: meta?.icon || "📋", myKeys: [], theirKeys: [] });
+      }
+      unifiedMap.get(norm)!.myKeys.push(cat);
+    }
+
+    for (const cat of new Set(theirHabits.map((h) => h.category))) {
+      const norm = normalizeKey(cat);
+      if (!unifiedMap.has(norm)) {
+        const meta = activeSections.find((s) => s.key === cat);
+        unifiedMap.set(norm, { label: meta?.label || cat, icon: meta?.icon || "📋", myKeys: [], theirKeys: [] });
+      }
+      unifiedMap.get(norm)!.theirKeys.push(cat);
+    }
+
+    const unifiedSections = Array.from(unifiedMap.values());
 
     return (
       <div className="px-5">
