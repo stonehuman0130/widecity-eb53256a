@@ -53,11 +53,18 @@ export function loadSectionPrefs(groupId: string | null): SectionPrefs {
     const raw = localStorage.getItem(getStorageKey(groupId));
     if (raw) {
       const parsed = JSON.parse(raw);
-      const vis = new Set<string>(parsed.visible || DEFAULT_ORDER);
+      // Migrate old IDs
+      const migrateId = (id: string) => {
+        if (id === "morning-habits") return "habit:morning";
+        if (id === "other-habits") return "habit:other";
+        return id;
+      };
+      const order = (parsed.order || DEFAULT_ORDER).map(migrateId);
+      const vis = new Set<string>((parsed.visible || DEFAULT_ORDER).map(migrateId));
       vis.add("scheduled");
       vis.add("justdoit");
       return {
-        order: parsed.order || [...DEFAULT_ORDER],
+        order,
         visible: vis,
         selectedSobrietyIds: parsed.selectedSobrietyIds || [],
         selectedSpecialDayIds: parsed.selectedSpecialDayIds || [],
