@@ -86,9 +86,11 @@ interface AppContextType {
   habits: Habit[];
   filteredHabits: Habit[];
   toggleHabit: (id: string) => void;
-  addHabit: (label: string, category: "morning" | "other") => void;
+  addHabit: (label: string, category: string) => void;
   removeHabit: (id: string) => void;
-  addSharedHabit: (label: string, category: "morning" | "other") => Promise<void>;
+  addSharedHabit: (label: string, category: string) => Promise<void>;
+  renameHabitCategory: (oldCategory: string, newCategory: string) => Promise<void>;
+  deleteHabitCategory: (category: string) => Promise<void>;
   events: ScheduledEvent[];
   filteredEvents: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
