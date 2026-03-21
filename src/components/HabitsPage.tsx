@@ -367,7 +367,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
       {/* Past Date Viewer */}
       {!isViewingPartner && <HabitDateViewer />}
 
-      {/* Add Section Modal */}
+      {/* Add Section Card */}
       {showAddSection && (
         <div className="bg-card rounded-xl p-4 border border-border shadow-card mb-4">
           <p className="text-sm font-semibold mb-2">New Section</p>
@@ -379,11 +379,31 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
             className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground mb-2"
             autoFocus
           />
+          {activeGroup && (
+            <div className="flex gap-2 mb-2">
+              <button
+                onClick={() => setNewSectionForEveryone(false)}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
+                  !newSectionForEveryone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                }`}
+              >
+                Just Me
+              </button>
+              <button
+                onClick={() => setNewSectionForEveryone(true)}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1 ${
+                  newSectionForEveryone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                }`}
+              >
+                <Users size={12} /> Everyone
+              </button>
+            </div>
+          )}
           <div className="flex gap-2">
             <button onClick={handleAddSection} className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
               Create
             </button>
-            <button onClick={() => { setShowAddSection(false); setNewSectionName(""); }} className="px-4 py-2 bg-secondary text-muted-foreground rounded-lg text-sm font-medium">
+            <button onClick={() => { setShowAddSection(false); setNewSectionName(""); setNewSectionForEveryone(false); }} className="px-4 py-2 bg-secondary text-muted-foreground rounded-lg text-sm font-medium">
               Cancel
             </button>
           </div>
