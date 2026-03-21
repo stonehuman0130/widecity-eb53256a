@@ -94,9 +94,9 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     handleClose();
   };
 
-  const handleAddHabit = (category: "morning" | "other") => {
-    if (!habitLabel.trim()) return;
-    addHabit(habitLabel.trim(), category);
+  const handleAddHabit = () => {
+    if (!habitLabel.trim() || !selectedCategory) return;
+    addHabit(habitLabel.trim(), selectedCategory);
     handleClose();
   };
 
