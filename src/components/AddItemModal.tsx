@@ -146,7 +146,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                     <p className="text-xs text-muted-foreground">Add an event with date, time & details</p>
                   </div>
                 </button>
-                {getHabitSections(activeGroup?.id ?? null).map((section) => (
+                {habitSections.map((section) => (
                   <button
                     key={section.key}
                     onClick={() => { setSelectedCategory(section.key); setStep("habit"); }}
