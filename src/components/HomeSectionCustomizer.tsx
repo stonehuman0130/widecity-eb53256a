@@ -150,6 +150,7 @@ const HomeSectionCustomizer = ({
   onSave,
 }: Props) => {
   const { user, activeGroup } = useAuth();
+  const { filteredHabits } = useAppContext();
   useModalScrollLock(open);
   const [localOrder, setLocalOrder] = useState<string[]>([...order]);
   const [localVisible, setLocalVisible] = useState<Set<string>>(new Set(visible));
@@ -159,6 +160,10 @@ const HomeSectionCustomizer = ({
   const [specialDayOptions, setSpecialDayOptions] = useState<SpecialDayOption[]>([]);
   const [sobrietyExpanded, setSobrietyExpanded] = useState(false);
   const [specialDaysExpanded, setSpecialDaysExpanded] = useState(false);
+
+  // Build ALL_SECTIONS dynamically from user's habit sections
+  const habitSections = getHabitSections(activeGroup?.id ?? null);
+  const ALL_SECTIONS = buildAllSections(habitSections);
 
   useEffect(() => {
     if (open) {
