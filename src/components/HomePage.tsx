@@ -787,49 +787,24 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
       ) : (
         <>
           {sectionOrder.filter((id) => sectionVisible.has(id)).map((sectionId) => {
-            switch (sectionId) {
-              case "morning-habits":
-                return (
-                  <section key={sectionId} className="mb-6">
-                    <h2 className="text-lg font-semibold tracking-display mb-3">
-                      {filter === "partner" ? `${partnerName}'s Morning Habits` : "Morning Habits"}
-                    </h2>
-                    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-                      {displayMorningHabits.map((habit) => {
-                        const doneForDate = habit.completionDates.includes(selDateStr);
-                        return (
-                          <button
-                            key={habit.id}
-                            onClick={() => !isViewingPartner && isTodayDate && handleToggleHabit(habit.id)}
-                            disabled={isViewingPartner || !isTodayDate}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
-                              doneForDate
-                                ? "border-habit-green bg-habit-green/10 text-habit-green"
-                                : "border-border bg-card text-foreground"
-                            } ${(isViewingPartner || !isTodayDate) ? "opacity-80" : ""}`}
-                          >
-                            {doneForDate ? (
-                              <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
-                                <Check size={12} className="text-primary-foreground" />
-                              </span>
-                            ) : (
-                              <span className="w-5 h-5 rounded-full border-2 border-muted" />
-                            )}
-                            {habit.label}
-                            <GroupBadge groupId={habit.groupId} />
-                          </button>
-                        );
-                      })}
-                      {displayMorningHabits.length === 0 && (
-                        <p className="text-sm text-muted-foreground py-2">
-                          {isViewingPartner ? `${partnerName} has no morning habits yet` : "No morning habits yet"}
-                        </p>
-                      )}
-                    </div>
-                  </section>
-                );
+            // Handle dynamic habit sections (habit:xxx)
+            if (sectionId.startsWith("habit:")) {
+              const categoryKey = sectionId.replace("habit:", "");
+              const sectionMeta = habitSections.find((s) => s.key === categoryKey);
+              if (!sectionMeta) return null;
+              return (
+                <section key={sectionId} className="mb-6">
+                  <HomeHabitSectionWidget
+                    selectedDate={selectedDate}
+                    categoryKey={categoryKey}
+                    sectionLabel={filter === "partner" ? `${partnerName}'s ${sectionMeta.label}` : sectionMeta.label}
+                    sectionIcon={sectionMeta.icon}
+                  />
+                </section>
+              );
+            }
 
-              case "scheduled":
+            switch (sectionId) {
                 return (
                   <section key={sectionId} className="mb-6">
                     <div className="flex items-center gap-2 mb-3">
