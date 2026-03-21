@@ -1,6 +1,14 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import {
+  HabitSectionMeta,
+  loadSectionsFromDB,
+  addSectionToDB,
+  createSharedSectionRPC,
+  renameSectionInDB,
+  deleteSectionFromDB,
+} from "@/lib/habitSections";
 
 export interface Habit {
   id: string;
