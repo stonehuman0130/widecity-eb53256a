@@ -1,6 +1,14 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import {
+  HabitSectionMeta,
+  loadSectionsFromDB,
+  addSectionToDB,
+  createSharedSectionRPC,
+  renameSectionInDB,
+  deleteSectionFromDB,
+} from "@/lib/habitSections";
 
 export interface Habit {
   id: string;
@@ -91,6 +99,12 @@ interface AppContextType {
   addSharedHabit: (label: string, category: string) => Promise<void>;
   renameHabitCategory: (oldCategory: string, newCategory: string) => Promise<void>;
   deleteHabitCategory: (category: string) => Promise<void>;
+  // Habit sections (DB-backed)
+  habitSections: HabitSectionMeta[];
+  addHabitSection: (label: string, icon?: string, forEveryone?: boolean) => Promise<void>;
+  renameHabitSection: (oldKey: string, newLabel: string) => Promise<void>;
+  deleteHabitSection: (key: string) => Promise<void>;
+  refreshHabitSections: () => Promise<void>;
   events: ScheduledEvent[];
   filteredEvents: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
@@ -175,6 +189,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [partnerTasks, setPartnerTasks] = useState<Task[]>([]);
   const [partnerWorkouts, setPartnerWorkouts] = useState<Workout[]>([]);
   const [googleCalendarEvents, setGoogleCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
+  const [habitSectionsState, setHabitSectionsState] = useState<HabitSectionMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
   const contextOtherUserId = useMemo(() => {
@@ -345,6 +360,67 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     loadData();
   }, [user]);
+
+  // ── Load habit sections from DB ──
+  const groupIdRef = activeGroup?.id ?? null;
+
+  const refreshHabitSections = useCallback(async () => {
+    if (!user) return;
+    const sections = await loadSectionsFromDB(user.id, groupIdRef);
+    setHabitSectionsState(sections);
+  }, [user, groupIdRef]);
+
+  useEffect(() => {
+    if (user) {
+      refreshHabitSections();
+    } else {
+      setHabitSectionsState([]);
+    }
+  }, [user, groupIdRef, refreshHabitSections]);
+
+  const addHabitSection = async (label: string, icon = "📋", forEveryone = false) => {
+    if (!user) return;
+    const key = label.trim().toLowerCase().replace(/\s+/g, "-");
+
+    if (forEveryone && groupIdRef) {
+      const result = await createSharedSectionRPC(key, label.trim(), icon, groupIdRef);
+      if (result.error) {
+        console.error("Shared section error:", result.error);
+        return;
+      }
+    } else {
+      await addSectionToDB(user.id, groupIdRef, { key, label: label.trim(), icon }, habitSectionsState.length);
+    }
+    await refreshHabitSections();
+  };
+
+  const renameHabitSectionFn = async (oldKey: string, newLabel: string) => {
+    if (!user) return;
+    const newKey = newLabel.trim().toLowerCase().replace(/\s+/g, "-");
+    await renameSectionInDB(user.id, groupIdRef, oldKey, newKey, newLabel.trim());
+    if (oldKey !== newKey) {
+      // Also rename habit categories
+      const habitIds = habits.filter((h) => h.category === oldKey).map((h) => h.id);
+      if (habitIds.length > 0) {
+        await supabase.from("habits").update({ category: newKey }).in("id", habitIds);
+        setHabits((h) => h.map((item) => item.category === oldKey ? { ...item, category: newKey } : item));
+      }
+    }
+    await refreshHabitSections();
+  };
+
+  const deleteHabitSectionFn = async (key: string) => {
+    if (!user) return;
+    // Delete only current user's habits in this category
+    const toDelete = habits.filter((h) => h.category === key);
+    for (const h of toDelete) {
+      await supabase.from("habit_completions").delete().eq("habit_id", h.id);
+      await supabase.from("habits").delete().eq("id", h.id);
+    }
+    setHabits((h) => h.filter((item) => item.category !== key));
+    await deleteSectionFromDB(user.id, groupIdRef, key);
+    await refreshHabitSections();
+  };
 
   // Load Google Calendar events — supports both single group and "All" mode
   useEffect(() => {
@@ -1328,6 +1404,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AppContext.Provider value={{
       habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit, renameHabitCategory, deleteHabitCategory,
+      habitSections: habitSectionsState, addHabitSection, renameHabitSection: renameHabitSectionFn, deleteHabitSection: deleteHabitSectionFn, refreshHabitSections,
       events, filteredEvents, addEvent, removeEvent, rescheduleEvent, toggleEventCompletion,
       tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,

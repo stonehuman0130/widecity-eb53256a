@@ -13,7 +13,7 @@ import AddItemModal from "@/components/AddItemModal";
 import CongratsPopup from "@/components/CongratsPopup";
 import HomeSectionCustomizer, { loadSectionPrefs, saveSectionPrefs, buildAllSections } from "@/components/HomeSectionCustomizer";
 import { HomeWaterWidget, HomeWorkoutWidget, HomeSobrietyWidget, HomeHabitSectionWidget, HomeSpecialDaysWidget } from "@/components/HomeWidgets";
-import { getHabitSections } from "@/lib/habitSections";
+import type { HabitSectionMeta } from "@/lib/habitSections";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
@@ -352,8 +352,8 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     }
   };
 
-  // Habit sections from user preferences
-  const habitSections = getHabitSections(activeGroup?.id ?? null);
+  // Habit sections from context
+  const { habitSections } = useAppContext();
 
   // Morning habits: show own when "mine", partner's when "partner" — use first habit section
   const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");

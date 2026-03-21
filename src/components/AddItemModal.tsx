@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { getHabitSections } from "@/lib/habitSections";
 
 type ModalStep = "choose" | "calendar" | "habit";
 
@@ -14,7 +13,7 @@ interface AddItemModalProps {
 }
 
 const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
-  const { addEvent, addHabit, addTask } = useAppContext();
+  const { addEvent, addHabit, addTask, habitSections } = useAppContext();
   const { activeGroup } = useAuth();
   const [step, setStep] = useState<ModalStep>("choose");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -146,7 +145,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                     <p className="text-xs text-muted-foreground">Add an event with date, time & details</p>
                   </div>
                 </button>
-                {getHabitSections(activeGroup?.id ?? null).map((section) => (
+                {habitSections.map((section) => (
                   <button
                     key={section.key}
                     onClick={() => { setSelectedCategory(section.key); setStep("habit"); }}

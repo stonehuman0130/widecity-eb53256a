@@ -11,7 +11,7 @@ import HabitDateViewer from "@/components/HabitDateViewer";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
-import { getHabitSections, setHabitSections, HabitSectionMeta } from "@/lib/habitSections";
+import type { HabitSectionMeta } from "@/lib/habitSections";
 
 const todayStr = () => {
   const d = new Date();
@@ -26,7 +26,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     toggleHabit, addHabit, removeHabit, addSharedHabit,
     getHabitStreak, getPartnerHabitStreak,
     waterIntake, waterGoal, partnerWaterIntake, partnerWaterGoal,
-    renameHabitCategory, deleteHabitCategory,
+    habitSections, addHabitSection, renameHabitSection, deleteHabitSection,
   } = useAppContext();
   const { user, partner, profile, activeGroup } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
@@ -38,6 +38,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   // Section management state
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
+  const [newSectionForEveryone, setNewSectionForEveryone] = useState(false);
   const [renamingSection, setRenamingSection] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [sectionMenuOpen, setSectionMenuOpen] = useState<string | null>(null);
@@ -45,19 +46,11 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   const groupId = activeGroup?.id ?? null;
   const { hasOther, otherName } = useGroupContext();
 
-  // Load section metadata from localStorage
-  const [sections, setSections] = useState<HabitSectionMeta[]>(() => getHabitSections(groupId));
-
-  useEffect(() => {
-    setSections(getHabitSections(groupId));
-  }, [groupId]);
-
-  // Derive sections from actual habit categories + stored metadata
+  // Derive active sections from DB sections + discovered habit categories
   const activeSections = useMemo(() => {
-    const storedSections = sections;
+    const storedSections = habitSections;
     const habitCategories = new Set(filteredHabits.map((h) => h.category));
 
-    // Merge: stored sections first, then any new categories found in habits
     const result: HabitSectionMeta[] = [...storedSections];
     const knownKeys = new Set(storedSections.map((s) => s.key));
 
@@ -68,7 +61,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     });
 
     return result;
-  }, [sections, filteredHabits]);
+  }, [habitSections, filteredHabits]);
 
   const isViewingPartner = viewFilter === "partner";
   const isViewingTogether = viewFilter === "together";
@@ -150,36 +143,18 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     }
   };
 
-  const handleAddSection = () => {
+  const handleAddSection = async () => {
     if (!newSectionName.trim()) return;
-    const key = newSectionName.trim().toLowerCase().replace(/\s+/g, "-");
-    const newSection: HabitSectionMeta = {
-      key,
-      label: newSectionName.trim(),
-      icon: "📋",
-    };
-    const updated = [...sections, newSection];
-    setSections(updated);
-    setHabitSections(groupId, updated);
+    await addHabitSection(newSectionName.trim(), "📋", newSectionForEveryone && !!groupId);
     setNewSectionName("");
     setShowAddSection(false);
-    toast.success(`Section "${newSectionName.trim()}" created`);
+    setNewSectionForEveryone(false);
+    toast.success(`Section "${newSectionName.trim()}" created${newSectionForEveryone && groupId ? " for everyone" : ""}`);
   };
 
   const handleRenameSection = async (oldKey: string) => {
     if (!renameValue.trim()) return;
-    const newKey = renameValue.trim().toLowerCase().replace(/\s+/g, "-");
-    const updated = sections.map((s) =>
-      s.key === oldKey ? { ...s, key: newKey, label: renameValue.trim() } : s
-    );
-    setSections(updated);
-    setHabitSections(groupId, updated);
-
-    // Rename category on all habits
-    if (oldKey !== newKey) {
-      await renameHabitCategory(oldKey, newKey);
-    }
-
+    await renameHabitSection(oldKey, renameValue.trim());
     setRenamingSection(null);
     setRenameValue("");
     toast.success("Section renamed");
@@ -189,15 +164,12 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     const sectionHabits = displayHabits.filter((h) => h.category === key);
     if (sectionHabits.length > 0) {
       const confirmed = window.confirm(
-        `This will delete ${sectionHabits.length} habit(s) in this section. Are you sure?`
+        `This will delete ${sectionHabits.length} habit(s) in this section for you only. Others in the group keep theirs. Are you sure?`
       );
       if (!confirmed) return;
     }
-    await deleteHabitCategory(key);
-    const updated = sections.filter((s) => s.key !== key);
-    setSections(updated);
-    setHabitSections(groupId, updated);
-    toast.success("Section deleted");
+    await deleteHabitSection(key);
+    toast.success("Section deleted (only for you)");
   };
 
   // ── TOGETHER VIEW ──
@@ -395,7 +367,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
       {/* Past Date Viewer */}
       {!isViewingPartner && <HabitDateViewer />}
 
-      {/* Add Section Modal */}
+      {/* Add Section Card */}
       {showAddSection && (
         <div className="bg-card rounded-xl p-4 border border-border shadow-card mb-4">
           <p className="text-sm font-semibold mb-2">New Section</p>
@@ -407,11 +379,31 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
             className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground mb-2"
             autoFocus
           />
+          {activeGroup && (
+            <div className="flex gap-2 mb-2">
+              <button
+                onClick={() => setNewSectionForEveryone(false)}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
+                  !newSectionForEveryone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                }`}
+              >
+                Just Me
+              </button>
+              <button
+                onClick={() => setNewSectionForEveryone(true)}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1 ${
+                  newSectionForEveryone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                }`}
+              >
+                <Users size={12} /> Everyone
+              </button>
+            </div>
+          )}
           <div className="flex gap-2">
             <button onClick={handleAddSection} className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
               Create
             </button>
-            <button onClick={() => { setShowAddSection(false); setNewSectionName(""); }} className="px-4 py-2 bg-secondary text-muted-foreground rounded-lg text-sm font-medium">
+            <button onClick={() => { setShowAddSection(false); setNewSectionName(""); setNewSectionForEveryone(false); }} className="px-4 py-2 bg-secondary text-muted-foreground rounded-lg text-sm font-medium">
               Cancel
             </button>
           </div>
@@ -530,6 +522,17 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           </section>
         );
       })}
+
+      {/* Add Section button at bottom */}
+      {!isViewingPartner && !showAddSection && activeSections.length > 0 && (
+        <button
+          onClick={() => setShowAddSection(true)}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all mb-6"
+        >
+          <FolderPlus size={16} />
+          <span className="text-sm font-medium">Add Section</span>
+        </button>
+      )}
 
       {/* Show empty state if no sections at all */}
       {activeSections.length === 0 && !isViewingPartner && (
