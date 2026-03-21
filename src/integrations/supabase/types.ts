@@ -297,6 +297,47 @@ export type Database = {
           },
         ]
       }
+      habit_sections: {
+        Row: {
+          created_at: string
+          group_id: string | null
+          icon: string
+          id: string
+          key: string
+          label: string
+          sort_order: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id?: string | null
+          icon?: string
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string | null
+          icon?: string
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habit_sections_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       habits: {
         Row: {
           category: string
@@ -777,6 +818,15 @@ export type Database = {
       }
       create_shared_habit: {
         Args: { _category: string; _label: string }
+        Returns: Json
+      }
+      create_shared_section: {
+        Args: {
+          _group_id?: string
+          _icon?: string
+          _key: string
+          _label: string
+        }
         Returns: Json
       }
       disconnect_partner: { Args: never; Returns: Json }
