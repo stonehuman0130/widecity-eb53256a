@@ -234,7 +234,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             return {
               id: h.id,
               label: h.label,
-              category: h.category as "morning" | "other",
+              category: h.category as string,
               done: completionDates.includes(todayDate),
               completionDates,
               hiddenFromPartner: h.hidden_from_partner || false,
