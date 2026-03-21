@@ -35,6 +35,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
 
   const reset = () => {
     setStep("choose");
+    setSelectedCategory("");
     setCalTitle("");
     setCalStartDate("");
     setCalStartTime("");
