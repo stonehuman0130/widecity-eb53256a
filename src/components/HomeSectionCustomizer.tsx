@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useAppContext } from "@/context/AppContext";
 import { useModalScrollLock } from "@/hooks/useModalScrollLock";
-import { getHabitSections, HabitSectionMeta } from "@/lib/habitSections";
+import type { HabitSectionMeta } from "@/lib/habitSections";
 
 export interface HomeSection {
   id: string;
