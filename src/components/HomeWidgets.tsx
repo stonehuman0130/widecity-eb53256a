@@ -483,22 +483,27 @@ export const HomeSpecialDaysWidget = ({ selectedDate, selectedDayIds }: { select
   );
 };
 
-/** Other Habits widget for Home page — date-aware */
-export const HomeOtherHabitsWidget = ({ selectedDate }: { selectedDate: Date }) => {
+/** Dynamic Habit Section widget for Home page — date-aware */
+export const HomeHabitSectionWidget = ({ selectedDate, categoryKey, sectionLabel, sectionIcon }: {
+  selectedDate: Date;
+  categoryKey: string;
+  sectionLabel: string;
+  sectionIcon: string;
+}) => {
   const { filteredHabits, toggleHabit, getHabitStreak } = useAppContext();
   const dateStr = fmtDate(selectedDate);
   const isToday = dateStr === fmtDate(new Date());
 
-  const otherHabits = filteredHabits.filter((h) => h.category === "other");
+  const sectionHabits = filteredHabits.filter((h) => h.category === categoryKey);
 
-  if (otherHabits.length === 0) {
+  if (sectionHabits.length === 0) {
     return (
       <div>
         <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">
-          🌙 Other Habits
+          {sectionIcon} {sectionLabel}
         </h2>
         <div className="bg-card rounded-xl p-4 shadow-card border border-border">
-          <p className="text-xs text-muted-foreground">No other habits yet</p>
+          <p className="text-xs text-muted-foreground">No habits in this section yet</p>
         </div>
       </div>
     );
@@ -507,10 +512,10 @@ export const HomeOtherHabitsWidget = ({ selectedDate }: { selectedDate: Date }) 
   return (
     <div>
       <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">
-        🌙 Other Habits
+        {sectionIcon} {sectionLabel}
       </h2>
-      <div className="grid grid-cols-2 gap-2">
-        {otherHabits.map((habit) => {
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        {sectionHabits.map((habit) => {
           const doneForDate = habit.completionDates.includes(dateStr);
           const streak = getHabitStreak(habit.id);
           return (
@@ -518,26 +523,20 @@ export const HomeOtherHabitsWidget = ({ selectedDate }: { selectedDate: Date }) 
               key={habit.id}
               onClick={() => isToday && toggleHabit(habit.id)}
               disabled={!isToday}
-              className={`bg-card rounded-xl p-3 border text-left transition-all active:scale-[0.98] ${
-                doneForDate ? "border-habit-green/50 bg-habit-green/5" : "border-border"
-              } ${!isToday ? "opacity-70" : ""}`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
+                doneForDate
+                  ? "border-habit-green bg-habit-green/10 text-habit-green"
+                  : "border-border bg-card text-foreground"
+              } ${!isToday ? "opacity-80" : ""}`}
             >
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                  doneForDate ? "bg-habit-green border-habit-green" : "border-muted"
-                }`}>
-                  {doneForDate && <Check size={10} className="text-primary-foreground" />}
-                </div>
-                <span className={`text-xs font-semibold truncate ${doneForDate ? "line-through opacity-50" : ""}`}>
-                  {habit.label}
+              {doneForDate ? (
+                <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
+                  <Check size={12} className="text-primary-foreground" />
                 </span>
-              </div>
-              {streak > 0 && (
-                <div className="flex items-center gap-1 ml-6">
-                  <Flame size={10} className="text-destructive" />
-                  <span className="text-[9px] text-muted-foreground">{streak}d streak</span>
-                </div>
+              ) : (
+                <span className="w-5 h-5 rounded-full border-2 border-muted" />
               )}
+              {habit.label}
             </button>
           );
         })}

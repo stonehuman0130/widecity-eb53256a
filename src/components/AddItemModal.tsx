@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { X, CalendarDays, Sun, Sparkles } from "lucide-react";
+import { X, CalendarDays, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { getHabitSections } from "@/lib/habitSections";
 
-type ModalStep = "choose" | "calendar" | "morning-habit" | "other-habit";
+type ModalStep = "choose" | "calendar" | "habit";
 
 interface AddItemModalProps {
   open: boolean;
@@ -13,7 +15,9 @@ interface AddItemModalProps {
 
 const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const { addEvent, addHabit, addTask } = useAppContext();
+  const { activeGroup } = useAuth();
   const [step, setStep] = useState<ModalStep>("choose");
+  const [selectedCategory, setSelectedCategory] = useState("");
 
   // Calendar form state
   const [calTitle, setCalTitle] = useState("");
@@ -31,6 +35,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
 
   const reset = () => {
     setStep("choose");
+    setSelectedCategory("");
     setCalTitle("");
     setCalStartDate("");
     setCalStartTime("");
@@ -89,9 +94,9 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     handleClose();
   };
 
-  const handleAddHabit = (category: "morning" | "other") => {
-    if (!habitLabel.trim()) return;
-    addHabit(habitLabel.trim(), category);
+  const handleAddHabit = () => {
+    if (!habitLabel.trim() || !selectedCategory) return;
+    addHabit(habitLabel.trim(), selectedCategory);
     handleClose();
   };
 
@@ -118,7 +123,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
           {/* Fixed header */}
           <div className="flex items-center justify-between p-5 pb-3 flex-shrink-0">
             <h2 className="text-lg font-bold tracking-display">
-              {step === "choose" ? "Add New" : step === "calendar" ? "Schedule Event" : step === "morning-habit" ? "Morning Habit" : "New Habit"}
+              {step === "choose" ? "Add New" : step === "calendar" ? "Schedule Event" : "New Habit"}
             </h2>
             <button onClick={handleClose} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
               <X size={16} />
@@ -141,30 +146,21 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                     <p className="text-xs text-muted-foreground">Add an event with date, time & details</p>
                   </div>
                 </button>
-                <button
-                  onClick={() => setStep("morning-habit")}
-                  className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
-                >
-                  <span className="w-11 h-11 rounded-xl bg-accent/20 flex items-center justify-center text-accent">
-                    <Sun size={22} />
-                  </span>
-                  <div className="text-left">
-                    <p className="text-[15px] font-semibold">Morning Habit</p>
-                    <p className="text-xs text-muted-foreground">Add to your morning routine</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setStep("other-habit")}
-                  className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
-                >
-                  <span className="w-11 h-11 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
-                    <Sparkles size={22} />
-                  </span>
-                  <div className="text-left">
-                    <p className="text-[15px] font-semibold">Other Habit</p>
-                    <p className="text-xs text-muted-foreground">Evening, anytime, or recurring habit</p>
-                  </div>
-                </button>
+                {getHabitSections(activeGroup?.id ?? null).map((section) => (
+                  <button
+                    key={section.key}
+                    onClick={() => { setSelectedCategory(section.key); setStep("habit"); }}
+                    className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
+                  >
+                    <span className="w-11 h-11 rounded-xl bg-accent/20 flex items-center justify-center text-lg">
+                      {section.icon}
+                    </span>
+                    <div className="text-left">
+                      <p className="text-[15px] font-semibold">{section.label}</p>
+                      <p className="text-xs text-muted-foreground">Add a habit to {section.label.toLowerCase()}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
 
@@ -277,18 +273,18 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
               </div>
             )}
 
-            {(step === "morning-habit" || step === "other-habit") && (
+            {step === "habit" && (
               <div className="space-y-3">
                 <input
                   value={habitLabel}
                   onChange={(e) => setHabitLabel(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddHabit(step === "morning-habit" ? "morning" : "other")}
-                  placeholder={step === "morning-habit" ? "e.g. Cold shower, Journaling..." : "e.g. Read 10 pages, No sugar..."}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddHabit()}
+                  placeholder="e.g. Cold shower, Read 10 pages..."
                   className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
                   autoFocus
                 />
                 <button
-                  onClick={() => handleAddHabit(step === "morning-habit" ? "morning" : "other")}
+                  onClick={handleAddHabit}
                   className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold"
                 >
                   Add Habit

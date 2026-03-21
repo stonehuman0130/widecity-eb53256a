@@ -11,8 +11,9 @@ import TaskActionMenu from "@/components/TaskActionMenu";
 import TeamDashboard from "@/components/TeamDashboard";
 import AddItemModal from "@/components/AddItemModal";
 import CongratsPopup from "@/components/CongratsPopup";
-import HomeSectionCustomizer, { loadSectionPrefs, saveSectionPrefs } from "@/components/HomeSectionCustomizer";
-import { HomeWaterWidget, HomeWorkoutWidget, HomeSobrietyWidget, HomeOtherHabitsWidget, HomeSpecialDaysWidget } from "@/components/HomeWidgets";
+import HomeSectionCustomizer, { loadSectionPrefs, saveSectionPrefs, buildAllSections } from "@/components/HomeSectionCustomizer";
+import { HomeWaterWidget, HomeWorkoutWidget, HomeSobrietyWidget, HomeHabitSectionWidget, HomeSpecialDaysWidget } from "@/components/HomeWidgets";
+import { getHabitSections } from "@/lib/habitSections";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
 import { supabase } from "@/integrations/supabase/client";
@@ -351,7 +352,10 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     }
   };
 
-  // Morning habits: show own when "mine", partner's when "partner"
+  // Habit sections from user preferences
+  const habitSections = getHabitSections(activeGroup?.id ?? null);
+
+  // Morning habits: show own when "mine", partner's when "partner" — use first habit section
   const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
   const partnerMorningHabits = filteredPartnerHabits.filter((h) => h.category === "morning");
   const displayMorningHabits = filter === "partner" ? partnerMorningHabits : myMorningHabits;
@@ -783,48 +787,24 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
       ) : (
         <>
           {sectionOrder.filter((id) => sectionVisible.has(id)).map((sectionId) => {
-            switch (sectionId) {
-              case "morning-habits":
-                return (
-                  <section key={sectionId} className="mb-6">
-                    <h2 className="text-lg font-semibold tracking-display mb-3">
-                      {filter === "partner" ? `${partnerName}'s Morning Habits` : "Morning Habits"}
-                    </h2>
-                    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-                      {displayMorningHabits.map((habit) => {
-                        const doneForDate = habit.completionDates.includes(selDateStr);
-                        return (
-                          <button
-                            key={habit.id}
-                            onClick={() => !isViewingPartner && isTodayDate && handleToggleHabit(habit.id)}
-                            disabled={isViewingPartner || !isTodayDate}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
-                              doneForDate
-                                ? "border-habit-green bg-habit-green/10 text-habit-green"
-                                : "border-border bg-card text-foreground"
-                            } ${(isViewingPartner || !isTodayDate) ? "opacity-80" : ""}`}
-                          >
-                            {doneForDate ? (
-                              <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
-                                <Check size={12} className="text-primary-foreground" />
-                              </span>
-                            ) : (
-                              <span className="w-5 h-5 rounded-full border-2 border-muted" />
-                            )}
-                            {habit.label}
-                            <GroupBadge groupId={habit.groupId} />
-                          </button>
-                        );
-                      })}
-                      {displayMorningHabits.length === 0 && (
-                        <p className="text-sm text-muted-foreground py-2">
-                          {isViewingPartner ? `${partnerName} has no morning habits yet` : "No morning habits yet"}
-                        </p>
-                      )}
-                    </div>
-                  </section>
-                );
+            // Handle dynamic habit sections (habit:xxx)
+            if (sectionId.startsWith("habit:")) {
+              const categoryKey = sectionId.replace("habit:", "");
+              const sectionMeta = habitSections.find((s) => s.key === categoryKey);
+              if (!sectionMeta) return null;
+              return (
+                <section key={sectionId} className="mb-6">
+                  <HomeHabitSectionWidget
+                    selectedDate={selectedDate}
+                    categoryKey={categoryKey}
+                    sectionLabel={filter === "partner" ? `${partnerName}'s ${sectionMeta.label}` : sectionMeta.label}
+                    sectionIcon={sectionMeta.icon}
+                  />
+                </section>
+              );
+            }
 
+            switch (sectionId) {
               case "scheduled":
                 return (
                   <section key={sectionId} className="mb-6">
@@ -865,13 +845,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
                     )}
-                  </section>
-                );
-
-              case "other-habits":
-                return (
-                  <section key={sectionId} className="mb-6">
-                    <HomeOtherHabitsWidget selectedDate={selectedDate} />
                   </section>
                 );
 

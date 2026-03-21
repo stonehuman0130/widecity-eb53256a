@@ -6,7 +6,7 @@ export interface Habit {
   id: string;
   label: string;
   done: boolean;
-  category: "morning" | "other";
+  category: string;
   completionDates: string[];
   hiddenFromPartner?: boolean;
   groupId?: string | null;
@@ -86,9 +86,11 @@ interface AppContextType {
   habits: Habit[];
   filteredHabits: Habit[];
   toggleHabit: (id: string) => void;
-  addHabit: (label: string, category: "morning" | "other") => void;
+  addHabit: (label: string, category: string) => void;
   removeHabit: (id: string) => void;
-  addSharedHabit: (label: string, category: "morning" | "other") => Promise<void>;
+  addSharedHabit: (label: string, category: string) => Promise<void>;
+  renameHabitCategory: (oldCategory: string, newCategory: string) => Promise<void>;
+  deleteHabitCategory: (category: string) => Promise<void>;
   events: ScheduledEvent[];
   filteredEvents: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
@@ -232,7 +234,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             return {
               id: h.id,
               label: h.label,
-              category: h.category as "morning" | "other",
+              category: h.category as string,
               done: completionDates.includes(todayDate),
               completionDates,
               hiddenFromPartner: h.hidden_from_partner || false,
@@ -449,7 +451,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             return {
               id: h.id,
               label: h.label,
-              category: h.category as "morning" | "other",
+              category: h.category as string,
               done: completionDates.includes(todayDate),
               completionDates,
               hiddenFromPartner: h.hidden_from_partner || false,
@@ -676,7 +678,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addHabit = async (label: string, category: "morning" | "other") => {
+  const addHabit = async (label: string, category: string) => {
     if (!user) return;
     const groupId = activeGroup?.id ?? null;
     const { data, error } = await supabase
@@ -690,13 +692,32 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const renameHabitCategory = async (oldCategory: string, newCategory: string) => {
+    if (!user || oldCategory === newCategory) return;
+    // Update all habits with old category to new category
+    const habitIds = habits.filter((h) => h.category === oldCategory).map((h) => h.id);
+    if (habitIds.length === 0) return;
+    await supabase.from("habits").update({ category: newCategory }).in("id", habitIds);
+    setHabits((h) => h.map((item) => item.category === oldCategory ? { ...item, category: newCategory } : item));
+  };
+
+  const deleteHabitCategory = async (category: string) => {
+    if (!user) return;
+    const toDelete = habits.filter((h) => h.category === category);
+    for (const h of toDelete) {
+      await supabase.from("habit_completions").delete().eq("habit_id", h.id);
+      await supabase.from("habits").delete().eq("id", h.id);
+    }
+    setHabits((h) => h.filter((item) => item.category !== category));
+  };
+
   const removeHabit = async (id: string) => {
     setHabits((h) => h.filter((item) => item.id !== id));
     await supabase.from("habit_completions").delete().eq("habit_id", id);
     await supabase.from("habits").delete().eq("id", id);
   };
 
-  const addSharedHabit = async (label: string, category: "morning" | "other") => {
+  const addSharedHabit = async (label: string, category: string) => {
     if (!user) return;
     const { data, error } = await supabase.rpc("create_shared_habit", {
       _label: label,
@@ -1306,7 +1327,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AppContext.Provider value={{
-      habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit,
+      habits, filteredHabits, toggleHabit, addHabit, removeHabit, addSharedHabit, renameHabitCategory, deleteHabitCategory,
       events, filteredEvents, addEvent, removeEvent, rescheduleEvent, toggleEventCompletion,
       tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
       waterIntake, waterGoal, setWaterIntake, setWaterGoal, resetWater,

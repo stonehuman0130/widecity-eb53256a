@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import GroupBadge from "@/components/GroupBadge";
-import { Plus, Flame, Check, Bell, Users, MoreVertical, Trash2, Settings } from "lucide-react";
+import { Plus, Flame, Check, Bell, Users, MoreVertical, Trash2, Settings, Pencil, FolderPlus } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import HabitDateViewer from "@/components/HabitDateViewer";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
+import { getHabitSections, setHabitSections, HabitSectionMeta } from "@/lib/habitSections";
 
 const todayStr = () => {
   const d = new Date();
@@ -25,41 +26,61 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     toggleHabit, addHabit, removeHabit, addSharedHabit,
     getHabitStreak, getPartnerHabitStreak,
     waterIntake, waterGoal, partnerWaterIntake, partnerWaterGoal,
+    renameHabitCategory, deleteHabitCategory,
   } = useAppContext();
-  const { user, partner, profile } = useAuth();
+  const { user, partner, profile, activeGroup } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
-  const [addingTo, setAddingTo] = useState<"morning" | "other" | null>(null);
+  const [addingToSection, setAddingToSection] = useState<string | null>(null);
   const [assignTo, setAssignTo] = useState<"me" | "both">("me");
   const [showCongrats, setShowCongrats] = useState(false);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
 
+  // Section management state
+  const [showAddSection, setShowAddSection] = useState(false);
+  const [newSectionName, setNewSectionName] = useState("");
+  const [renamingSection, setRenamingSection] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [sectionMenuOpen, setSectionMenuOpen] = useState<string | null>(null);
+
+  const groupId = activeGroup?.id ?? null;
   const { hasOther, otherName } = useGroupContext();
+
+  // Load section metadata from localStorage
+  const [sections, setSections] = useState<HabitSectionMeta[]>(() => getHabitSections(groupId));
+
+  useEffect(() => {
+    setSections(getHabitSections(groupId));
+  }, [groupId]);
+
+  // Derive sections from actual habit categories + stored metadata
+  const activeSections = useMemo(() => {
+    const storedSections = sections;
+    const habitCategories = new Set(filteredHabits.map((h) => h.category));
+
+    // Merge: stored sections first, then any new categories found in habits
+    const result: HabitSectionMeta[] = [...storedSections];
+    const knownKeys = new Set(storedSections.map((s) => s.key));
+
+    habitCategories.forEach((cat) => {
+      if (!knownKeys.has(cat)) {
+        result.push({ key: cat, label: cat.charAt(0).toUpperCase() + cat.slice(1), icon: "📋" });
+      }
+    });
+
+    return result;
+  }, [sections, filteredHabits]);
 
   const isViewingPartner = viewFilter === "partner";
   const isViewingTogether = viewFilter === "together";
 
-  // Choose which habits to show for individual views
   const displayHabits = isViewingPartner ? filteredPartnerHabits : filteredHabits;
-
-  const morningHabits = displayHabits.filter((h) => h.category === "morning");
-  const otherHabits = displayHabits.filter((h) => h.category === "other");
   const totalCompleted = displayHabits.filter((h) => h.done).length;
   const total = displayHabits.length;
-  const morningCompleted = morningHabits.filter((h) => h.done).length;
   const streakFn = isViewingPartner ? getPartnerHabitStreak : getHabitStreak;
-
-  // Together view data
-  const myHabits = filteredHabits;
-  const theirHabits = filteredPartnerHabits;
-  const myMorning = myHabits.filter((h) => h.category === "morning");
-  const myOther = myHabits.filter((h) => h.category === "other");
-  const theirMorning = theirHabits.filter((h) => h.category === "morning");
-  const theirOther = theirHabits.filter((h) => h.category === "other");
 
   const myName = profile?.display_name || "Me";
   const partnerName = otherName;
 
-  // Build tab filters
   const tabFilters = useMemo(() => {
     const tabs: { id: ViewFilter; label: string }[] = [{ id: "mine", label: "Mine" }];
     if (hasOther) {
@@ -69,7 +90,6 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     return tabs;
   }, [hasOther, partnerName]);
 
-  // Check for incoming nudges
   useEffect(() => {
     if (!user) return;
     const checkNudges = async () => {
@@ -94,15 +114,15 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   }, [user, partner]);
 
   const handleAdd = async () => {
-    if (!newHabitLabel.trim() || !addingTo) return;
+    if (!newHabitLabel.trim() || !addingToSection) return;
     if (assignTo === "both" && partner) {
-      await addSharedHabit(newHabitLabel.trim(), addingTo);
+      await addSharedHabit(newHabitLabel.trim(), addingToSection);
       toast.success(`Shared habit "${newHabitLabel.trim()}" added for both!`);
     } else {
-      addHabit(newHabitLabel.trim(), addingTo);
+      addHabit(newHabitLabel.trim(), addingToSection);
     }
     setNewHabitLabel("");
-    setAddingTo(null);
+    setAddingToSection(null);
     setAssignTo("me");
   };
 
@@ -130,12 +150,67 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     }
   };
 
+  const handleAddSection = () => {
+    if (!newSectionName.trim()) return;
+    const key = newSectionName.trim().toLowerCase().replace(/\s+/g, "-");
+    const newSection: HabitSectionMeta = {
+      key,
+      label: newSectionName.trim(),
+      icon: "📋",
+    };
+    const updated = [...sections, newSection];
+    setSections(updated);
+    setHabitSections(groupId, updated);
+    setNewSectionName("");
+    setShowAddSection(false);
+    toast.success(`Section "${newSectionName.trim()}" created`);
+  };
+
+  const handleRenameSection = async (oldKey: string) => {
+    if (!renameValue.trim()) return;
+    const newKey = renameValue.trim().toLowerCase().replace(/\s+/g, "-");
+    const updated = sections.map((s) =>
+      s.key === oldKey ? { ...s, key: newKey, label: renameValue.trim() } : s
+    );
+    setSections(updated);
+    setHabitSections(groupId, updated);
+
+    // Rename category on all habits
+    if (oldKey !== newKey) {
+      await renameHabitCategory(oldKey, newKey);
+    }
+
+    setRenamingSection(null);
+    setRenameValue("");
+    toast.success("Section renamed");
+  };
+
+  const handleDeleteSection = async (key: string) => {
+    const sectionHabits = displayHabits.filter((h) => h.category === key);
+    if (sectionHabits.length > 0) {
+      const confirmed = window.confirm(
+        `This will delete ${sectionHabits.length} habit(s) in this section. Are you sure?`
+      );
+      if (!confirmed) return;
+    }
+    await deleteHabitCategory(key);
+    const updated = sections.filter((s) => s.key !== key);
+    setSections(updated);
+    setHabitSections(groupId, updated);
+    toast.success("Section deleted");
+  };
+
   // ── TOGETHER VIEW ──
   if (isViewingTogether && hasOther) {
+    const myHabits = filteredHabits;
+    const theirHabits = filteredPartnerHabits;
     const myTotal = myHabits.length;
     const myDone = myHabits.filter((h) => h.done).length;
     const theirTotal = theirHabits.length;
     const theirDone = theirHabits.filter((h) => h.done).length;
+
+    // Get all categories from both users
+    const allCategories = new Set([...myHabits.map((h) => h.category), ...theirHabits.map((h) => h.category)]);
 
     return (
       <div className="px-5">
@@ -157,7 +232,6 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
 
         <GroupSelector />
 
-        {/* View tabs */}
         <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
           {tabFilters.map((f) => (
             <button
@@ -199,55 +273,40 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           </div>
         </section>
 
-        {/* Morning Habits side-by-side */}
-        <section className="mb-6">
-          <h2 className="text-lg font-semibold tracking-display mb-3">☀️ Morning Habits</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{myName}</p>
-              <div className="space-y-2">
-                {myMorning.length === 0 && <p className="text-xs text-muted-foreground">No morning habits</p>}
-                {myMorning.map((h) => (
-                  <TogetherHabitCard key={h.id} habit={h} streak={getHabitStreak(h.id)} onToggle={handleToggle} />
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{partnerName}</p>
-              <div className="space-y-2">
-                {theirMorning.length === 0 && <p className="text-xs text-muted-foreground">No morning habits</p>}
-                {theirMorning.map((h) => (
-                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly onNudge={partner ? () => sendNudge(h.label, h.id) : undefined} nudgeLabel={partner ? `Nudge ${partnerName}` : undefined} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Dynamic habit sections side-by-side */}
+        {Array.from(allCategories).map((category) => {
+          const sectionMeta = activeSections.find((s) => s.key === category);
+          const label = sectionMeta?.label || category;
+          const icon = sectionMeta?.icon || "📋";
+          const mySection = myHabits.filter((h) => h.category === category);
+          const theirSection = theirHabits.filter((h) => h.category === category);
 
-        {/* Other Habits side-by-side */}
-        <section className="mb-6">
-          <h2 className="text-lg font-semibold tracking-display mb-3">🌙 Other Habits</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{myName}</p>
-              <div className="space-y-2">
-                {myOther.length === 0 && <p className="text-xs text-muted-foreground">No other habits</p>}
-                {myOther.map((h) => (
-                  <TogetherHabitCard key={h.id} habit={h} streak={getHabitStreak(h.id)} onToggle={handleToggle} />
-                ))}
+          return (
+            <section key={category} className="mb-6">
+              <h2 className="text-lg font-semibold tracking-display mb-3">{icon} {label}</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{myName}</p>
+                  <div className="space-y-2">
+                    {mySection.length === 0 && <p className="text-xs text-muted-foreground">No habits</p>}
+                    {mySection.map((h) => (
+                      <TogetherHabitCard key={h.id} habit={h} streak={getHabitStreak(h.id)} onToggle={handleToggle} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{partnerName}</p>
+                  <div className="space-y-2">
+                    {theirSection.length === 0 && <p className="text-xs text-muted-foreground">No habits</p>}
+                    {theirSection.map((h) => (
+                      <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly onNudge={partner ? () => sendNudge(h.label, h.id) : undefined} nudgeLabel={partner ? `Nudge ${partnerName}` : undefined} />
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{partnerName}</p>
-              <div className="space-y-2">
-                {theirOther.length === 0 && <p className="text-xs text-muted-foreground">No other habits</p>}
-                {theirOther.map((h) => (
-                  <TogetherHabitCard key={h.id} habit={h} streak={getPartnerHabitStreak(h.id)} readOnly onNudge={partner ? () => sendNudge(h.label, h.id) : undefined} nudgeLabel={partner ? `Nudge ${partnerName}` : undefined} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+            </section>
+          );
+        })}
       </div>
     );
   }
@@ -264,11 +323,22 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           <h1 className="text-[1.75rem] font-bold tracking-display">Habits</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Build a better routine, one day at a time</p>
         </div>
-        {onOpenSettings && (
-          <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors mt-1" aria-label="Settings">
-            <Settings size={18} />
-          </button>
-        )}
+        <div className="flex items-center gap-1 mt-1">
+          {!isViewingPartner && (
+            <button
+              onClick={() => setShowAddSection(true)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label="Add section"
+            >
+              <FolderPlus size={16} />
+            </button>
+          )}
+          {onOpenSettings && (
+            <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" aria-label="Settings">
+              <Settings size={18} />
+            </button>
+          )}
+        </div>
       </header>
 
       <GroupSelector />
@@ -322,101 +392,157 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
         </section>
       )}
 
-      {/* Past Date Viewer - only for own view */}
+      {/* Past Date Viewer */}
       {!isViewingPartner && <HabitDateViewer />}
 
-      {/* Morning Habits */}
-      <section className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold tracking-display">☀️ Morning Habits</h2>
-          {!isViewingPartner && (
-            <button
-              onClick={() => setAddingTo(addingTo === "morning" ? null : "morning")}
-              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
-            >
-              <Plus size={16} />
-            </button>
-          )}
-        </div>
-        {addingTo === "morning" && !isViewingPartner && (
-          <AddHabitForm
-            value={newHabitLabel}
-            onChange={setNewHabitLabel}
-            onSubmit={handleAdd}
-            assignTo={assignTo}
-            setAssignTo={setAssignTo}
-            hasPartner={!!partner}
-            placeholder="New morning habit..."
+      {/* Add Section Modal */}
+      {showAddSection && (
+        <div className="bg-card rounded-xl p-4 border border-border shadow-card mb-4">
+          <p className="text-sm font-semibold mb-2">New Section</p>
+          <input
+            value={newSectionName}
+            onChange={(e) => setNewSectionName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAddSection()}
+            placeholder="e.g. Evening Routine, Supplements..."
+            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground mb-2"
+            autoFocus
           />
-        )}
-        <div className="space-y-2">
-          {morningHabits.map((habit) => (
-            <MorningHabitRow
-              key={habit.id}
-              habit={habit}
-              onToggle={handleToggle}
-              onDelete={isViewingPartner ? undefined : (id) => { removeHabit(id); toast.success("Habit deleted"); }}
-              streak={streakFn(habit.id)}
-              isViewingPartner={isViewingPartner}
-              onNudge={isViewingPartner && partner ? () => sendNudge(habit.label, habit.id) : undefined}
-              nudgeLabel={isViewingPartner && partner ? `Nudge ${partner.display_name}` : undefined}
-            />
-          ))}
-          {morningHabits.length === 0 && (
-            <p className="text-sm text-muted-foreground py-2">
-              {isViewingPartner ? `${partnerName} has no morning habits` : "No morning habits yet"}
-            </p>
-          )}
+          <div className="flex gap-2">
+            <button onClick={handleAddSection} className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+              Create
+            </button>
+            <button onClick={() => { setShowAddSection(false); setNewSectionName(""); }} className="px-4 py-2 bg-secondary text-muted-foreground rounded-lg text-sm font-medium">
+              Cancel
+            </button>
+          </div>
         </div>
-        {morningHabits.length > 0 && (
-          <p className="text-xs text-muted-foreground mt-2">
-            {morningCompleted}/{morningHabits.length} completed
-          </p>
-        )}
-      </section>
+      )}
 
-      {/* Other Habits */}
-      <section className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold tracking-display">🌙 Other Habits</h2>
-          {!isViewingPartner && (
-            <button
-              onClick={() => setAddingTo(addingTo === "other" ? null : "other")}
-              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
-            >
-              <Plus size={16} />
-            </button>
-          )}
+      {/* Dynamic Habit Sections */}
+      {activeSections.map((section) => {
+        const sectionHabits = displayHabits.filter((h) => h.category === section.key);
+        const sectionCompleted = sectionHabits.filter((h) => h.done).length;
+
+        return (
+          <section key={section.key} className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {renamingSection === section.key ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleRenameSection(section.key);
+                        if (e.key === "Escape") { setRenamingSection(null); setRenameValue(""); }
+                      }}
+                      className="flex-1 bg-secondary rounded-lg px-2 py-1 text-sm outline-none"
+                      autoFocus
+                    />
+                    <button onClick={() => handleRenameSection(section.key)} className="text-xs text-primary font-semibold">Save</button>
+                    <button onClick={() => { setRenamingSection(null); setRenameValue(""); }} className="text-xs text-muted-foreground">Cancel</button>
+                  </div>
+                ) : (
+                  <h2 className="text-lg font-semibold tracking-display">{section.icon} {section.label}</h2>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {!isViewingPartner && renamingSection !== section.key && (
+                  <>
+                    <button
+                      onClick={() => setAddingToSection(addingToSection === section.key ? null : section.key)}
+                      className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
+                    >
+                      <Plus size={16} />
+                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => setSectionMenuOpen(sectionMenuOpen === section.key ? null : section.key)}
+                        className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                      {sectionMenuOpen === section.key && (
+                        <>
+                          <button className="fixed inset-0 z-40 cursor-default" onClick={() => setSectionMenuOpen(null)} />
+                          <div className="absolute right-0 top-8 z-50 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
+                            <button
+                              onClick={() => {
+                                setRenamingSection(section.key);
+                                setRenameValue(section.label);
+                                setSectionMenuOpen(null);
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-secondary"
+                            >
+                              <Pencil size={14} /> Rename
+                            </button>
+                            <button
+                              onClick={() => { handleDeleteSection(section.key); setSectionMenuOpen(null); }}
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 size={14} /> Delete Section
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {addingToSection === section.key && !isViewingPartner && (
+              <AddHabitForm
+                value={newHabitLabel}
+                onChange={setNewHabitLabel}
+                onSubmit={handleAdd}
+                assignTo={assignTo}
+                setAssignTo={setAssignTo}
+                hasPartner={!!partner}
+                placeholder={`New ${section.label.toLowerCase()} habit...`}
+              />
+            )}
+
+            <div className="space-y-2">
+              {sectionHabits.map((habit) => (
+                <HabitRow
+                  key={habit.id}
+                  habit={habit}
+                  onToggle={handleToggle}
+                  onDelete={isViewingPartner ? undefined : (id) => { removeHabit(id); toast.success("Habit deleted"); }}
+                  streak={streakFn(habit.id)}
+                  isViewingPartner={isViewingPartner}
+                  onNudge={isViewingPartner && partner ? () => sendNudge(habit.label, habit.id) : undefined}
+                  nudgeLabel={isViewingPartner && partner ? `Nudge ${partner.display_name}` : undefined}
+                />
+              ))}
+              {sectionHabits.length === 0 && (
+                <p className="text-sm text-muted-foreground py-2">
+                  {isViewingPartner ? `${partnerName} has no habits here` : "No habits in this section yet"}
+                </p>
+              )}
+            </div>
+            {sectionHabits.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {sectionCompleted}/{sectionHabits.length} completed
+              </p>
+            )}
+          </section>
+        );
+      })}
+
+      {/* Show empty state if no sections at all */}
+      {activeSections.length === 0 && !isViewingPartner && (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground mb-3">No habit sections yet</p>
+          <button
+            onClick={() => setShowAddSection(true)}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
+          >
+            Create Your First Section
+          </button>
         </div>
-        {addingTo === "other" && !isViewingPartner && (
-          <AddHabitForm
-            value={newHabitLabel}
-            onChange={setNewHabitLabel}
-            onSubmit={handleAdd}
-            assignTo={assignTo}
-            setAssignTo={setAssignTo}
-            hasPartner={!!partner}
-            placeholder="New habit..."
-          />
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          {otherHabits.map((habit) => (
-            <OtherHabitCard
-              key={habit.id}
-              habit={habit}
-              onToggle={handleToggle}
-              onDelete={isViewingPartner ? undefined : (id) => { removeHabit(id); toast.success("Habit deleted"); }}
-              streak={streakFn(habit.id)}
-              isViewingPartner={isViewingPartner}
-            />
-          ))}
-        </div>
-        {otherHabits.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            {isViewingPartner ? `${partnerName} has no other habits` : "No other habits yet"}
-          </p>
-        )}
-      </section>
+      )}
     </div>
   );
 };
@@ -470,12 +596,7 @@ const AddHabitForm = ({
 
 // ── Together View Compact Habit Card ──
 const TogetherHabitCard = ({
-  habit,
-  streak,
-  onToggle,
-  readOnly,
-  onNudge,
-  nudgeLabel,
+  habit, streak, onToggle, readOnly, onNudge, nudgeLabel,
 }: {
   habit: { id: string; label: string; done: boolean; groupId?: string | null };
   streak: number;
@@ -489,9 +610,7 @@ const TogetherHabitCard = ({
       onClick={() => !readOnly && onToggle?.(habit.id)}
       disabled={readOnly}
       className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-left ${
-        habit.done
-          ? "border-habit-green bg-habit-green/5"
-          : "border-border bg-card"
+        habit.done ? "border-habit-green bg-habit-green/5" : "border-border bg-card"
       } ${readOnly ? "opacity-90" : "active:scale-[0.98]"}`}
     >
       {habit.done ? (
@@ -521,8 +640,8 @@ const TogetherHabitCard = ({
   </div>
 );
 
-// ── Morning Habit Row (individual view) ──
-interface MorningHabitRowProps {
+// ── Habit Row (individual view) ──
+interface HabitRowProps {
   habit: { id: string; label: string; done: boolean; groupId?: string | null };
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -532,7 +651,7 @@ interface MorningHabitRowProps {
   nudgeLabel?: string;
 }
 
-const MorningHabitRow = ({ habit, onToggle, onDelete, streak, isViewingPartner, onNudge, nudgeLabel }: MorningHabitRowProps) => {
+const HabitRow = ({ habit, onToggle, onDelete, streak, isViewingPartner, onNudge, nudgeLabel }: HabitRowProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -542,9 +661,7 @@ const MorningHabitRow = ({ habit, onToggle, onDelete, streak, isViewingPartner, 
           onClick={() => onToggle(habit.id)}
           disabled={isViewingPartner}
           className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border transition-all active:scale-[0.98] ${
-            habit.done
-              ? "border-habit-green bg-habit-green/5"
-              : "border-border bg-card"
+            habit.done ? "border-habit-green bg-habit-green/5" : "border-border bg-card"
           } ${isViewingPartner ? "opacity-80" : ""}`}
         >
           {habit.done ? (
@@ -591,65 +708,6 @@ const MorningHabitRow = ({ habit, onToggle, onDelete, streak, isViewingPartner, 
             <Bell size={10} />
             {nudgeLabel || "Nudge"}
           </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ── Other Habit Card (individual view) ──
-interface OtherHabitCardProps {
-  habit: { id: string; label: string; done: boolean; groupId?: string | null };
-  onToggle: (id: string) => void;
-  onDelete?: (id: string) => void;
-  streak: number;
-  isViewingPartner: boolean;
-}
-
-const OtherHabitCard = ({ habit, onToggle, onDelete, streak, isViewingPartner }: OtherHabitCardProps) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => onToggle(habit.id)}
-        disabled={isViewingPartner}
-        className={`w-full bg-card rounded-xl p-5 border shadow-card flex flex-col items-center gap-2 transition-all active:scale-[0.97] ${
-          habit.done ? "border-habit-green" : "border-border"
-        } ${isViewingPartner ? "opacity-80" : ""}`}
-      >
-        {habit.done ? (
-          <span className="w-8 h-8 rounded-full bg-habit-green flex items-center justify-center">
-            <Check size={16} className="text-primary-foreground" />
-          </span>
-        ) : (
-          <span className="w-8 h-8 rounded-full border-2 border-muted" />
-        )}
-        <p className="text-sm font-semibold text-center">{habit.label}</p>
-        <GroupBadge groupId={habit.groupId} />
-        <div className="flex items-center gap-1 text-accent">
-          <Flame size={14} />
-          <span className="text-xs font-bold">{streak} days</span>
-        </div>
-      </button>
-      {onDelete && (
-        <div className="absolute top-2 right-2">
-          <button onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }} className="p-1 text-muted-foreground hover:text-foreground transition-colors">
-            <MoreVertical size={14} />
-          </button>
-          {menuOpen && (
-            <>
-              <button className="fixed inset-0 z-40 cursor-default" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
-              <div className="absolute right-0 top-6 z-50 min-w-[120px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(habit.id); setMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
-              </div>
-            </>
-          )}
         </div>
       )}
     </div>
