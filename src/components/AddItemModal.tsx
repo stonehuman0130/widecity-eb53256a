@@ -273,18 +273,18 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
               </div>
             )}
 
-            {(step === "morning-habit" || step === "other-habit") && (
+            {step === "habit" && (
               <div className="space-y-3">
                 <input
                   value={habitLabel}
                   onChange={(e) => setHabitLabel(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddHabit(step === "morning-habit" ? "morning" : "other")}
-                  placeholder={step === "morning-habit" ? "e.g. Cold shower, Journaling..." : "e.g. Read 10 pages, No sugar..."}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddHabit()}
+                  placeholder="e.g. Cold shower, Read 10 pages..."
                   className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
                   autoFocus
                 />
                 <button
-                  onClick={() => handleAddHabit(step === "morning-habit" ? "morning" : "other")}
+                  onClick={handleAddHabit}
                   className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold"
                 >
                   Add Habit
