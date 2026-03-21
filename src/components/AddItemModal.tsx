@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { X, CalendarDays, Sun, Sparkles } from "lucide-react";
+import { X, CalendarDays, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { getHabitSections } from "@/lib/habitSections";
 
-type ModalStep = "choose" | "calendar" | "morning-habit" | "other-habit";
+type ModalStep = "choose" | "calendar" | "habit";
 
 interface AddItemModalProps {
   open: boolean;
