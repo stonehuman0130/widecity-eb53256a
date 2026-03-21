@@ -805,6 +805,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
             }
 
             switch (sectionId) {
+              case "scheduled":
                 return (
                   <section key={sectionId} className="mb-6">
                     <div className="flex items-center gap-2 mb-3">
@@ -844,13 +845,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
                     )}
-                  </section>
-                );
-
-              case "other-habits":
-                return (
-                  <section key={sectionId} className="mb-6">
-                    <HomeOtherHabitsWidget selectedDate={selectedDate} />
                   </section>
                 );
 
