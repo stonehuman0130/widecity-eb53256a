@@ -146,30 +146,21 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                     <p className="text-xs text-muted-foreground">Add an event with date, time & details</p>
                   </div>
                 </button>
-                <button
-                  onClick={() => setStep("morning-habit")}
-                  className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
-                >
-                  <span className="w-11 h-11 rounded-xl bg-accent/20 flex items-center justify-center text-accent">
-                    <Sun size={22} />
-                  </span>
-                  <div className="text-left">
-                    <p className="text-[15px] font-semibold">Morning Habit</p>
-                    <p className="text-xs text-muted-foreground">Add to your morning routine</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setStep("other-habit")}
-                  className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
-                >
-                  <span className="w-11 h-11 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
-                    <Sparkles size={22} />
-                  </span>
-                  <div className="text-left">
-                    <p className="text-[15px] font-semibold">Other Habit</p>
-                    <p className="text-xs text-muted-foreground">Evening, anytime, or recurring habit</p>
-                  </div>
-                </button>
+                {getHabitSections(activeGroup?.id ?? null).map((section) => (
+                  <button
+                    key={section.key}
+                    onClick={() => { setSelectedCategory(section.key); setStep("habit"); }}
+                    className="w-full flex items-center gap-4 p-4 bg-secondary rounded-xl transition-all active:scale-[0.98]"
+                  >
+                    <span className="w-11 h-11 rounded-xl bg-accent/20 flex items-center justify-center text-lg">
+                      {section.icon}
+                    </span>
+                    <div className="text-left">
+                      <p className="text-[15px] font-semibold">{section.label}</p>
+                      <p className="text-xs text-muted-foreground">Add a habit to {section.label.toLowerCase()}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
 
