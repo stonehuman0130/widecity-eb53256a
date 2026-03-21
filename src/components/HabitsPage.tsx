@@ -11,7 +11,7 @@ import HabitDateViewer from "@/components/HabitDateViewer";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
-import { getHabitSections, setHabitSections, HabitSectionMeta } from "@/lib/habitSections";
+import type { HabitSectionMeta } from "@/lib/habitSections";
 
 const todayStr = () => {
   const d = new Date();
