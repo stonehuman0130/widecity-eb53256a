@@ -352,8 +352,8 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     }
   };
 
-  // Habit sections from user preferences
-  const habitSections = getHabitSections(activeGroup?.id ?? null);
+  // Habit sections from context
+  const { habitSections } = useAppContext();
 
   // Morning habits: show own when "mine", partner's when "partner" — use first habit section
   const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
