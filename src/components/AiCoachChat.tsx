@@ -299,11 +299,11 @@ const AiCoachChat = ({
     setMessages((prev) => [...prev, aiMsg]);
     await supabase.from("messages").insert({
       group_id: group.id,
-      user_id: AI_COACH_USER_ID,
+      user_id: user!.id,
       content: msg,
       is_ai_coach: true,
-      metadata: { phase: "gathering" },
-    });
+      metadata: { role: "assistant", phase: "gathering" },
+    } as any);
     setExpandedPlan(null);
     await saveConversationState("gathering", context);
     scrollToBottom();
