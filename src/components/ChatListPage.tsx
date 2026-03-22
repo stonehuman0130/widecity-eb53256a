@@ -44,6 +44,7 @@ const ChatListPage = ({
         .from("messages")
         .select("*")
         .in("group_id", groupIds)
+        .eq("is_ai_coach", false)
         .order("created_at", { ascending: false })
         .limit(500);
 
