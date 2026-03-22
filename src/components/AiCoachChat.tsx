@@ -42,9 +42,11 @@ interface DraftItem {
 const AiCoachChat = ({
   group,
   onBack,
+  initialMessage,
 }: {
   group: Group;
   onBack: () => void;
+  initialMessage?: string;
 }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<CoachMessage[]>([]);
