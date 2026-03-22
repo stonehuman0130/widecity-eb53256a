@@ -43,7 +43,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<FullTab>("launcher");
   const [enabledPages, setEnabledPages] = useState<EnabledPages>(DEFAULT_ENABLED);
   const [chatGroup, setChatGroup] = useState<Group | null>(null);
-  const [coachGroup, setCoachGroup] = useState<Group | null>(null);
+  const [chatMode, setChatMode] = useState<"list" | "chat" | "coach">("list");
 
   useEffect(() => {
     setEnabledPages(loadEnabledPages(activeGroup?.id ?? null));
