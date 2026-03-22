@@ -143,7 +143,8 @@ const AiCoachChat = ({
       user_id: user.id,
       content: messageText,
       is_ai_coach: true,
-    });
+      metadata: { role: "user" },
+    } as any);
 
     // Build conversation history for the AI
     const history = messages.map((m) => ({
