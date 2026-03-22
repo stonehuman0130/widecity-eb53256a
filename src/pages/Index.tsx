@@ -8,6 +8,7 @@ import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
 import ChatListPage from "@/components/ChatListPage";
 import ChatPage from "@/components/ChatPage";
+import AiCoachChat from "@/components/AiCoachChat";
 import SobrietyPage from "@/components/SobrietyPage";
 import SpecialDaysPage from "@/components/SpecialDaysPage";
 import SettingsPage from "@/components/SettingsPage";
