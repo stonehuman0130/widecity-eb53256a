@@ -42,9 +42,11 @@ interface DraftItem {
 const AiCoachChat = ({
   group,
   onBack,
+  initialMessage,
 }: {
   group: Group;
   onBack: () => void;
+  initialMessage?: string;
 }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<CoachMessage[]>([]);
@@ -104,6 +106,15 @@ const AiCoachChat = ({
     };
     load();
   }, [group.id, user, scrollToBottom]);
+
+  // Auto-send initial message from launcher
+  const initialSentRef = useRef(false);
+  useEffect(() => {
+    if (initialMessage && !initialSentRef.current && user && !loading) {
+      initialSentRef.current = true;
+      sendMessage(initialMessage);
+    }
+  }, [initialMessage, user, loading]);
 
   const saveConversationState = async (newPhase: string, newContext: any) => {
     if (!user) return;

@@ -44,6 +44,8 @@ const Index = () => {
   const [enabledPages, setEnabledPages] = useState<EnabledPages>(DEFAULT_ENABLED);
   const [chatGroup, setChatGroup] = useState<Group | null>(null);
   const [chatMode, setChatMode] = useState<"list" | "chat" | "coach">("list");
+  const [coachInitialMessage, setCoachInitialMessage] = useState<string | undefined>();
+  const [pendingScheduleMessage, setPendingScheduleMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setEnabledPages(loadEnabledPages(activeGroup?.id ?? null));
@@ -101,16 +103,46 @@ const Index = () => {
   const handleOpenCoach = (group: Group) => {
     setChatGroup(group);
     setChatMode("coach");
+    setCoachInitialMessage(undefined);
   };
 
   const handleBackToList = () => {
     setChatGroup(null);
     setChatMode("list");
+    setCoachInitialMessage(undefined);
+  };
+
+  const handleScheduleFromLauncher = (message: string) => {
+    if (groups.length === 1) {
+      // Single group — go directly to AI Coach
+      const group = groups[0];
+      setActiveGroup(group);
+      setChatGroup(group);
+      setChatMode("coach");
+      setCoachInitialMessage(message);
+      setActiveTab("chat");
+    } else if (groups.length > 1) {
+      // Multiple groups — store pending message, show group picker
+      setPendingScheduleMessage(message);
+    } else {
+      // No groups — fall back to home
+      setActiveGroup(null);
+      setActiveTab("home");
+    }
+  };
+
+  const handlePickGroupForSchedule = (group: Group) => {
+    setActiveGroup(group);
+    setChatGroup(group);
+    setChatMode("coach");
+    setCoachInitialMessage(pendingScheduleMessage || undefined);
+    setPendingScheduleMessage(null);
+    setActiveTab("chat");
   };
 
   const renderChatView = () => {
     if (chatGroup && chatMode === "coach") {
-      return <AiCoachChat group={chatGroup} onBack={handleBackToList} />;
+      return <AiCoachChat group={chatGroup} onBack={handleBackToList} initialMessage={coachInitialMessage} />;
     }
     if (chatGroup && chatMode === "chat") {
       return <ChatPage group={chatGroup} onBack={handleBackToList} />;
@@ -119,7 +151,7 @@ const Index = () => {
   };
 
   const pages: Record<string, React.ReactNode> = {
-    launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} />,
+    launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} onSchedule={handleScheduleFromLauncher} />,
     home: <HomePage onBackToLauncher={handleBackToLauncher} onOpenSettings={handleOpenSettings} />,
     workout: <WorkoutsPage onOpenSettings={handleOpenSettings} />,
     habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
@@ -156,6 +188,49 @@ const Index = () => {
             enabledPages={enabledPages}
           />
         )}
+
+        {/* Group picker for scheduling from launcher */}
+        <AnimatePresence>
+          {pendingScheduleMessage && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[60] bg-black/50 flex items-end justify-center"
+              onClick={() => setPendingScheduleMessage(null)}
+            >
+              <motion.div
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                exit={{ y: 100 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md bg-card rounded-t-2xl border border-border p-5 pb-8"
+              >
+                <div className="mx-auto w-10 h-1 rounded-full bg-muted mb-4" />
+                <h3 className="text-base font-semibold mb-1">Which calendar?</h3>
+                <p className="text-sm text-muted-foreground mb-4">Choose where to schedule this item.</p>
+                <div className="space-y-2">
+                  {groups.map((group) => (
+                    <button
+                      key={group.id}
+                      onClick={() => handlePickGroupForSchedule(group)}
+                      className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors text-left active:scale-[0.98]"
+                    >
+                      <span className="text-xl">{group.emoji}</span>
+                      <span className="text-sm font-medium">{group.name}</span>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setPendingScheduleMessage(null)}
+                  className="w-full mt-3 py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </AppProvider>
   );
