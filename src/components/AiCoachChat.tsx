@@ -37,7 +37,7 @@ interface DraftItem {
   exercises?: { name: string; sets: number; reps: string }[];
 }
 
-const AI_COACH_USER_ID = "00000000-0000-0000-0000-000000000000";
+const AI_COACH_ROLE = "assistant";
 
 const AiCoachChat = ({
   group,
