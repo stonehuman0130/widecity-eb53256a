@@ -78,7 +78,7 @@ const AiCoachChat = ({
         setMessages(
           data.map((m: any) => ({
             id: m.id,
-            role: m.user_id === AI_COACH_USER_ID ? "assistant" : "user",
+            role: (m.metadata as any)?.role === "assistant" ? "assistant" : "user",
             content: m.content,
             created_at: m.created_at,
             metadata: m.metadata,
