@@ -44,6 +44,8 @@ const Index = () => {
   const [enabledPages, setEnabledPages] = useState<EnabledPages>(DEFAULT_ENABLED);
   const [chatGroup, setChatGroup] = useState<Group | null>(null);
   const [chatMode, setChatMode] = useState<"list" | "chat" | "coach">("list");
+  const [coachInitialMessage, setCoachInitialMessage] = useState<string | undefined>();
+  const [pendingScheduleMessage, setPendingScheduleMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setEnabledPages(loadEnabledPages(activeGroup?.id ?? null));
