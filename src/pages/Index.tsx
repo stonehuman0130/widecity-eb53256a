@@ -8,6 +8,7 @@ import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
 import ChatListPage from "@/components/ChatListPage";
 import ChatPage from "@/components/ChatPage";
+import AiCoachChat from "@/components/AiCoachChat";
 import SobrietyPage from "@/components/SobrietyPage";
 import SpecialDaysPage from "@/components/SpecialDaysPage";
 import SettingsPage from "@/components/SettingsPage";
@@ -42,6 +43,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<FullTab>("launcher");
   const [enabledPages, setEnabledPages] = useState<EnabledPages>(DEFAULT_ENABLED);
   const [chatGroup, setChatGroup] = useState<Group | null>(null);
+  const [chatMode, setChatMode] = useState<"list" | "chat" | "coach">("list");
 
   useEffect(() => {
     setEnabledPages(loadEnabledPages(activeGroup?.id ?? null));
@@ -80,6 +82,7 @@ const Index = () => {
   const handleTabChange = (tab: Tab) => {
     if (tab === "chat") {
       setChatGroup(null);
+      setChatMode("list");
     }
     setActiveTab(tab);
   };
@@ -92,17 +95,27 @@ const Index = () => {
 
   const handleOpenChat = (group: Group) => {
     setChatGroup(group);
+    setChatMode("chat");
+  };
+
+  const handleOpenCoach = (group: Group) => {
+    setChatGroup(group);
+    setChatMode("coach");
   };
 
   const handleBackToList = () => {
     setChatGroup(null);
+    setChatMode("list");
   };
 
   const renderChatView = () => {
-    if (chatGroup) {
+    if (chatGroup && chatMode === "coach") {
+      return <AiCoachChat group={chatGroup} onBack={handleBackToList} />;
+    }
+    if (chatGroup && chatMode === "chat") {
       return <ChatPage group={chatGroup} onBack={handleBackToList} />;
     }
-    return <ChatListPage onOpenChat={handleOpenChat} onOpenSettings={handleOpenSettings} />;
+    return <ChatListPage onOpenChat={handleOpenChat} onOpenCoach={handleOpenCoach} onOpenSettings={handleOpenSettings} />;
   };
 
   const pages: Record<string, React.ReactNode> = {

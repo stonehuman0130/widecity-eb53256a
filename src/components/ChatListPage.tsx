@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MessageCircle, Settings } from "lucide-react";
+import { MessageCircle, Settings, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, Group } from "@/context/AuthContext";
 
@@ -17,12 +17,14 @@ interface ChatPreview {
 
 const ChatListPage = ({
   onOpenChat,
+  onOpenCoach,
   onOpenSettings,
 }: {
   onOpenChat: (group: Group) => void;
+  onOpenCoach: (group: Group) => void;
   onOpenSettings?: () => void;
 }) => {
-  const { user, groups, profile } = useAuth();
+  const { user, groups } = useAuth();
   const [previews, setPreviews] = useState<ChatPreview[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,6 +44,7 @@ const ChatListPage = ({
         .from("messages")
         .select("*")
         .in("group_id", groupIds)
+        .eq("is_ai_coach", false)
         .order("created_at", { ascending: false })
         .limit(500);
 
@@ -179,6 +182,39 @@ const ChatListPage = ({
             <p className="text-sm font-medium">No group chats yet</p>
             <p className="text-xs mt-1">Join or create a group to start chatting</p>
           </div>
+        )}
+
+        {/* AI Coach entries per group */}
+        {!loading && groups.length > 0 && (
+          <div className="mb-2">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 pt-3 pb-2">
+              AI Coach
+            </p>
+            {groups.map((group) => (
+              <button
+                key={`coach-${group.id}`}
+                onClick={() => onOpenCoach(group)}
+                className="w-full flex items-center gap-3 px-1 py-3 border-b border-border/50 text-left hover:bg-secondary/40 active:scale-[0.98] transition-all"
+              >
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <Sparkles size={20} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold truncate text-foreground">AI Coach</h3>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {group.name} · Plan workouts, schedule events
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Group chats */}
+        {!loading && previews.length > 0 && (
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 pt-3 pb-2">
+            Group Chats
+          </p>
         )}
 
         {!loading &&
