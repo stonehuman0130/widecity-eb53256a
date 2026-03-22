@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MessageCircle, Settings } from "lucide-react";
+import { MessageCircle, Settings, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, Group } from "@/context/AuthContext";
 
