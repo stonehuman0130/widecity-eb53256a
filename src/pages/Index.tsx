@@ -82,6 +82,7 @@ const Index = () => {
   const handleTabChange = (tab: Tab) => {
     if (tab === "chat") {
       setChatGroup(null);
+      setChatMode("list");
     }
     setActiveTab(tab);
   };
@@ -94,17 +95,27 @@ const Index = () => {
 
   const handleOpenChat = (group: Group) => {
     setChatGroup(group);
+    setChatMode("chat");
+  };
+
+  const handleOpenCoach = (group: Group) => {
+    setChatGroup(group);
+    setChatMode("coach");
   };
 
   const handleBackToList = () => {
     setChatGroup(null);
+    setChatMode("list");
   };
 
   const renderChatView = () => {
-    if (chatGroup) {
+    if (chatGroup && chatMode === "coach") {
+      return <AiCoachChat group={chatGroup} onBack={handleBackToList} />;
+    }
+    if (chatGroup && chatMode === "chat") {
       return <ChatPage group={chatGroup} onBack={handleBackToList} />;
     }
-    return <ChatListPage onOpenChat={handleOpenChat} onOpenSettings={handleOpenSettings} />;
+    return <ChatListPage onOpenChat={handleOpenChat} onOpenCoach={handleOpenCoach} onOpenSettings={handleOpenSettings} />;
   };
 
   const pages: Record<string, React.ReactNode> = {
