@@ -187,11 +187,11 @@ const AiCoachChat = ({
       // Save AI message to DB
       await supabase.from("messages").insert({
         group_id: group.id,
-        user_id: AI_COACH_USER_ID,
+        user_id: user.id,
         content: aiReply,
         is_ai_coach: true,
-        metadata: { phase: newPhase, suggestions, draftPlan },
-      });
+        metadata: { role: "assistant", phase: newPhase, suggestions, draftPlan },
+      } as any);
 
       // Save conversation state
       await saveConversationState(newPhase, newContext);
