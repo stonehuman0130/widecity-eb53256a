@@ -24,7 +24,7 @@ const ChatListPage = ({
   onOpenCoach: (group: Group) => void;
   onOpenSettings?: () => void;
 }) => {
-  const { user, groups, profile } = useAuth();
+  const { user, groups } = useAuth();
   const [previews, setPreviews] = useState<ChatPreview[]>([]);
   const [loading, setLoading] = useState(true);
 
