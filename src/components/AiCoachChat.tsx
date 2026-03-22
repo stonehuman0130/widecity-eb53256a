@@ -265,11 +265,11 @@ const AiCoachChat = ({
 
       await supabase.from("messages").insert({
         group_id: group.id,
-        user_id: AI_COACH_USER_ID,
+        user_id: user.id,
         content: confirmMsg,
         is_ai_coach: true,
-        metadata: { phase: "idle" },
-      });
+        metadata: { role: "assistant", phase: "idle" },
+      } as any);
 
       setPhase("idle");
       setContext({});
