@@ -108,8 +108,12 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings, onSchedule 
       return;
     }
 
-    // Navigate to home with the AI input pre-filled
-    onEnterGroup(null);
+    // Route to AI Coach scheduling flow
+    if (onSchedule) {
+      onSchedule(input.trim());
+    } else {
+      onEnterGroup(null);
+    }
   };
 
   return (
