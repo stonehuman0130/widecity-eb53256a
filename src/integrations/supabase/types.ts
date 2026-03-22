@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      coach_conversations: {
+        Row: {
+          context: Json
+          created_at: string
+          group_id: string
+          id: string
+          phase: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          context?: Json
+          created_at?: string
+          group_id: string
+          id?: string
+          phase?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          context?: Json
+          created_at?: string
+          group_id?: string
+          id?: string
+          phase?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_conversations_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           all_day: boolean
@@ -414,6 +452,8 @@ export type Database = {
           created_at: string
           group_id: string
           id: string
+          is_ai_coach: boolean
+          metadata: Json | null
           user_id: string
         }
         Insert: {
@@ -421,6 +461,8 @@ export type Database = {
           created_at?: string
           group_id: string
           id?: string
+          is_ai_coach?: boolean
+          metadata?: Json | null
           user_id: string
         }
         Update: {
@@ -428,6 +470,8 @@ export type Database = {
           created_at?: string
           group_id?: string
           id?: string
+          is_ai_coach?: boolean
+          metadata?: Json | null
           user_id?: string
         }
         Relationships: [
