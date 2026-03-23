@@ -58,6 +58,7 @@ export interface Task {
   scheduledYear?: number;
   hiddenFromPartner?: boolean;
   groupId?: string | null;
+  ownerUserId?: string;
 }
 
 export interface Workout {
