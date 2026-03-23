@@ -56,6 +56,7 @@ const ChatListPage = ({
             content: msg.content,
             created_at: msg.created_at,
             user_id: msg.user_id,
+            metadata: msg.metadata,
           });
         }
       });
