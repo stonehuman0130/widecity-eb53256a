@@ -681,13 +681,22 @@ const WorkoutCard = ({
       {/* Exercises */}
       {workout.exercises && workout.exercises.length > 0 && (
         <>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="w-full flex items-center justify-center gap-1 py-2 border-t border-border text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {expanded ? "Hide" : "Show"} {workout.exercises.length} exercises
-          </button>
+          <div className="flex items-center border-t border-border">
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="flex-1 flex items-center justify-center gap-1 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {expanded ? "Hide" : "Show"} {workout.exercises.length} exercises
+            </button>
+            <button
+              onClick={() => onLogWorkout(workout)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors border-l border-border"
+            >
+              <Dumbbell size={13} />
+              Log Weights
+            </button>
+          </div>
           <AnimatePresence>
             {expanded && (
               <motion.div
