@@ -70,7 +70,7 @@ function detectManagementIntent(prompt: string): { type: "delete"; filter: "all"
   return { type: "delete", filter: "all" };
 }
 
-type ViewFilter = "mine" | "partner";
+type ViewFilter = string; // "mine" | "partner" | "member:{userId}"
 
 const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const { workouts, filteredWorkouts, filteredPartnerWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, getPartnerWorkoutsForDate } = useAppContext();
