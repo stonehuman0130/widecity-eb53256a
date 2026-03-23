@@ -7,6 +7,7 @@ interface LastMessage {
   content: string;
   created_at: string;
   user_id: string;
+  metadata?: { type?: string } | null;
 }
 
 interface ChatPreview {
