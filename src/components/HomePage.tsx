@@ -22,7 +22,7 @@ import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { speak, stopSpeaking } from "@/lib/speak";
 import { useGroupContext } from "@/hooks/useGroupContext";
 
-type Filter = "mine" | "partner" | "household";
+type Filter = string; // "mine" | "partner" | "household" | "member:{userId}"
 
 interface ClarificationState {
   question: string;
