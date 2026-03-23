@@ -1450,6 +1450,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
       filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, filteredPartnerWorkouts,
       getPartnerWorkoutsForDate, getPartnerHabitsForDate, getPartnerHabitStreak,
+      refreshData: () => { loadData(); },
       loading,
     }}>
       {children}
