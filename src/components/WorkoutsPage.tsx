@@ -116,48 +116,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     return filteredWorkouts.filter((w) => w.scheduledDate && w.scheduledDate < today && !w.done);
   }, [filteredWorkouts, today, isViewingPartner]);
 
-  const handleAiPlan = async () => {
-    if (!aiPrompt.trim()) return;
-
-    // Check for management commands first
-    const mgmt = detectManagementIntent(aiPrompt);
-    if (mgmt) {
-      const labels: Record<string, string> = {
-        all: "all your workouts",
-        week: "this week's workouts",
-        month: "this month's workouts",
-        tomorrow: "tomorrow's workout",
-        date: "workout for the selected date",
-      };
-      setDeleteConfirm({
-        filter: mgmt.filter,
-        message: `Are you sure you want to delete ${labels[mgmt.filter]}? This cannot be undone.`,
-      });
-      return;
-    }
-
-    setAiLoading(true);
-    try {
-      const body: any = { prompt: aiPrompt, startDate: today };
-      const { data, error } = await supabase.functions.invoke("ai-workout", { body });
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      if (data.days) {
-        setAiWeeklyPlan(data.days);
-        setAiPlans(null);
-      } else {
-        setAiPlans(data.plans);
-        setAiWeeklyPlan(null);
-      }
-    } catch (e: any) {
-      console.error(e);
-      toast.error("AI workout error", { description: e.message });
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm) return;
     let filter = deleteConfirm.filter;
@@ -171,47 +129,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     const count = await removeWorkoutsByFilter(filter as any, date);
     toast.success(`Deleted ${count} workout${count !== 1 ? "s" : ""}`);
     setDeleteConfirm(null);
-    setAiPrompt("");
-  };
-
-  const selectPlan = (plan: AIPlan, scheduledDate?: string) => {
-    const newWorkout: Workout = {
-      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
-      title: plan.title,
-      duration: plan.duration,
-      cal: plan.cal,
-      tag: plan.tag,
-      emoji: plan.emoji,
-      done: false,
-      scheduledDate: scheduledDate || today,
-      exercises: plan.exercises,
-    };
-    addWorkouts([newWorkout]);
-    toast.success(`Added: ${plan.title}`);
-  };
-
-  const acceptWeeklyPlan = () => {
-    if (!aiWeeklyPlan) return;
-    const newWorkouts: Workout[] = [];
-    for (const day of aiWeeklyPlan) {
-      if (!day.isRest && day.workout) {
-        newWorkouts.push({
-          id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
-          title: day.workout.title,
-          duration: day.workout.duration,
-          cal: day.workout.cal,
-          tag: day.workout.tag,
-          emoji: day.workout.emoji,
-          done: false,
-          scheduledDate: day.date,
-          exercises: day.workout.exercises,
-        });
-      }
-    }
-    addWorkouts(newWorkouts);
-    setAiWeeklyPlan(null);
-    setAiPrompt("");
-    toast.success(`Added ${newWorkouts.length} workouts to your plan!`);
   };
 
   const handleReschedule = (id: string, toDate: string) => {
