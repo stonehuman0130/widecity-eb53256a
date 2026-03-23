@@ -159,6 +159,7 @@ interface AppContextType {
   getPartnerWorkoutsForDate: (date: string) => Workout[];
   getPartnerHabitsForDate: (date: string) => Habit[];
   getPartnerHabitStreak: (id: string) => number;
+  refreshData: () => void;
   loading: boolean;
 }
 
