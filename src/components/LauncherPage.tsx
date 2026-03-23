@@ -23,7 +23,7 @@ type InviteState =
   | { type: "joining" }
   | { type: "joined"; groupName: string; groupId: string };
 
-const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings, onSchedule }: LauncherPageProps) => {
+const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherPageProps) => {
   const { profile, groups, joinGroup, refreshGroups } = useAuth();
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
