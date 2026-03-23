@@ -159,6 +159,7 @@ interface AppContextType {
   getPartnerWorkoutsForDate: (date: string) => Workout[];
   getPartnerHabitsForDate: (date: string) => Habit[];
   getPartnerHabitStreak: (id: string) => number;
+  refreshData: () => void;
   loading: boolean;
 }
 
@@ -195,6 +196,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [googleCalendarEvents, setGoogleCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [habitSectionsState, setHabitSectionsState] = useState<HabitSectionMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   // Get ALL other user IDs in the active context (supports 3+ member groups)
   const contextOtherUserIds = useMemo(() => {
@@ -366,7 +368,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadData();
-  }, [user]);
+  }, [user, refreshCounter]);
 
   // ── Load habit sections from DB ──
   const groupIdRef = activeGroup?.id ?? null;
@@ -1449,6 +1451,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       partnerHabits, partnerEvents, partnerTasks, partnerWorkouts,
       filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, filteredPartnerWorkouts,
       getPartnerWorkoutsForDate, getPartnerHabitsForDate, getPartnerHabitStreak,
+      refreshData: () => setRefreshCounter((c) => c + 1),
       loading,
     }}>
       {children}

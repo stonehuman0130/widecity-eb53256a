@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useSpeechToText } from "@/hooks/useSpeechToText";
-import { Sparkles, Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Mic, Copy, Pencil, Replace, Settings } from "lucide-react";
+import { Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Replace, Settings } from "lucide-react";
 import GroupBadge from "@/components/GroupBadge";
 import { useAppContext, Workout } from "@/context/AppContext";
 import ItemActionMenu from "@/components/ItemActionMenu";
@@ -76,14 +75,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const { workouts, filteredWorkouts, filteredPartnerWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, getPartnerWorkoutsForDate } = useAppContext();
   const { partner } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
-  const { listening: wListen, start: wStart, stop: wStop, isSupported: wSpeech } = useSpeechToText({
-    onResult: (t) => setAiPrompt((p) => (p ? p + " " + t : t)),
-  });
-  const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
-  const [aiWeeklyPlan, setAiWeeklyPlan] = useState<AIDayPlan[] | null>(null);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [showManualAdd, setShowManualAdd] = useState(false);
@@ -124,48 +116,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     return filteredWorkouts.filter((w) => w.scheduledDate && w.scheduledDate < today && !w.done);
   }, [filteredWorkouts, today, isViewingPartner]);
 
-  const handleAiPlan = async () => {
-    if (!aiPrompt.trim()) return;
-
-    // Check for management commands first
-    const mgmt = detectManagementIntent(aiPrompt);
-    if (mgmt) {
-      const labels: Record<string, string> = {
-        all: "all your workouts",
-        week: "this week's workouts",
-        month: "this month's workouts",
-        tomorrow: "tomorrow's workout",
-        date: "workout for the selected date",
-      };
-      setDeleteConfirm({
-        filter: mgmt.filter,
-        message: `Are you sure you want to delete ${labels[mgmt.filter]}? This cannot be undone.`,
-      });
-      return;
-    }
-
-    setAiLoading(true);
-    try {
-      const body: any = { prompt: aiPrompt, startDate: today };
-      const { data, error } = await supabase.functions.invoke("ai-workout", { body });
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      if (data.days) {
-        setAiWeeklyPlan(data.days);
-        setAiPlans(null);
-      } else {
-        setAiPlans(data.plans);
-        setAiWeeklyPlan(null);
-      }
-    } catch (e: any) {
-      console.error(e);
-      toast.error("AI workout error", { description: e.message });
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
   const handleDeleteConfirm = async () => {
     if (!deleteConfirm) return;
     let filter = deleteConfirm.filter;
@@ -179,47 +129,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     const count = await removeWorkoutsByFilter(filter as any, date);
     toast.success(`Deleted ${count} workout${count !== 1 ? "s" : ""}`);
     setDeleteConfirm(null);
-    setAiPrompt("");
-  };
-
-  const selectPlan = (plan: AIPlan, scheduledDate?: string) => {
-    const newWorkout: Workout = {
-      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
-      title: plan.title,
-      duration: plan.duration,
-      cal: plan.cal,
-      tag: plan.tag,
-      emoji: plan.emoji,
-      done: false,
-      scheduledDate: scheduledDate || today,
-      exercises: plan.exercises,
-    };
-    addWorkouts([newWorkout]);
-    toast.success(`Added: ${plan.title}`);
-  };
-
-  const acceptWeeklyPlan = () => {
-    if (!aiWeeklyPlan) return;
-    const newWorkouts: Workout[] = [];
-    for (const day of aiWeeklyPlan) {
-      if (!day.isRest && day.workout) {
-        newWorkouts.push({
-          id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
-          title: day.workout.title,
-          duration: day.workout.duration,
-          cal: day.workout.cal,
-          tag: day.workout.tag,
-          emoji: day.workout.emoji,
-          done: false,
-          scheduledDate: day.date,
-          exercises: day.workout.exercises,
-        });
-      }
-    }
-    addWorkouts(newWorkouts);
-    setAiWeeklyPlan(null);
-    setAiPrompt("");
-    toast.success(`Added ${newWorkouts.length} workouts to your plan!`);
   };
 
   const handleReschedule = (id: string, toDate: string) => {
@@ -413,133 +322,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         </div>
       )}
 
-      {/* AI Workout Planner */}
-      {!isViewingPartner && (
-        <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles size={16} className="text-purple-500" />
-            <span className="text-sm font-semibold">AI Workout Assistant</span>
-          </div>
-          <p className="text-xs text-muted-foreground mb-2">Generate plans, delete workouts, or manage your schedule with natural language</p>
-
-          <div className="flex gap-2">
-            <input
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAiPlan()}
-              placeholder="e.g. Weekly push/pull plan, Delete all workouts, Monthly program..."
-              className="flex-1 bg-card rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground border border-border min-w-0"
-            />
-            {wSpeech && (
-              <button
-                onClick={wListen ? wStop : wStart}
-                className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                  wListen
-                    ? "bg-destructive text-destructive-foreground animate-pulse"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Mic size={16} />
-              </button>
-            )}
-            <button
-              onClick={handleAiPlan}
-              disabled={aiLoading || !aiPrompt.trim()}
-              className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-primary-foreground text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50 flex-shrink-0"
-            >
-              {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              {aiLoading ? "..." : "Go"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* AI Single Day Plans */}
-      <AnimatePresence>
-        {aiPlans && !isViewingPartner && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Choose a plan</h3>
-              <button onClick={() => setAiPlans(null)} className="text-muted-foreground"><X size={16} /></button>
-            </div>
-            <div className="space-y-3">
-              {aiPlans.map((plan, i) => (
-                <button
-                  key={i}
-                  onClick={() => { selectPlan(plan); setAiPlans(null); setAiPrompt(""); }}
-                  className="w-full bg-card rounded-xl border border-border p-4 text-left hover:border-primary/50 transition-all active:scale-[0.99]"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-2xl">{plan.emoji}</span>
-                    <div className="flex-1">
-                      <p className="text-[15px] font-semibold">{plan.title}</p>
-                      <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                        <span>{plan.duration}</span>
-                        <span>~{plan.cal} cal</span>
-                        <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{plan.tag}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ml-9 space-y-1">
-                    {plan.exercises.slice(0, 3).map((ex, j) => (
-                      <p key={j} className="text-xs text-muted-foreground">• {ex.name} — {ex.sets}×{ex.reps}</p>
-                    ))}
-                    {plan.exercises.length > 3 && (
-                      <p className="text-xs text-muted-foreground">+{plan.exercises.length - 3} more</p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* AI Weekly/Monthly Plan Preview */}
-      <AnimatePresence>
-        {aiWeeklyPlan && !isViewingPartner && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">📅 {aiWeeklyPlan.length > 14 ? "Monthly" : "Weekly"} Plan</h3>
-              <button onClick={() => setAiWeeklyPlan(null)} className="text-muted-foreground"><X size={16} /></button>
-            </div>
-            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-              {aiWeeklyPlan.map((day, i) => (
-                <div key={i} className={`bg-card rounded-xl border p-3 ${day.isRest ? "border-border opacity-60" : "border-border"}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-semibold text-muted-foreground">{day.dayLabel}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{new Date(day.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                    </div>
-                    {day.isRest && <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded-md">🛌 Rest</span>}
-                  </div>
-                  {!day.isRest && day.workout && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-xl">{day.workout.emoji}</span>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold">{day.workout.title}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{day.workout.duration}</span>
-                          <span>~{day.workout.cal} cal</span>
-                          <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{day.workout.tag}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2 mt-3">
-              <button onClick={acceptWeeklyPlan} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold">
-                ✅ Add All to Schedule
-              </button>
-              <button onClick={() => setAiWeeklyPlan(null)} className="px-4 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-medium">
-                Cancel
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-5">

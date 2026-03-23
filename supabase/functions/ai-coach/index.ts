@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,63 +10,130 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { message, groupId, conversationHistory, phase, context, timezone, appContext } = await req.json();
+    const { message, groupId, conversationHistory, phase, context, timezone, appContext, executeActions } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const authHeader = req.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "");
+
+    // Create admin client for executing actions
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user ID from token
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(supabaseUrl, anonKey);
+    const { data: { user } } = await userClient.auth.getUser(token);
+    const userId = user?.id;
+    if (!userId) throw new Error("Not authenticated");
+
+    // If executeActions is set, run the actions directly
+    if (executeActions && Array.isArray(executeActions)) {
+      const results = await executeAppActions(adminClient, userId, groupId, executeActions);
+      return new Response(JSON.stringify({ success: true, results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const userTz = timezone || "America/New_York";
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
-
     const userName = appContext?.userName || "there";
     const groups = appContext?.groups || [];
     const activeGroupName = appContext?.activeGroupName || "your group";
 
-    const systemPrompt = `You are a friendly, knowledgeable universal AI assistant inside a shared planning & wellness app. Today is ${todayStr}. User timezone: ${userTz}. User's name: ${userName}. Active group: ${activeGroupName}.
+    // Fetch current app data for context
+    let currentData = "";
+    try {
+      const [workoutsRes, eventsRes, habitsRes, sectionsRes, sobrietyRes, specialDaysRes] = await Promise.all([
+        adminClient.from("workouts").select("id,title,emoji,tag,duration,cal,done,scheduled_date,exercises").eq("user_id", userId).eq("group_id", groupId).order("scheduled_date", { ascending: true }).limit(50),
+        adminClient.from("events").select("id,title,day,month,year,time,end_time,assignee,done,description").eq("group_id", groupId).order("year", { ascending: true }).order("month", { ascending: true }).order("day", { ascending: true }).limit(50),
+        adminClient.from("habits").select("id,label,category").eq("user_id", userId).eq("group_id", groupId),
+        adminClient.from("habit_sections").select("id,key,label,icon,sort_order").eq("user_id", userId).eq("group_id", groupId).order("sort_order"),
+        adminClient.from("sobriety_categories").select("id,label,icon,start_date,money_per_day").eq("user_id", userId).eq("group_id", groupId),
+        adminClient.from("special_days").select("id,title,icon,event_date,count_direction,repeats_yearly,is_featured").eq("user_id", userId).eq("group_id", groupId),
+      ]);
+
+      const upcoming = (eventsRes.data || []).filter((e: any) => {
+        const d = new Date(e.year, e.month - 1, e.day);
+        return d >= new Date(todayStr);
+      }).slice(0, 20);
+
+      const futureWorkouts = (workoutsRes.data || []).filter((w: any) => w.scheduled_date >= todayStr && !w.done).slice(0, 20);
+
+      currentData = `
+CURRENT APP DATA (for this group "${activeGroupName}"):
+Workouts (upcoming/incomplete): ${JSON.stringify(futureWorkouts)}
+Events (upcoming): ${JSON.stringify(upcoming)}
+Habits: ${JSON.stringify(habitsRes.data || [])}
+Habit Sections: ${JSON.stringify(sectionsRes.data || [])}
+Sobriety Trackers: ${JSON.stringify(sobrietyRes.data || [])}
+Special Days: ${JSON.stringify(specialDaysRes.data || [])}`;
+    } catch (e) {
+      console.error("Failed to fetch context data:", e);
+    }
+
+    const systemPrompt = `You are a friendly, knowledgeable universal AI assistant inside a shared planning & wellness app. Today is ${todayStr}. User timezone: ${userTz}. User's name: ${userName}. Active group: ${activeGroupName}. Group ID: ${groupId}.
 
 Available groups: ${groups.map((g: any) => `${g.emoji} ${g.name} (${g.memberCount} members, id: ${g.id})`).join(", ") || "none"}
 
-YOU ARE THE APP'S CENTRAL AI. You can help with EVERYTHING in the app:
+${currentData}
 
-APP CAPABILITIES YOU UNDERSTAND:
-1. **Scheduling** - Create events, tasks with dates/times/assignees
-2. **Workouts** - Plan workout routines with exercises, sets, reps, duration
-3. **Habits** - Create habit sections and individual habits (morning, evening, custom)
-4. **Sobriety Tracking** - Set up sobriety trackers with icons, start dates, daily savings
-5. **Special Days** - Track anniversaries, birthdays, milestones
-6. **Group Chat** - Send messages to group chats
-7. **Home Customization** - Guide users on customizing their home page
-8. **Navigation** - Guide users on app navigation and features
-9. **Summaries** - Summarize daily/weekly activity, completions, streaks
-10. **Recommendations** - Suggest workouts, habits, routines based on goals
+YOU ARE THE APP'S CENTRAL AI. You can help with EVERYTHING and EXECUTE REAL ACTIONS.
+
+CAPABILITIES:
+1. **Workouts** - Create, edit, delete workout plans with exercises
+2. **Events/Scheduling** - Create, edit, delete calendar events with dates/times
+3. **Habits** - Create, delete habits in sections
+4. **Habit Sections** - Create, rename, delete habit sections
+5. **Sobriety Tracking** - Set up/delete sobriety trackers
+6. **Special Days** - Add/delete special day trackers
+7. **Group Chat** - Send messages to group chats
+8. **Tasks** - Create, edit, delete tasks
+9. **Summaries** - Summarize activity, completions, streaks
+
+ACTION SYSTEM:
+When the user wants you to DO something (create, edit, delete, send), you MUST include an "actions" array.
+Each action has an "action_type" and relevant fields.
+
+ACTION TYPES:
+- "create_workout": { title, emoji, duration, cal, tag, exercises: [{name, sets, reps}], scheduled_date }
+- "delete_workout": { workout_id } (use ID from current data)
+- "create_event": { title, day, month, year, time, end_time, assignee, description }
+- "delete_event": { event_id }
+- "create_habit": { label, category }
+- "delete_habit": { habit_id }
+- "create_section": { key, label, icon, shared }
+- "delete_section": { section_id }
+- "rename_section": { section_id, new_label }
+- "create_sobriety": { label, icon, start_date, money_per_day }
+- "delete_sobriety": { sobriety_id }
+- "create_special_day": { title, icon, event_date, count_direction, repeats_yearly }
+- "delete_special_day": { special_day_id }
+- "send_message": { group_id, content }
+- "create_task": { title, tag, time, assignee, scheduled_day, scheduled_month, scheduled_year }
+- "delete_task": { task_id }
 
 CRITICAL RULES:
-1. NEVER immediately create items when details are missing. Ask follow-up questions first.
-2. Be conversational, warm, and encouraging. Use emojis sparingly.
-3. Keep responses concise and mobile-friendly.
-4. When you have enough details, set phase to "draft_ready" and include a draftPlan.
-5. Always provide 2-4 quick-reply suggestions.
-6. If the user asks about app features, explain clearly how to use them.
-7. If the user wants to send a message to a group, include it in the draft plan.
+1. When the user clearly states what they want, EXECUTE IT with actions. Don't just suggest—DO IT.
+2. If details are missing or ambiguous, ask follow-up questions first (no actions yet).
+3. After executing, confirm what you did clearly.
+4. For delete requests with multiple possible targets, ask which one(s) to delete.
+5. When creating workout plans, include real exercises with sets/reps.
+6. Keep responses concise and mobile-friendly.
+7. Always provide 2-4 quick-reply suggestions.
+8. Use the CURRENT APP DATA above to reference existing items by ID when editing/deleting.
+9. For multi-day workout plans, create one action per day.
 
 CONVERSATION PHASES:
-- "idle": No active planning. Ready to help.
-- "gathering": Collecting information for a specific task.
-- "draft_ready": Present a draft plan for confirmation.
-
-DRAFT PLAN TYPES: workout, event, habit, meal, multi, message, sobriety, special_day, section
-
-For workouts: include title, emoji, duration, cal, tag, exercises with sets/reps, date.
-For events: include title, date, time, assignee (me/partner/both), description.
-For habits: include title/label, category.
-For messages: include groupId, content.
-For sobriety: include title/label, icon, startDate.
-For sections: include sectionKey, sectionLabel, shared boolean.
-
-Always ask for confirmation before saving: "Here's what I've put together. Want me to save this?"`;
+- "idle": Ready to help
+- "gathering": Collecting info for a task
+- "executing": Taking action (include actions array)
+- "done": Action completed`;
 
     const messages: any[] = [{ role: "system", content: systemPrompt }];
-
     if (conversationHistory && Array.isArray(conversationHistory)) {
       for (const msg of conversationHistory) {
         messages.push({ role: msg.role, content: msg.content });
@@ -77,72 +145,78 @@ Always ask for confirmation before saving: "Here's what I've put together. Want 
       {
         type: "function",
         function: {
-          name: "coach_response",
-          description: "Respond to the user as the universal AI assistant.",
+          name: "assistant_response",
+          description: "Respond and optionally execute actions in the app.",
           parameters: {
             type: "object",
             properties: {
-              reply: { type: "string", description: "The conversational reply" },
-              phase: {
-                type: "string",
-                enum: ["gathering", "draft_ready", "confirmed", "idle"],
-              },
-              context: {
-                type: "object",
-                properties: {
-                  intent: { type: "string" },
-                  gathered: { type: "object" },
-                  conversationSummary: { type: "string" },
-                },
-              },
-              suggestions: {
+              reply: { type: "string", description: "The conversational reply to the user" },
+              phase: { type: "string", enum: ["idle", "gathering", "executing", "done"] },
+              suggestions: { type: "array", items: { type: "string" } },
+              actions: {
                 type: "array",
-                items: { type: "string" },
+                description: "Actions to execute in the app. Include when the user wants something done.",
+                items: {
+                  type: "object",
+                  properties: {
+                    action_type: { type: "string", enum: [
+                      "create_workout", "delete_workout",
+                      "create_event", "delete_event",
+                      "create_habit", "delete_habit",
+                      "create_section", "delete_section", "rename_section",
+                      "create_sobriety", "delete_sobriety",
+                      "create_special_day", "delete_special_day",
+                      "send_message",
+                      "create_task", "delete_task"
+                    ]},
+                    title: { type: "string" },
+                    emoji: { type: "string" },
+                    duration: { type: "string" },
+                    cal: { type: "number" },
+                    tag: { type: "string" },
+                    exercises: { type: "array", items: { type: "object", properties: { name: { type: "string" }, sets: { type: "number" }, reps: { type: "string" } } } },
+                    scheduled_date: { type: "string" },
+                    day: { type: "number" },
+                    month: { type: "number" },
+                    year: { type: "number" },
+                    time: { type: "string" },
+                    end_time: { type: "string" },
+                    assignee: { type: "string" },
+                    description: { type: "string" },
+                    label: { type: "string" },
+                    category: { type: "string" },
+                    key: { type: "string" },
+                    icon: { type: "string" },
+                    shared: { type: "boolean" },
+                    start_date: { type: "string" },
+                    money_per_day: { type: "number" },
+                    event_date: { type: "string" },
+                    count_direction: { type: "string" },
+                    repeats_yearly: { type: "boolean" },
+                    group_id: { type: "string" },
+                    content: { type: "string" },
+                    workout_id: { type: "string" },
+                    event_id: { type: "string" },
+                    habit_id: { type: "string" },
+                    section_id: { type: "string" },
+                    sobriety_id: { type: "string" },
+                    special_day_id: { type: "string" },
+                    task_id: { type: "string" },
+                    new_label: { type: "string" },
+                    scheduled_day: { type: "number" },
+                    scheduled_month: { type: "number" },
+                    scheduled_year: { type: "number" },
+                  },
+                  required: ["action_type"],
+                },
               },
               draftPlan: {
                 type: "object",
+                description: "Legacy draft plan for backward compat. Prefer using actions instead.",
                 properties: {
-                  type: { type: "string", enum: ["workout", "event", "habit", "meal", "multi", "message", "sobriety", "special_day", "section"] },
-                  items: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        title: { type: "string" },
-                        date: { type: "string" },
-                        time: { type: "string" },
-                        description: { type: "string" },
-                        tag: { type: "string" },
-                        assignee: { type: "string" },
-                        category: { type: "string" },
-                        emoji: { type: "string" },
-                        duration: { type: "string" },
-                        cal: { type: "number" },
-                        exercises: {
-                          type: "array",
-                          items: {
-                            type: "object",
-                            properties: {
-                              name: { type: "string" },
-                              sets: { type: "number" },
-                              reps: { type: "string" },
-                            },
-                          },
-                        },
-                        groupId: { type: "string" },
-                        content: { type: "string" },
-                        icon: { type: "string" },
-                        startDate: { type: "string" },
-                        moneyPerDay: { type: "number" },
-                        sectionKey: { type: "string" },
-                        sectionLabel: { type: "string" },
-                        shared: { type: "boolean" },
-                      },
-                      required: ["title"],
-                    },
-                  },
+                  type: { type: "string" },
+                  items: { type: "array", items: { type: "object", properties: { title: { type: "string" } } } },
                 },
-                required: ["type", "items"],
               },
             },
             required: ["reply", "phase"],
@@ -159,10 +233,10 @@ Always ask for confirmation before saving: "Here's what I've put together. Want 
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages,
         tools,
-        tool_choice: { type: "function", function: { name: "coach_response" } },
+        tool_choice: { type: "function", function: { name: "assistant_response" } },
       }),
     });
 
@@ -181,19 +255,26 @@ Always ask for confirmation before saving: "Here's what I've put together. Want 
     if (!toolCall?.function?.arguments) {
       const content = data.choices?.[0]?.message?.content || "I'm here to help! What would you like to do?";
       return new Response(JSON.stringify({
-        reply: content,
-        phase: "idle",
+        reply: content, phase: "idle",
         suggestions: ["Plan a workout", "Schedule an event", "Help me set up habits"],
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const parsed = JSON.parse(toolCall.function.arguments);
+    const actions = parsed.actions || [];
+
+    // Execute actions server-side
+    let actionResults: any[] = [];
+    if (actions.length > 0) {
+      actionResults = await executeAppActions(adminClient, userId, groupId, actions);
+    }
 
     return new Response(JSON.stringify({
       reply: parsed.reply,
       phase: parsed.phase || "idle",
-      context: parsed.context || context || {},
       suggestions: parsed.suggestions || [],
+      actions: actions,
+      actionResults: actionResults,
       draftPlan: parsed.draftPlan || null,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -206,3 +287,176 @@ Always ask for confirmation before saving: "Here's what I've put together. Want 
     });
   }
 });
+
+async function executeAppActions(client: any, userId: string, groupId: string, actions: any[]): Promise<any[]> {
+  const results: any[] = [];
+
+  for (const action of actions) {
+    try {
+      switch (action.action_type) {
+        case "create_workout": {
+          const { data, error } = await client.from("workouts").insert({
+            user_id: userId,
+            group_id: groupId,
+            title: action.title || "Workout",
+            emoji: action.emoji || "💪",
+            duration: action.duration || "30 min",
+            cal: action.cal || 0,
+            tag: action.tag || "Full Body",
+            exercises: action.exercises || [],
+            scheduled_date: action.scheduled_date || new Date().toISOString().slice(0, 10),
+          }).select().single();
+          results.push({ action_type: "create_workout", success: !error, id: data?.id, error: error?.message });
+          break;
+        }
+        case "delete_workout": {
+          const { error } = await client.from("workouts").delete().eq("id", action.workout_id).eq("user_id", userId);
+          results.push({ action_type: "delete_workout", success: !error, error: error?.message });
+          break;
+        }
+        case "create_event": {
+          const { data, error } = await client.from("events").insert({
+            user_id: userId,
+            group_id: groupId,
+            title: action.title || "Event",
+            day: action.day,
+            month: action.month,
+            year: action.year,
+            time: action.time || "",
+            end_time: action.end_time || "",
+            assignee: action.assignee || "me",
+            description: action.description || null,
+          }).select().single();
+          results.push({ action_type: "create_event", success: !error, id: data?.id, error: error?.message });
+          break;
+        }
+        case "delete_event": {
+          const { error } = await client.from("events").delete().eq("id", action.event_id).eq("user_id", userId);
+          results.push({ action_type: "delete_event", success: !error, error: error?.message });
+          break;
+        }
+        case "create_habit": {
+          const { data, error } = await client.from("habits").insert({
+            user_id: userId,
+            group_id: groupId,
+            label: action.label || action.title || "Habit",
+            category: action.category || "other",
+          }).select().single();
+          results.push({ action_type: "create_habit", success: !error, id: data?.id, error: error?.message });
+          break;
+        }
+        case "delete_habit": {
+          const { error } = await client.from("habits").delete().eq("id", action.habit_id).eq("user_id", userId);
+          results.push({ action_type: "delete_habit", success: !error, error: error?.message });
+          break;
+        }
+        case "create_section": {
+          if (action.shared) {
+            const { data, error } = await client.rpc("create_shared_section", {
+              _key: action.key || action.label?.toLowerCase().replace(/\s+/g, "_") || "custom",
+              _label: action.label || "Section",
+              _icon: action.icon || "📋",
+              _group_id: groupId,
+            });
+            results.push({ action_type: "create_section", success: !error, error: error?.message });
+          } else {
+            const maxOrderRes = await client.from("habit_sections").select("sort_order").eq("user_id", userId).eq("group_id", groupId).order("sort_order", { ascending: false }).limit(1);
+            const maxOrder = maxOrderRes.data?.[0]?.sort_order ?? -1;
+            const { data, error } = await client.from("habit_sections").insert({
+              user_id: userId,
+              group_id: groupId,
+              key: action.key || action.label?.toLowerCase().replace(/\s+/g, "_") || "custom",
+              label: action.label || "Section",
+              icon: action.icon || "📋",
+              sort_order: maxOrder + 1,
+            }).select().single();
+            results.push({ action_type: "create_section", success: !error, id: data?.id, error: error?.message });
+          }
+          break;
+        }
+        case "delete_section": {
+          const { error } = await client.from("habit_sections").delete().eq("id", action.section_id).eq("user_id", userId);
+          results.push({ action_type: "delete_section", success: !error, error: error?.message });
+          break;
+        }
+        case "rename_section": {
+          const { error } = await client.from("habit_sections").update({ label: action.new_label }).eq("id", action.section_id).eq("user_id", userId);
+          results.push({ action_type: "rename_section", success: !error, error: error?.message });
+          break;
+        }
+        case "create_sobriety": {
+          const { data, error } = await client.from("sobriety_categories").insert({
+            user_id: userId,
+            group_id: groupId,
+            label: action.label || action.title || "Tracker",
+            icon: action.icon || "🚫",
+            start_date: action.start_date || new Date().toISOString().slice(0, 10),
+            money_per_day: action.money_per_day || 0,
+          }).select().single();
+          results.push({ action_type: "create_sobriety", success: !error, id: data?.id, error: error?.message });
+          break;
+        }
+        case "delete_sobriety": {
+          const { error } = await client.from("sobriety_categories").delete().eq("id", action.sobriety_id).eq("user_id", userId);
+          results.push({ action_type: "delete_sobriety", success: !error, error: error?.message });
+          break;
+        }
+        case "create_special_day": {
+          const { data, error } = await client.from("special_days").insert({
+            user_id: userId,
+            group_id: groupId,
+            title: action.title || "Special Day",
+            icon: action.icon || "❤️",
+            event_date: action.event_date || new Date().toISOString().slice(0, 10),
+            count_direction: action.count_direction || "since",
+            repeats_yearly: action.repeats_yearly || false,
+          }).select().single();
+          results.push({ action_type: "create_special_day", success: !error, id: data?.id, error: error?.message });
+          break;
+        }
+        case "delete_special_day": {
+          const { error } = await client.from("special_days").delete().eq("id", action.special_day_id).eq("user_id", userId);
+          results.push({ action_type: "delete_special_day", success: !error, error: error?.message });
+          break;
+        }
+        case "send_message": {
+          const targetGroupId = action.group_id || groupId;
+          const { data, error } = await client.from("messages").insert({
+            group_id: targetGroupId,
+            user_id: userId,
+            content: action.content || "",
+            is_ai_coach: false,
+          }).select().single();
+          results.push({ action_type: "send_message", success: !error, id: data?.id, error: error?.message });
+          break;
+        }
+        case "create_task": {
+          const { data, error } = await client.from("tasks").insert({
+            user_id: userId,
+            group_id: groupId,
+            title: action.title || "Task",
+            tag: action.tag || "Personal",
+            time: action.time || "",
+            assignee: action.assignee || "me",
+            scheduled_day: action.scheduled_day || null,
+            scheduled_month: action.scheduled_month || null,
+            scheduled_year: action.scheduled_year || null,
+          }).select().single();
+          results.push({ action_type: "create_task", success: !error, id: data?.id, error: error?.message });
+          break;
+        }
+        case "delete_task": {
+          const { error } = await client.from("tasks").delete().eq("id", action.task_id).eq("user_id", userId);
+          results.push({ action_type: "delete_task", success: !error, error: error?.message });
+          break;
+        }
+        default:
+          results.push({ action_type: action.action_type, success: false, error: "Unknown action type" });
+      }
+    } catch (e) {
+      results.push({ action_type: action.action_type, success: false, error: e instanceof Error ? e.message : "Unknown error" });
+    }
+  }
+
+  return results;
+}
