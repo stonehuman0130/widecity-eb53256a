@@ -811,7 +811,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   <HomeHabitSectionWidget
                     selectedDate={selectedDate}
                     categoryKey={categoryKey}
-                    sectionLabel={filter === "partner" ? `${partnerName}'s ${sectionMeta.label}` : sectionMeta.label}
+                    sectionLabel={(filter === "partner" || isSpecificMemberFilter) ? `${selectedMemberName}'s ${sectionMeta.label}` : sectionMeta.label}
                     sectionIcon={sectionMeta.icon}
                   />
                 </section>
