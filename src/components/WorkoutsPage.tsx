@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
+import ExerciseLogModal from "@/components/ExerciseLogModal";
 
 interface AIPlan {
   title: string;
@@ -89,6 +90,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editExName, setEditExName] = useState("");
   const [editExSets, setEditExSets] = useState("");
   const [editExReps, setEditExReps] = useState("");
+  // Exercise logging
+  const [loggingWorkout, setLoggingWorkout] = useState<Workout | null>(null);
 
   const isViewingPartner = viewFilter !== "mine";
   const today = todayStr();
@@ -504,6 +507,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                 onSelectExercise={setSelectedExercise}
                 onEditExercise={startEditExercise}
                 onDeleteExercise={deleteExercise}
+                onLogWorkout={setLoggingWorkout}
                 readOnly={isViewingPartner}
               />
             ))}
@@ -516,6 +520,20 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         exerciseName={selectedExercise}
         onClose={() => setSelectedExercise(null)}
       />
+
+      {/* Exercise Log Modal */}
+      {loggingWorkout && (
+        <ExerciseLogModal
+          open={!!loggingWorkout}
+          onClose={() => setLoggingWorkout(null)}
+          workoutId={loggingWorkout.id}
+          workoutTitle={loggingWorkout.title}
+          workoutEmoji={loggingWorkout.emoji}
+          exercises={loggingWorkout.exercises || []}
+          scheduledDate={loggingWorkout.scheduledDate}
+          readOnly={isViewingPartner}
+        />
+      )}
     </div>
   );
 };
@@ -530,6 +548,7 @@ const WorkoutCard = ({
   onSelectExercise,
   onEditExercise,
   onDeleteExercise,
+  onLogWorkout,
   readOnly,
 }: {
   workout: Workout;
@@ -541,6 +560,7 @@ const WorkoutCard = ({
   onSelectExercise: (name: string) => void;
   onEditExercise: (workoutId: string, index: number, ex: { name: string; sets: number; reps: string }) => void;
   onDeleteExercise: (workoutId: string, index: number) => void;
+  onLogWorkout: (workout: Workout) => void;
   readOnly?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -661,13 +681,22 @@ const WorkoutCard = ({
       {/* Exercises */}
       {workout.exercises && workout.exercises.length > 0 && (
         <>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="w-full flex items-center justify-center gap-1 py-2 border-t border-border text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {expanded ? "Hide" : "Show"} {workout.exercises.length} exercises
-          </button>
+          <div className="flex items-center border-t border-border">
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="flex-1 flex items-center justify-center gap-1 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {expanded ? "Hide" : "Show"} {workout.exercises.length} exercises
+            </button>
+            <button
+              onClick={() => onLogWorkout(workout)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors border-l border-border"
+            >
+              <Dumbbell size={13} />
+              Log Weights
+            </button>
+          </div>
           <AnimatePresence>
             {expanded && (
               <motion.div

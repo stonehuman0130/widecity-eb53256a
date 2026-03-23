@@ -132,6 +132,59 @@ export type Database = {
           },
         ]
       }
+      exercise_logs: {
+        Row: {
+          completed: boolean
+          created_at: string
+          exercise_index: number
+          exercise_name: string
+          id: string
+          logged_date: string
+          reps: number
+          set_number: number
+          unit: string
+          user_id: string
+          weight: number
+          workout_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          exercise_index?: number
+          exercise_name: string
+          id?: string
+          logged_date?: string
+          reps?: number
+          set_number?: number
+          unit?: string
+          user_id: string
+          weight?: number
+          workout_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          exercise_index?: number
+          exercise_name?: string
+          id?: string
+          logged_date?: string
+          reps?: number
+          set_number?: number
+          unit?: string
+          user_id?: string
+          weight?: number
+          workout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_logs_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gcal_event_completions: {
         Row: {
           completed_at: string | null

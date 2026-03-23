@@ -47,13 +47,14 @@ serve(async (req) => {
     // Fetch current app data for context
     let currentData = "";
     try {
-      const [workoutsRes, eventsRes, habitsRes, sectionsRes, sobrietyRes, specialDaysRes] = await Promise.all([
+      const [workoutsRes, eventsRes, habitsRes, sectionsRes, sobrietyRes, specialDaysRes, exerciseLogsRes] = await Promise.all([
         adminClient.from("workouts").select("id,title,emoji,tag,duration,cal,done,scheduled_date,exercises").eq("user_id", userId).eq("group_id", groupId).order("scheduled_date", { ascending: true }).limit(50),
         adminClient.from("events").select("id,title,day,month,year,time,end_time,assignee,done,description").eq("group_id", groupId).order("year", { ascending: true }).order("month", { ascending: true }).order("day", { ascending: true }).limit(50),
         adminClient.from("habits").select("id,label,category").eq("user_id", userId).eq("group_id", groupId),
         adminClient.from("habit_sections").select("id,key,label,icon,sort_order").eq("user_id", userId).eq("group_id", groupId).order("sort_order"),
         adminClient.from("sobriety_categories").select("id,label,icon,start_date,money_per_day").eq("user_id", userId).eq("group_id", groupId),
         adminClient.from("special_days").select("id,title,icon,event_date,count_direction,repeats_yearly,is_featured").eq("user_id", userId).eq("group_id", groupId),
+        adminClient.from("exercise_logs").select("exercise_name,set_number,weight,unit,reps,completed,logged_date,workout_id").eq("user_id", userId).order("logged_date", { ascending: false }).order("exercise_name").order("set_number").limit(200),
       ]);
 
       const upcoming = (eventsRes.data || []).filter((e: any) => {
@@ -70,7 +71,10 @@ Events (upcoming): ${JSON.stringify(upcoming)}
 Habits: ${JSON.stringify(habitsRes.data || [])}
 Habit Sections: ${JSON.stringify(sectionsRes.data || [])}
 Sobriety Trackers: ${JSON.stringify(sobrietyRes.data || [])}
-Special Days: ${JSON.stringify(specialDaysRes.data || [])}`;
+Special Days: ${JSON.stringify(specialDaysRes.data || [])}
+Exercise Logs (recent weight/rep history, sorted newest first): ${JSON.stringify(exerciseLogsRes.data || [])}
+
+EXERCISE LOG INSTRUCTIONS: When the user asks about weights they've used, their recent lifts, or strength progress, use the Exercise Logs data above. Each log entry has exercise_name, weight, unit (lb/kg), reps, set_number, logged_date, and workout_id. Summarize clearly (e.g. "Your last bench press was 185 lb for 3 sets of 8 reps on March 20").`;
     } catch (e) {
       console.error("Failed to fetch context data:", e);
     }
