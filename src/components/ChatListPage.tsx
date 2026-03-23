@@ -18,11 +18,9 @@ interface ChatPreview {
 
 const ChatListPage = ({
   onOpenChat,
-  onOpenCoach,
   onOpenSettings,
 }: {
   onOpenChat: (group: Group) => void;
-  onOpenCoach: (group: Group) => void;
   onOpenSettings?: () => void;
 }) => {
   const { user, groups } = useAuth();
