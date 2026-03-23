@@ -7,6 +7,7 @@ interface LastMessage {
   content: string;
   created_at: string;
   user_id: string;
+  metadata?: { type?: string } | null;
 }
 
 interface ChatPreview {
@@ -55,6 +56,7 @@ const ChatListPage = ({
             content: msg.content,
             created_at: msg.created_at,
             user_id: msg.user_id,
+            metadata: msg.metadata,
           });
         }
       });
@@ -286,7 +288,12 @@ const ChatListPage = ({
                   <div className="flex items-center justify-between gap-2 mt-0.5">
                     <p className="text-xs text-muted-foreground truncate">
                       {preview.lastMessage
-                        ? `${senderName}: ${preview.lastMessage.content}`
+                        ? `${senderName}: ${
+                            preview.lastMessage.metadata?.type === "voice" ? "🎤 Voice memo" :
+                            preview.lastMessage.metadata?.type === "image" ? "📷 Photo" :
+                            preview.lastMessage.metadata?.type === "video" ? "🎥 Video" :
+                            preview.lastMessage.content
+                          }`
                         : `${preview.group.members.length} member${preview.group.members.length !== 1 ? "s" : ""} · No messages yet`}
                     </p>
                     {preview.unreadCount > 0 && (
