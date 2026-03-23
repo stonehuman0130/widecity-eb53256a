@@ -98,44 +98,9 @@ const Index = () => {
     setChatMode("chat");
   };
 
-  const handleOpenCoach = (group: Group) => {
-    setChatGroup(group);
-    setChatMode("coach");
-    setCoachInitialMessage(undefined);
-  };
-
   const handleBackToList = () => {
     setChatGroup(null);
     setChatMode("list");
-    setCoachInitialMessage(undefined);
-  };
-
-  const handleScheduleFromLauncher = (message: string) => {
-    if (groups.length === 1) {
-      // Single group — go directly to AI Coach
-      const group = groups[0];
-      setActiveGroup(group);
-      setChatGroup(group);
-      setChatMode("coach");
-      setCoachInitialMessage(message);
-      setActiveTab("chat");
-    } else if (groups.length > 1) {
-      // Multiple groups — store pending message, show group picker
-      setPendingScheduleMessage(message);
-    } else {
-      // No groups — fall back to home
-      setActiveGroup(null);
-      setActiveTab("home");
-    }
-  };
-
-  const handlePickGroupForSchedule = (group: Group) => {
-    setActiveGroup(group);
-    setChatGroup(group);
-    setChatMode("coach");
-    setCoachInitialMessage(pendingScheduleMessage || undefined);
-    setPendingScheduleMessage(null);
-    setActiveTab("chat");
   };
 
   const renderChatView = () => {
