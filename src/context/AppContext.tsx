@@ -196,17 +196,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [habitSectionsState, setHabitSectionsState] = useState<HabitSectionMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const contextOtherUserId = useMemo(() => {
-    if (!user) return null;
+  // Get ALL other user IDs in the active context (supports 3+ member groups)
+  const contextOtherUserIds = useMemo(() => {
+    if (!user) return [];
 
     if (activeGroup) {
       const otherMembers = activeGroup.members.filter((m) => m.user_id !== user.id);
-      if (otherMembers.length === 1) return otherMembers[0].user_id;
-      return null;
+      return otherMembers.map((m) => m.user_id);
     }
 
-    return partner?.id ?? null;
+    return partner?.id ? [partner.id] : [];
   }, [activeGroup, partner?.id, user]);
+
+  // Backward compat: single partner ID (first other member or legacy partner)
+  const contextOtherUserId = contextOtherUserIds.length > 0 ? contextOtherUserIds[0] : null;
 
   // Load all data from database on mount
   useEffect(() => {
