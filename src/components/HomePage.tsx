@@ -393,20 +393,17 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     return day === selDay && month === selMonth && year === selYear;
   };
 
-  // INDIVIDUAL VIEW: show items assigned to me (or partner) PLUS jointly assigned items
-  // Partner filter: show PARTNER's data, not own data with assignee="partner"
+  // INDIVIDUAL VIEW: show items assigned to me (or specific member) PLUS jointly assigned items
   let dayTasks: Task[];
   let visibleEvents: ScheduledEvent[];
 
   if (filter === "mine") {
-    // My tasks where I'm responsible (assignee=me or both) + partner's tasks assigned to me (assignee=partner from their perspective = me doing it) or both
     const myResponsible = filteredTasks.filter((t) =>
       (t.assignee === "me" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
     );
     const partnerAssignedToMe = filteredPartnerTasks.filter((t) =>
       (t.assignee === "partner" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
     );
-    // Deduplicate "both" items by title+time to avoid showing same shared task twice
     const seenKeys = new Set(myResponsible.map((t) => `${t.title}|${t.time}|${t.scheduledDay}`));
     const uniquePartner = partnerAssignedToMe.filter((t) => !seenKeys.has(`${t.title}|${t.time}|${t.scheduledDay}`));
     dayTasks = [...myResponsible, ...uniquePartner];
@@ -420,9 +417,16 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const seenEventKeys = new Set(myEvents.map((e) => `${e.title}|${e.time}|${e.day}`));
     const uniquePartnerEvents = partnerEventsForMe.filter((e) => !seenEventKeys.has(`${e.title}|${e.time}|${e.day}`));
     visibleEvents = [...myEvents, ...uniquePartnerEvents];
-  } else if (filter === "partner") {
-    // Partner's own tasks (assignee=me from their view) + partner's shared (both) + my tasks assigned to partner
-    const partnerOwn = filteredPartnerTasks.filter((t) =>
+  } else if (filter === "partner" || isSpecificMemberFilter) {
+    // For "partner" (2-member) or "member:{userId}" (3+ member): show that member's data
+    const memberTasks = selectedMemberUserId
+      ? filteredPartnerTasks.filter((t) => t.ownerUserId === selectedMemberUserId)
+      : filteredPartnerTasks;
+    const memberEvents = selectedMemberUserId
+      ? filteredPartnerEvents.filter((e) => e.ownerUserId === selectedMemberUserId)
+      : filteredPartnerEvents;
+
+    const partnerOwn = memberTasks.filter((t) =>
       (t.assignee === "me" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
     );
     const myAssignedToPartner = filteredTasks.filter((t) =>
@@ -432,7 +436,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const uniqueMy = myAssignedToPartner.filter((t) => !seenKeys.has(`${t.title}|${t.time}|${t.scheduledDay}`));
     dayTasks = [...partnerOwn, ...uniqueMy];
 
-    const partnerOwnEvents = filteredPartnerEvents.filter((e) =>
+    const partnerOwnEvents = memberEvents.filter((e) =>
       (e.user === "me" || e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear
     );
     const myEventsForPartner = filteredEvents.filter((e) =>
@@ -442,7 +446,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const uniqueMyEvents = myEventsForPartner.filter((e) => !seenEventKeys.has(`${e.title}|${e.time}|${e.day}`));
     visibleEvents = [...partnerOwnEvents, ...uniqueMyEvents];
   } else {
-    // "Together" / household: collect ALL items for TeamDashboard (handled separately in render)
+    // "household" / shared: collect ALL items for TeamDashboard (handled separately in render)
     dayTasks = [];
     visibleEvents = [];
   }
