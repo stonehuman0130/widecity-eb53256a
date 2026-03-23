@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Mic, MicOff, Sparkles, Check, X, ChevronDown, ChevronUp, Loader2, ArrowLeft } from "lucide-react";
+import { Send, Mic, MicOff, Sparkles, Loader2, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useAppContext } from "@/context/AppContext";
@@ -16,42 +16,41 @@ interface AiMessage {
   metadata?: {
     phase?: string;
     suggestions?: string[];
-    draftPlan?: DraftPlan | null;
     actions?: AppAction[];
+    actionResults?: ActionResult[];
   };
-}
-
-interface DraftPlan {
-  type: "workout" | "event" | "habit" | "meal" | "multi" | "message" | "sobriety" | "special_day" | "section";
-  items: DraftItem[];
-}
-
-interface DraftItem {
-  title: string;
-  date?: string;
-  time?: string;
-  description?: string;
-  tag?: string;
-  assignee?: string;
-  category?: string;
-  emoji?: string;
-  duration?: string;
-  cal?: number;
-  exercises?: { name: string; sets: number; reps: string }[];
-  groupId?: string;
-  content?: string;
-  icon?: string;
-  startDate?: string;
-  moneyPerDay?: number;
-  sectionKey?: string;
-  sectionLabel?: string;
-  shared?: boolean;
 }
 
 interface AppAction {
   action_type: string;
   [key: string]: any;
 }
+
+interface ActionResult {
+  action_type: string;
+  success: boolean;
+  id?: string;
+  error?: string;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  create_workout: "Created workout",
+  delete_workout: "Deleted workout",
+  create_event: "Created event",
+  delete_event: "Deleted event",
+  create_habit: "Created habit",
+  delete_habit: "Deleted habit",
+  create_section: "Created section",
+  delete_section: "Deleted section",
+  rename_section: "Renamed section",
+  create_sobriety: "Created sobriety tracker",
+  delete_sobriety: "Deleted sobriety tracker",
+  create_special_day: "Created special day",
+  delete_special_day: "Deleted special day",
+  send_message: "Sent message",
+  create_task: "Created task",
+  delete_task: "Deleted task",
+};
 
 const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
   const { user, profile, groups, activeGroup } = useAuth();
@@ -60,7 +59,6 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const [voiceActive, setVoiceActive] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -152,8 +150,6 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
           message: text,
           groupId,
           conversationHistory: history,
-          phase: "idle",
-          context: {},
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           appContext: {
             userName: profile?.display_name,
@@ -168,14 +164,24 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
 
       const aiReply = data.reply || "I'm here to help! What would you like to do?";
       const suggestions = data.suggestions || [];
-      const draftPlan = data.draftPlan || null;
+      const actions = data.actions || [];
+      const actionResults = data.actionResults || [];
+
+      // If actions were executed, refresh app data
+      if (actionResults.length > 0) {
+        const hasSuccess = actionResults.some((r: ActionResult) => r.success);
+        if (hasSuccess) {
+          // Trigger a data refresh by reloading app context
+          appContext.refreshData?.();
+        }
+      }
 
       const aiMsg: AiMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: aiReply,
         created_at: new Date().toISOString(),
-        metadata: { phase: data.phase, suggestions, draftPlan },
+        metadata: { phase: data.phase, suggestions, actions, actionResults },
       };
 
       setMessages((prev) => [...prev, aiMsg]);
@@ -185,10 +191,9 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
         user_id: user.id,
         content: aiReply,
         is_ai_coach: true,
-        metadata: { role: "assistant", phase: data.phase, suggestions, draftPlan },
+        metadata: { role: "assistant", phase: data.phase, suggestions, actions: actions.length > 0 ? actions : undefined },
       } as any);
 
-      if (draftPlan) setExpandedPlan(aiMsg.id);
       scrollToBottom();
     } catch (e: any) {
       console.error("AI error:", e);
@@ -199,109 +204,6 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
   };
 
   const sendMessage = () => sendMessageDirect(input);
-
-  const handleConfirmPlan = async (draftPlan: DraftPlan) => {
-    if (!user) return;
-    setSending(true);
-    const groupId = activeGroup?.id || groups[0]?.id;
-
-    try {
-      for (const item of draftPlan.items) {
-        if (draftPlan.type === "message" && item.content && item.groupId) {
-          await supabase.from("messages").insert({
-            group_id: item.groupId,
-            user_id: user.id,
-            content: item.content,
-            is_ai_coach: false,
-          });
-        } else if (draftPlan.type === "workout" || item.exercises) {
-          await supabase.from("workouts").insert({
-            user_id: user.id,
-            group_id: groupId,
-            title: item.title,
-            emoji: item.emoji || "💪",
-            duration: item.duration || "30 min",
-            cal: item.cal || 0,
-            tag: item.tag || "Full Body",
-            exercises: item.exercises || [],
-            scheduled_date: item.date || new Date().toISOString().slice(0, 10),
-          });
-        } else if (draftPlan.type === "habit") {
-          await supabase.from("habits").insert({
-            user_id: user.id,
-            group_id: groupId,
-            label: item.title,
-            category: item.category || "other",
-          });
-        } else if (draftPlan.type === "sobriety") {
-          await supabase.from("sobriety_categories").insert({
-            user_id: user.id,
-            group_id: groupId,
-            label: item.title,
-            icon: item.icon || "🚫",
-            start_date: item.startDate || new Date().toISOString().slice(0, 10),
-            money_per_day: item.moneyPerDay || 0,
-          });
-        } else {
-          const d = item.date ? new Date(item.date + "T00:00:00") : new Date();
-          await supabase.from("events").insert({
-            user_id: user.id,
-            group_id: groupId,
-            title: item.title,
-            time: item.time || "",
-            day: d.getDate(),
-            month: d.getMonth() + 1,
-            year: d.getFullYear(),
-            assignee: item.assignee || "me",
-            description: item.description || null,
-          });
-        }
-      }
-
-      const confirmMsg = `✅ Done! I've saved ${draftPlan.items.length} item${draftPlan.items.length !== 1 ? "s" : ""}.`;
-      const aiMsg: AiMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: confirmMsg,
-        created_at: new Date().toISOString(),
-        metadata: { phase: "idle", suggestions: ["What else can I help with?", "Show my schedule", "Plan a workout"] },
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-
-      if (groupId) {
-        await supabase.from("messages").insert({
-          group_id: groupId,
-          user_id: user.id,
-          content: confirmMsg,
-          is_ai_coach: true,
-          metadata: { role: "assistant", phase: "idle" },
-        } as any);
-      }
-
-      setExpandedPlan(null);
-      toast.success("Saved!");
-      scrollToBottom();
-    } catch (e) {
-      console.error("Save error:", e);
-      toast.error("Failed to save");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleRejectPlan = () => {
-    const msg = "No problem! What would you like to change?";
-    const aiMsg: AiMessage = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: msg,
-      created_at: new Date().toISOString(),
-      metadata: { suggestions: ["Start over", "Change details", "Cancel"] },
-    };
-    setMessages((prev) => [...prev, aiMsg]);
-    setExpandedPlan(null);
-    scrollToBottom();
-  };
 
   const handleVoiceToggle = () => {
     if (voiceActive || listening) {
@@ -333,10 +235,7 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
       <header className="px-4 pt-12 pb-3 border-b border-border bg-card/80 backdrop-blur-sm flex-shrink-0">
         <div className="flex items-center gap-3">
           {onBack && (
-            <button
-              onClick={onBack}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors -ml-1"
-            >
+            <button onClick={onBack} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors -ml-1">
               <ArrowLeft size={20} />
             </button>
           )}
@@ -346,7 +245,7 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
           <div className="flex-1 min-w-0">
             <h1 className="text-base font-bold tracking-tight">AI Assistant</h1>
             <p className="text-[10px] text-muted-foreground">
-              {activeGroup ? `${activeGroup.name} · ` : ""}Your universal helper
+              {activeGroup ? `${activeGroup.name} · ` : ""}Can do everything you can
             </p>
           </div>
         </div>
@@ -366,16 +265,16 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
             </div>
             <h2 className="text-xl font-bold mb-2">Hey{profile?.display_name ? `, ${profile.display_name}` : ""}! 👋</h2>
             <p className="text-sm text-muted-foreground max-w-[300px] mb-8 leading-relaxed">
-              I can help you with anything in the app — schedule events, plan workouts, manage habits, send messages, and more.
+              I can do anything in the app — create workouts, schedule events, manage habits, send messages, and more. Just ask!
             </p>
             <div className="flex flex-wrap gap-2 justify-center max-w-[320px]">
               {[
-                "Plan a workout for this week",
+                "Create a 4-day workout plan",
                 "Schedule dinner tomorrow at 7pm",
-                "Add a morning habit",
+                "Add a morning habits section",
                 "Set up a sobriety tracker",
-                "Summarize what I did today",
-                "Send a message to my group",
+                "Send a message to the group",
+                "Delete all my workouts",
               ].map((s) => (
                 <button
                   key={s}
@@ -391,8 +290,8 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
 
         {messages.map((msg) => {
           const isUser = msg.role === "user";
-          const hasPlan = msg.metadata?.draftPlan;
-          const isExpanded = expandedPlan === msg.id;
+          const actionResults = msg.metadata?.actionResults || [];
+          const hasActions = actionResults.length > 0;
 
           return (
             <div key={msg.id}>
@@ -419,85 +318,36 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
                       </div>
                     )}
                   </div>
+
+                  {/* Action Results */}
+                  {hasActions && (
+                    <div className="mt-1.5 ml-1 space-y-1">
+                      {actionResults.map((result: ActionResult, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`flex items-center gap-1.5 text-[11px] font-medium ${
+                            result.success ? "text-emerald-600" : "text-destructive"
+                          }`}
+                        >
+                          {result.success ? (
+                            <CheckCircle2 size={12} />
+                          ) : (
+                            <XCircle size={12} />
+                          )}
+                          <span>
+                            {ACTION_LABELS[result.action_type] || result.action_type}
+                            {!result.success && result.error ? ` — ${result.error}` : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <span className={`text-[9px] text-muted-foreground mt-0.5 block ${isUser ? "text-right mr-1" : "ml-1"}`}>
                     {formatTime(msg.created_at)}
                   </span>
                 </div>
               </div>
-
-              {hasPlan && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="ml-1 mr-4 mt-2 mb-3"
-                >
-                  <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                    <button
-                      onClick={() => setExpandedPlan(isExpanded ? null : msg.id)}
-                      className="w-full flex items-center justify-between px-3.5 py-2.5 hover:bg-secondary/30 transition-colors"
-                    >
-                      <span className="text-xs font-bold">
-                        📋 Draft · {(msg.metadata!.draftPlan!.items || []).length} item{(msg.metadata!.draftPlan!.items || []).length !== 1 ? "s" : ""}
-                      </span>
-                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </button>
-
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: "auto" }}
-                          exit={{ height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="px-3.5 pb-3 space-y-2 border-t border-border/50 pt-2">
-                            {(msg.metadata!.draftPlan!.items || []).map((item: DraftItem, idx: number) => (
-                              <div key={idx} className="bg-secondary/50 rounded-lg px-3 py-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm">{item.emoji || "📌"}</span>
-                                  <span className="text-xs font-bold flex-1">{item.title}</span>
-                                </div>
-                                {item.date && (
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 ml-6">
-                                    {item.date}{item.time ? ` · ${item.time}` : ""}
-                                    {item.duration ? ` · ${item.duration}` : ""}
-                                  </p>
-                                )}
-                                {item.exercises && item.exercises.length > 0 && (
-                                  <div className="mt-1.5 ml-6 space-y-0.5">
-                                    {item.exercises.map((ex, i) => (
-                                      <p key={i} className="text-[10px] text-muted-foreground">
-                                        • {ex.name} — {ex.sets}×{ex.reps}
-                                      </p>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-
-                            <div className="flex gap-2 pt-2">
-                              <button
-                                onClick={() => handleConfirmPlan(msg.metadata!.draftPlan!)}
-                                disabled={sending}
-                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50"
-                              >
-                                <Check size={14} /> Confirm & Save
-                              </button>
-                              <button
-                                onClick={handleRejectPlan}
-                                disabled={sending}
-                                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-foreground text-xs font-medium hover:bg-secondary/80 active:scale-[0.98] transition-all disabled:opacity-50"
-                              >
-                                <X size={14} /> Change
-                              </button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
-              )}
             </div>
           );
         })}
