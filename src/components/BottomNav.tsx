@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Home, CalendarDays, MessageCircle, MoreHorizontal, Dumbbell, Heart, Clock, Sparkles } from "lucide-react";
 
-export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "calendar" | "chat" | "settings" | "more";
+export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "calendar" | "chat" | "ai" | "settings" | "more";
 
 export interface EnabledPages {
   workout: boolean;
@@ -74,6 +74,7 @@ const BottomNav = ({ activeTab, onTabChange, enabledPages }: BottomNavProps) => 
   const [middleTabs, setMiddleTabs] = useState<Tab[]>(() =>
     reconcileOrder(loadSavedOrder(), defaultMiddle)
   );
+  const aiActive = activeTab === "ai";
   const [editMode, setEditMode] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -201,7 +202,7 @@ const BottomNav = ({ activeTab, onTabChange, enabledPages }: BottomNavProps) => 
           </button>
         </div>
       )}
-      <div className="flex items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="flex items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] relative">
         {/* Fixed: Home */}
         <button
           onClick={() => { if (!editMode) onTabChange("home"); }}
@@ -213,8 +214,54 @@ const BottomNav = ({ activeTab, onTabChange, enabledPages }: BottomNavProps) => 
           <span className="text-[9px] font-medium">Home</span>
         </button>
 
-        {/* Middle: reorderable */}
-        {visualTabs.map((tabId, i) => {
+        {/* Middle left tabs */}
+        {visualTabs.slice(0, Math.ceil(visualTabs.length / 2)).map((tabId, i) => {
+          const meta = TAB_META[tabId];
+          if (!meta) return null;
+          const Icon = meta.icon;
+          const active = isActive(tabId);
+          const isDragging = editMode && dragIdx !== null && middleTabs[dragIdx] === tabId;
+
+          return (
+            <button
+              key={tabId}
+              ref={(el) => { tabRefs.current[i] = el; }}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                handlePointerDown(i);
+              }}
+              onPointerUp={() => handlePointerUp(tabId)}
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors select-none touch-none ${
+                active ? "text-nav-active" : "text-nav-inactive"
+              } ${editMode ? "animate-nav-wiggle" : ""} ${
+                isDragging ? "opacity-60 scale-110" : ""
+              }`}
+              style={editMode ? { animationDelay: `${i * 0.05}s` } : undefined}
+            >
+              <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+              <span className="text-[9px] font-medium">{meta.label}</span>
+            </button>
+          );
+        })}
+
+        {/* Center: AI Button */}
+        <button
+          onClick={() => { if (!editMode) onTabChange("ai"); }}
+          className={`flex flex-col items-center gap-0.5 -mt-4 transition-all ${editMode ? "pointer-events-none opacity-50" : ""}`}
+        >
+          <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all ${
+            aiActive
+              ? "bg-gradient-to-br from-violet-500 to-indigo-600 scale-105"
+              : "bg-gradient-to-br from-violet-500/90 to-indigo-600/90 hover:scale-105"
+          }`}>
+            <Sparkles size={24} className="text-white" />
+          </div>
+          <span className={`text-[9px] font-semibold mt-0.5 ${aiActive ? "text-violet-500" : "text-muted-foreground"}`}>AI</span>
+        </button>
+
+        {/* Middle right tabs */}
+        {visualTabs.slice(Math.ceil(visualTabs.length / 2)).map((tabId, rawI) => {
+          const i = rawI + Math.ceil(visualTabs.length / 2);
           const meta = TAB_META[tabId];
           if (!meta) return null;
           const Icon = meta.icon;

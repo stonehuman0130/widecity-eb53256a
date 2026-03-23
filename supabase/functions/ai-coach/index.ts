@@ -5,20 +5,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-type Phase = "gathering" | "draft_ready" | "confirmed" | "idle";
-
-interface CoachContext {
-  intent?: string; // "workout", "schedule", "habit", "meal", "general"
-  gathered?: Record<string, string>;
-  draftPlan?: any;
-  conversationSummary?: string;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { message, groupId, conversationHistory, phase, context, timezone } = await req.json();
+    const { message, groupId, conversationHistory, phase, context, timezone, appContext } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -26,21 +17,60 @@ serve(async (req) => {
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
 
-    const currentPhase: Phase = phase || "idle";
-    const currentContext: CoachContext = context || {};
+    const userName = appContext?.userName || "there";
+    const groups = appContext?.groups || [];
+    const activeGroupName = appContext?.activeGroupName || "your group";
 
-    // Build the system prompt based on the current phase
-    const systemPrompt = buildSystemPrompt(currentPhase, currentContext, todayStr, userTz);
+    const systemPrompt = `You are a friendly, knowledgeable universal AI assistant inside a shared planning & wellness app. Today is ${todayStr}. User timezone: ${userTz}. User's name: ${userName}. Active group: ${activeGroupName}.
+
+Available groups: ${groups.map((g: any) => `${g.emoji} ${g.name} (${g.memberCount} members, id: ${g.id})`).join(", ") || "none"}
+
+YOU ARE THE APP'S CENTRAL AI. You can help with EVERYTHING in the app:
+
+APP CAPABILITIES YOU UNDERSTAND:
+1. **Scheduling** - Create events, tasks with dates/times/assignees
+2. **Workouts** - Plan workout routines with exercises, sets, reps, duration
+3. **Habits** - Create habit sections and individual habits (morning, evening, custom)
+4. **Sobriety Tracking** - Set up sobriety trackers with icons, start dates, daily savings
+5. **Special Days** - Track anniversaries, birthdays, milestones
+6. **Group Chat** - Send messages to group chats
+7. **Home Customization** - Guide users on customizing their home page
+8. **Navigation** - Guide users on app navigation and features
+9. **Summaries** - Summarize daily/weekly activity, completions, streaks
+10. **Recommendations** - Suggest workouts, habits, routines based on goals
+
+CRITICAL RULES:
+1. NEVER immediately create items when details are missing. Ask follow-up questions first.
+2. Be conversational, warm, and encouraging. Use emojis sparingly.
+3. Keep responses concise and mobile-friendly.
+4. When you have enough details, set phase to "draft_ready" and include a draftPlan.
+5. Always provide 2-4 quick-reply suggestions.
+6. If the user asks about app features, explain clearly how to use them.
+7. If the user wants to send a message to a group, include it in the draft plan.
+
+CONVERSATION PHASES:
+- "idle": No active planning. Ready to help.
+- "gathering": Collecting information for a specific task.
+- "draft_ready": Present a draft plan for confirmation.
+
+DRAFT PLAN TYPES: workout, event, habit, meal, multi, message, sobriety, special_day, section
+
+For workouts: include title, emoji, duration, cal, tag, exercises with sets/reps, date.
+For events: include title, date, time, assignee (me/partner/both), description.
+For habits: include title/label, category.
+For messages: include groupId, content.
+For sobriety: include title/label, icon, startDate.
+For sections: include sectionKey, sectionLabel, shared boolean.
+
+Always ask for confirmation before saving: "Here's what I've put together. Want me to save this?"`;
 
     const messages: any[] = [{ role: "system", content: systemPrompt }];
 
-    // Add conversation history
     if (conversationHistory && Array.isArray(conversationHistory)) {
       for (const msg of conversationHistory) {
         messages.push({ role: msg.role, content: msg.content });
       }
     }
-
     messages.push({ role: "user", content: message });
 
     const tools = [
@@ -48,38 +78,31 @@ serve(async (req) => {
         type: "function",
         function: {
           name: "coach_response",
-          description: "Respond to the user as an AI coach. Use this for all responses.",
+          description: "Respond to the user as the universal AI assistant.",
           parameters: {
             type: "object",
             properties: {
-              reply: { type: "string", description: "The conversational reply to show the user" },
+              reply: { type: "string", description: "The conversational reply" },
               phase: {
                 type: "string",
                 enum: ["gathering", "draft_ready", "confirmed", "idle"],
-                description: "The current conversation phase after this response",
               },
               context: {
                 type: "object",
-                description: "Updated context with gathered info, intent, draft plan etc",
                 properties: {
-                  intent: { type: "string", enum: ["workout", "schedule", "habit", "meal", "general"] },
-                  gathered: {
-                    type: "object",
-                    description: "Key-value pairs of info gathered so far (goal, days_per_week, experience_level, focus_area, duration, date, time, title, etc)",
-                  },
-                  conversationSummary: { type: "string", description: "Brief summary of what's been discussed" },
+                  intent: { type: "string" },
+                  gathered: { type: "object" },
+                  conversationSummary: { type: "string" },
                 },
               },
               suggestions: {
                 type: "array",
                 items: { type: "string" },
-                description: "2-4 quick-reply suggestions for the user",
               },
               draftPlan: {
                 type: "object",
-                description: "Only set when phase is draft_ready. The proposed plan to show the user.",
                 properties: {
-                  type: { type: "string", enum: ["workout", "event", "habit", "meal", "multi"] },
+                  type: { type: "string", enum: ["workout", "event", "habit", "meal", "multi", "message", "sobriety", "special_day", "section"] },
                   items: {
                     type: "array",
                     items: {
@@ -90,9 +113,8 @@ serve(async (req) => {
                         time: { type: "string" },
                         description: { type: "string" },
                         tag: { type: "string" },
-                        assignee: { type: "string", enum: ["me", "partner", "both"] },
+                        assignee: { type: "string" },
                         category: { type: "string" },
-                        // Workout-specific
                         emoji: { type: "string" },
                         duration: { type: "string" },
                         cal: { type: "number" },
@@ -107,6 +129,14 @@ serve(async (req) => {
                             },
                           },
                         },
+                        groupId: { type: "string" },
+                        content: { type: "string" },
+                        icon: { type: "string" },
+                        startDate: { type: "string" },
+                        moneyPerDay: { type: "number" },
+                        sectionKey: { type: "string" },
+                        sectionLabel: { type: "string" },
+                        shared: { type: "boolean" },
                       },
                       required: ["title"],
                     },
@@ -141,7 +171,7 @@ serve(async (req) => {
       if (status === 429) return new Response(JSON.stringify({ error: "Rate limited, try again shortly." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const t = await response.text();
-      console.error("AI coach error:", status, t);
+      console.error("AI error:", status, t);
       throw new Error("AI gateway error");
     }
 
@@ -149,12 +179,11 @@ serve(async (req) => {
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
 
     if (!toolCall?.function?.arguments) {
-      // Fallback to content
-      const content = data.choices?.[0]?.message?.content || "I'm here to help! What would you like to plan?";
+      const content = data.choices?.[0]?.message?.content || "I'm here to help! What would you like to do?";
       return new Response(JSON.stringify({
         reply: content,
         phase: "idle",
-        suggestions: ["Plan a workout", "Schedule an event", "Add a habit"],
+        suggestions: ["Plan a workout", "Schedule an event", "Help me set up habits"],
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -163,7 +192,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       reply: parsed.reply,
       phase: parsed.phase || "idle",
-      context: parsed.context || currentContext,
+      context: parsed.context || context || {},
       suggestions: parsed.suggestions || [],
       draftPlan: parsed.draftPlan || null,
     }), {
@@ -177,63 +206,3 @@ serve(async (req) => {
     });
   }
 });
-
-function buildSystemPrompt(phase: Phase, context: CoachContext, todayStr: string, timezone: string): string {
-  const base = `You are a friendly, knowledgeable AI life coach inside a shared planning app. Today is ${todayStr}. User timezone: ${timezone}.
-
-You help users plan workouts, schedule events, create habits, and organize their life. You are warm, encouraging, and ask smart follow-up questions to create the best plan.
-
-CRITICAL RULES:
-1. NEVER immediately create/save items when a request is vague or missing key details.
-2. Always gather enough information through natural conversation FIRST.
-3. Only move to "draft_ready" phase when you have enough details to create a concrete plan.
-4. Keep responses concise and mobile-friendly (short paragraphs, use emojis sparingly).
-
-CONVERSATION PHASES:
-- "idle": No active planning. Greet or ask what they want to do.
-- "gathering": Actively collecting information. Ask follow-up questions.
-- "draft_ready": You have enough info. Present a draft plan for confirmation.
-- "confirmed": User confirmed the plan. Items will be saved.
-
-WHEN THE USER WANTS TO PLAN A WORKOUT:
-Ask about (if not already provided):
-1. Goal/focus area (strength, muscle gain, weight loss, endurance, flexibility)
-2. Target body area (upper body, lower body, full body, core, specific muscle groups)
-3. Experience level (beginner, intermediate, advanced)
-4. How many days per week
-5. Session duration preference
-6. Any equipment available or limitations
-You don't need ALL of these — use judgment. If someone says "give me a chest workout", you know the focus area already.
-
-WHEN THE USER WANTS TO SCHEDULE SOMETHING:
-Ask about (if not already provided):
-1. What exactly they want to schedule
-2. Date and time
-3. Who it's for (me, partner, both)
-
-WHEN THE USER WANTS TO ADD HABITS:
-Ask about (if not already provided):
-1. What habit
-2. Which time of day / category
-3. Whether to share with group
-
-FOR MEAL PLANS:
-Ask about dietary preferences, restrictions, goals, and how many meals/days.
-
-DRAFT PLAN FORMAT:
-When you have enough info, set phase to "draft_ready" and include a draftPlan object with concrete items.
-For workouts: include title, emoji, duration, estimated calories, tag, and exercises with sets/reps.
-For events: include title, date, time, assignee.
-For habits: include title/label, category.
-
-Ask the user to confirm before saving: "Here's what I've put together. Want me to save this?"
-
-SUGGESTIONS:
-Always provide 2-4 quick-reply suggestions that make sense in context.`;
-
-  if (phase === "gathering" && context.conversationSummary) {
-    return base + `\n\nCONVERSATION SO FAR:\n${context.conversationSummary}\n\nGathered info: ${JSON.stringify(context.gathered || {})}`;
-  }
-
-  return base;
-}
