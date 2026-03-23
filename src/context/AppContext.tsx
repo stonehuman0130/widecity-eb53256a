@@ -75,6 +75,7 @@ export interface Workout {
   exercises?: { name: string; sets: number; reps: string }[];
   hiddenFromPartner?: boolean;
   groupId?: string | null;
+  ownerUserId?: string;
 }
 
 export interface GoogleCalendarEvent {
