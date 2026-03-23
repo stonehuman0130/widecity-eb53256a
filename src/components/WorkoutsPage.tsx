@@ -519,6 +519,20 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         exerciseName={selectedExercise}
         onClose={() => setSelectedExercise(null)}
       />
+
+      {/* Exercise Log Modal */}
+      {loggingWorkout && (
+        <ExerciseLogModal
+          open={!!loggingWorkout}
+          onClose={() => setLoggingWorkout(null)}
+          workoutId={loggingWorkout.id}
+          workoutTitle={loggingWorkout.title}
+          workoutEmoji={loggingWorkout.emoji}
+          exercises={loggingWorkout.exercises || []}
+          scheduledDate={loggingWorkout.scheduledDate}
+          readOnly={isViewingPartner}
+        />
+      )}
     </div>
   );
 };
