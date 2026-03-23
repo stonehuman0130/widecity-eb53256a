@@ -633,9 +633,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
           ))}
         </div>
       )}
-          ))}
-        </div>
-      )}
 
       {/* Voice Mode Overlay */}
       <AnimatePresence>
