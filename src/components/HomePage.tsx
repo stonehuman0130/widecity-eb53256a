@@ -550,7 +550,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
 
   // Determine if we can toggle items (only own items)
-  const isViewingPartner = filter === "partner";
+  const isViewingPartner = filter === "partner" || isSpecificMemberFilter;
 
   return (
     <div className="px-5">
