@@ -507,6 +507,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                 onSelectExercise={setSelectedExercise}
                 onEditExercise={startEditExercise}
                 onDeleteExercise={deleteExercise}
+                onLogWorkout={setLoggingWorkout}
                 readOnly={isViewingPartner}
               />
             ))}
