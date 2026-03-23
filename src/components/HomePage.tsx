@@ -371,6 +371,16 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const { filters: groupFilters, otherName, hasOther, showGoogleCalendar } = useGroupContext();
   const partnerName = otherName;
 
+  // Helper: check if current filter is a specific member filter
+  const isSpecificMemberFilter = filter.startsWith("member:");
+  const selectedMemberUserId = isSpecificMemberFilter ? filter.replace("member:", "") : null;
+  // Find the display name for the selected member
+  const selectedMemberName = useMemo(() => {
+    if (!selectedMemberUserId) return partnerName;
+    const f = groupFilters.find((gf) => gf.id === filter);
+    return f?.label || partnerName;
+  }, [selectedMemberUserId, groupFilters, filter, partnerName]);
+
   const sd = selectedDate;
   const selDay = sd.getDate();
   const selMonth = sd.getMonth();
