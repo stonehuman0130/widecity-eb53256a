@@ -179,6 +179,14 @@ const toViewerPerspective = (assignee: Assignee, isOwnerView: boolean): Assignee
   return "both";
 };
 
+const upsertById = <T extends { id: string }>(items: T[], next: T): T[] => {
+  const idx = items.findIndex((item) => item.id === next.id);
+  if (idx === -1) return [...items, next];
+  const copy = [...items];
+  copy[idx] = { ...copy[idx], ...next };
+  return copy;
+};
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { user, partner, activeGroup } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -673,11 +681,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadPartnerData();
   }, [contextOtherUserIds.join(","), user]);
 
-  // ── Realtime subscription for tasks/events (cross-user sync) ──
+  // ── Realtime subscription for tasks/events/workouts (cross-user sync) ──
   useEffect(() => {
     if (!user) return;
 
+    const otherIdsSet = new Set(contextOtherUserIds);
+
     const applyTaskUpdate = (row: any) => ({
+      id: row.id,
       done: row.done,
       completedAt: row.completed_at ?? null,
       completedBy: row.completed_by ?? null,
@@ -694,6 +705,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     });
 
     const applyEventUpdate = (row: any) => ({
+      id: row.id,
       done: row.done ?? false,
       completedAt: row.completed_at ?? null,
       completedBy: row.completed_by ?? null,
@@ -714,16 +726,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       user: row.assignee as "me" | "partner" | "both",
     });
 
+    const applyWorkoutUpdate = (row: any) => ({
+      id: row.id,
+      title: row.title,
+      duration: row.duration,
+      cal: row.cal,
+      tag: row.tag,
+      emoji: row.emoji,
+      done: row.done,
+      scheduledDate: row.scheduled_date,
+      completedDate: row.completed_date,
+      exercises: row.exercises || [],
+      hiddenFromPartner: row.hidden_from_partner || false,
+      groupId: row.group_id || null,
+    });
+
     const channel = supabase
       .channel("items-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tasks" },
         (payload) => {
-          if (payload.eventType === "UPDATE") {
-            const updated = payload.new as any;
-            setTasks((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...applyTaskUpdate(updated) } : t)));
-            setPartnerTasks((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...applyTaskUpdate(updated), assignee: toViewerPerspective(updated.assignee as Assignee, false) } : t)));
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const row = payload.new as any;
+            if (!row?.id || !row?.user_id) return;
+
+            if (row.user_id === user.id) {
+              const ownTask = applyTaskUpdate(row);
+              setTasks((prev) => upsertById(prev, ownTask));
+              setPartnerTasks((prev) => prev.filter((t) => t.id !== row.id));
+              return;
+            }
+
+            if (otherIdsSet.has(row.user_id)) {
+              const partnerTask = {
+                ...applyTaskUpdate(row),
+                assignee: toViewerPerspective(row.assignee as Assignee, false),
+                ownerUserId: row.user_id,
+              };
+              setPartnerTasks((prev) => upsertById(prev, partnerTask));
+              setTasks((prev) => prev.filter((t) => t.id !== row.id));
+            }
           } else if (payload.eventType === "DELETE") {
             const deletedId = payload.old?.id;
             if (deletedId) {
@@ -737,10 +780,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         "postgres_changes",
         { event: "*", schema: "public", table: "events" },
         (payload) => {
-          if (payload.eventType === "UPDATE") {
-            const updated = payload.new as any;
-            setEvents((prev) => prev.map((e) => (e.id === updated.id ? { ...e, ...applyEventUpdate(updated) } : e)));
-            setPartnerEvents((prev) => prev.map((e) => (e.id === updated.id ? { ...e, ...applyEventUpdate(updated), user: toViewerPerspective(updated.assignee as Assignee, false) } : e)));
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const row = payload.new as any;
+            if (!row?.id || !row?.user_id) return;
+
+            if (row.user_id === user.id) {
+              const ownEvent = applyEventUpdate(row);
+              setEvents((prev) => upsertById(prev, ownEvent));
+              setPartnerEvents((prev) => prev.filter((e) => e.id !== row.id));
+              return;
+            }
+
+            if (otherIdsSet.has(row.user_id)) {
+              const partnerEvent = {
+                ...applyEventUpdate(row),
+                user: toViewerPerspective(row.assignee as Assignee, false),
+                ownerUserId: row.user_id,
+              };
+              setPartnerEvents((prev) => upsertById(prev, partnerEvent));
+              setEvents((prev) => prev.filter((e) => e.id !== row.id));
+            }
           } else if (payload.eventType === "DELETE") {
             const deletedId = payload.old?.id;
             if (deletedId) {
@@ -750,12 +809,44 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           }
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "workouts" },
+        (payload) => {
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const row = payload.new as any;
+            if (!row?.id || !row?.user_id) return;
+
+            if (row.user_id === user.id) {
+              const ownWorkout = applyWorkoutUpdate(row);
+              setWorkoutsState((prev) => upsertById(prev, ownWorkout));
+              setPartnerWorkouts((prev) => prev.filter((w) => w.id !== row.id));
+              return;
+            }
+
+            if (otherIdsSet.has(row.user_id)) {
+              const partnerWorkout = {
+                ...applyWorkoutUpdate(row),
+                ownerUserId: row.user_id,
+              };
+              setPartnerWorkouts((prev) => upsertById(prev, partnerWorkout));
+              setWorkoutsState((prev) => prev.filter((w) => w.id !== row.id));
+            }
+          } else if (payload.eventType === "DELETE") {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setWorkoutsState((prev) => prev.filter((w) => w.id !== deletedId));
+              setPartnerWorkouts((prev) => prev.filter((w) => w.id !== deletedId));
+            }
+          }
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, contextOtherUserIds]);
 
   const toggleHabit = async (id: string) => {
     const dateKey = todayStr();
