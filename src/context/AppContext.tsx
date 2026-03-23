@@ -196,6 +196,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [googleCalendarEvents, setGoogleCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [habitSectionsState, setHabitSectionsState] = useState<HabitSectionMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   // Get ALL other user IDs in the active context (supports 3+ member groups)
   const contextOtherUserIds = useMemo(() => {
