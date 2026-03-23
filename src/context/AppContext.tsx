@@ -368,7 +368,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadData();
-  }, [user]);
+  }, [user, refreshCounter]);
 
   // ── Load habit sections from DB ──
   const groupIdRef = activeGroup?.id ?? null;
