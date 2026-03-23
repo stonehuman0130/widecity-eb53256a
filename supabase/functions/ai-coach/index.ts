@@ -57,7 +57,7 @@ serve(async (req) => {
       ]);
 
       const upcoming = (eventsRes.data || []).filter((e: any) => {
-        const d = new Date(e.year, e.month - 1, e.day);
+        const d = new Date(e.year, e.month, e.day);
         return d >= new Date(todayStr);
       }).slice(0, 20);
 
