@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
+import ExerciseLogModal from "@/components/ExerciseLogModal";
 
 interface AIPlan {
   title: string;
