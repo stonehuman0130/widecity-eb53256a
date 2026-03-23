@@ -41,6 +41,7 @@ export interface ScheduledEvent {
   updatedAt?: string | null;
   hiddenFromPartner?: boolean;
   groupId?: string | null;
+  ownerUserId?: string;
 }
 
 export interface Task {
