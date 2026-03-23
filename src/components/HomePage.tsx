@@ -355,19 +355,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   // Habit sections from context
   const { habitSections } = useAppContext();
 
-  // Morning habits: show own when "mine", partner's when "partner" — use first habit section
-  const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
-  const partnerMorningHabits = filteredPartnerHabits.filter((h) => h.category === "morning");
-  const displayMorningHabits = (filter === "partner" || isSpecificMemberFilter) ? partnerMorningHabits : myMorningHabits;
-
-  const handleToggleHabit = useCallback((id: string) => {
-    const habit = myMorningHabits.find((h) => h.id === id);
-    if (habit && !habit.done) {
-      setCongratsType("habit");
-    }
-    toggleHabit(id);
-  }, [myMorningHabits, toggleHabit]);
-
   const { filters: groupFilters, otherName, hasOther, showGoogleCalendar } = useGroupContext();
   const partnerName = otherName;
 
@@ -380,6 +367,19 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const f = groupFilters.find((gf) => gf.id === filter);
     return f?.label || partnerName;
   }, [selectedMemberUserId, groupFilters, filter, partnerName]);
+
+  // Morning habits: show own when "mine", partner's when "partner" — use first habit section
+  const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
+  const partnerMorningHabits = filteredPartnerHabits.filter((h) => h.category === "morning");
+  const displayMorningHabits = (filter === "partner" || isSpecificMemberFilter) ? partnerMorningHabits : myMorningHabits;
+
+  const handleToggleHabit = useCallback((id: string) => {
+    const habit = myMorningHabits.find((h) => h.id === id);
+    if (habit && !habit.done) {
+      setCongratsType("habit");
+    }
+    toggleHabit(id);
+  }, [myMorningHabits, toggleHabit]);
 
   const sd = selectedDate;
   const selDay = sd.getDate();
