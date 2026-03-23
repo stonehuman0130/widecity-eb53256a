@@ -358,7 +358,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   // Morning habits: show own when "mine", partner's when "partner" — use first habit section
   const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
   const partnerMorningHabits = filteredPartnerHabits.filter((h) => h.category === "morning");
-  const displayMorningHabits = filter === "partner" ? partnerMorningHabits : myMorningHabits;
+  const displayMorningHabits = (filter === "partner" || isSpecificMemberFilter) ? partnerMorningHabits : myMorningHabits;
 
   const handleToggleHabit = useCallback((id: string) => {
     const habit = myMorningHabits.find((h) => h.id === id);
