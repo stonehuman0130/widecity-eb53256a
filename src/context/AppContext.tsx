@@ -18,6 +18,7 @@ export interface Habit {
   completionDates: string[];
   hiddenFromPartner?: boolean;
   groupId?: string | null;
+  ownerUserId?: string;
 }
 
 export interface ScheduledEvent {
