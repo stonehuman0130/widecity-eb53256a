@@ -71,7 +71,10 @@ Events (upcoming): ${JSON.stringify(upcoming)}
 Habits: ${JSON.stringify(habitsRes.data || [])}
 Habit Sections: ${JSON.stringify(sectionsRes.data || [])}
 Sobriety Trackers: ${JSON.stringify(sobrietyRes.data || [])}
-Special Days: ${JSON.stringify(specialDaysRes.data || [])}`;
+Special Days: ${JSON.stringify(specialDaysRes.data || [])}
+Exercise Logs (recent weight/rep history, sorted newest first): ${JSON.stringify(exerciseLogsRes.data || [])}
+
+EXERCISE LOG INSTRUCTIONS: When the user asks about weights they've used, their recent lifts, or strength progress, use the Exercise Logs data above. Each log entry has exercise_name, weight, unit (lb/kg), reps, set_number, logged_date, and workout_id. Summarize clearly (e.g. "Your last bench press was 185 lb for 3 sets of 8 reps on March 20").`;
     } catch (e) {
       console.error("Failed to fetch context data:", e);
     }
