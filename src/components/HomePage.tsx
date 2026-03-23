@@ -502,7 +502,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     if (startDate !== selDateStr) return false;
     const assignee = ge.assignee || "me";
     if (filter === "mine") return assignee === "me" || assignee === "both";
-    if (filter === "partner") return assignee === "partner" || assignee === "both";
+    if (filter === "partner" || isSpecificMemberFilter) return assignee === "partner" || assignee === "both";
     return true; // household shows all
   }) : [];
 
