@@ -104,17 +104,14 @@ const Index = () => {
   };
 
   const renderChatView = () => {
-    if (chatGroup && chatMode === "coach") {
-      return <AiCoachChat group={chatGroup} onBack={handleBackToList} initialMessage={coachInitialMessage} />;
-    }
     if (chatGroup && chatMode === "chat") {
       return <ChatPage group={chatGroup} onBack={handleBackToList} />;
     }
-    return <ChatListPage onOpenChat={handleOpenChat} onOpenCoach={handleOpenCoach} onOpenSettings={handleOpenSettings} />;
+    return <ChatListPage onOpenChat={handleOpenChat} onOpenSettings={handleOpenSettings} />;
   };
 
   const pages: Record<string, React.ReactNode> = {
-    launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} onSchedule={handleScheduleFromLauncher} />,
+    launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} />,
     home: <HomePage onBackToLauncher={handleBackToLauncher} onOpenSettings={handleOpenSettings} />,
     workout: <WorkoutsPage onOpenSettings={handleOpenSettings} />,
     habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
@@ -122,6 +119,7 @@ const Index = () => {
     specialdays: <SpecialDaysPage onOpenSettings={handleOpenSettings} />,
     calendar: <CalendarPage onOpenSettings={handleOpenSettings} />,
     chat: renderChatView(),
+    ai: <AiAssistantPage />,
     settings: <SettingsPage />,
     more: <MorePage onOpenSettings={handleOpenSettings} enabledPages={enabledPages} onTogglePage={handleTogglePage} />,
   };
