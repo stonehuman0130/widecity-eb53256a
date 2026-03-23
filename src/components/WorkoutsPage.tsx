@@ -98,7 +98,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editExSets, setEditExSets] = useState("");
   const [editExReps, setEditExReps] = useState("");
 
-  const isViewingPartner = viewFilter === "partner";
+  const isViewingPartner = viewFilter !== "mine";
   const today = todayStr();
 
   const dateRange = useMemo(() => {
