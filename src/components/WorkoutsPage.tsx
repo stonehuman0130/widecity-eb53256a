@@ -548,6 +548,7 @@ const WorkoutCard = ({
   onSelectExercise,
   onEditExercise,
   onDeleteExercise,
+  onLogWorkout,
   readOnly,
 }: {
   workout: Workout;
@@ -559,6 +560,7 @@ const WorkoutCard = ({
   onSelectExercise: (name: string) => void;
   onEditExercise: (workoutId: string, index: number, ex: { name: string; sets: number; reps: string }) => void;
   onDeleteExercise: (workoutId: string, index: number) => void;
+  onLogWorkout: (workout: Workout) => void;
   readOnly?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
