@@ -90,6 +90,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editExName, setEditExName] = useState("");
   const [editExSets, setEditExSets] = useState("");
   const [editExReps, setEditExReps] = useState("");
+  // Exercise logging
+  const [loggingWorkout, setLoggingWorkout] = useState<Workout | null>(null);
 
   const isViewingPartner = viewFilter !== "mine";
   const today = todayStr();
