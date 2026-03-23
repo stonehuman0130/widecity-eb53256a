@@ -74,6 +74,7 @@ const BottomNav = ({ activeTab, onTabChange, enabledPages }: BottomNavProps) => 
   const [middleTabs, setMiddleTabs] = useState<Tab[]>(() =>
     reconcileOrder(loadSavedOrder(), defaultMiddle)
   );
+  const aiActive = activeTab === "ai";
   const [editMode, setEditMode] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
