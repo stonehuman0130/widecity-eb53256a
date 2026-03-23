@@ -619,17 +619,20 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
       <GroupSelector />
 
       {groupFilters.length > 1 && (
-        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
+        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5 overflow-x-auto scrollbar-hide">
           {groupFilters.map((f) => (
             <button
               key={f.id}
-              onClick={() => setFilter(f.id as Filter)}
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              onClick={() => setFilter(f.id)}
+              className={`flex-shrink-0 px-3 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
                 filter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
               }`}
             >
               {f.label}
             </button>
+          ))}
+        </div>
+      )}
           ))}
         </div>
       )}
