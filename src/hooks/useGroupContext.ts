@@ -4,12 +4,12 @@ import { useAuth } from "@/context/AuthContext";
 export interface MemberFilter {
   id: string;
   label: string;
+  userId?: string; // the actual user_id for member-specific filters
 }
 
 /**
  * Returns group-aware filter options and member info based on the active group.
- * When a group is selected, filters show that group's members.
- * When "All" is selected, falls back to partner-based filters.
+ * For 3+ member groups, generates individual per-member tabs.
  */
 export function useGroupContext() {
   const { user, partner, activeGroup } = useAuth();
@@ -46,24 +46,59 @@ export function useGroupContext() {
     return "Household";
   }, [activeGroup, otherMembers]);
 
-  // Build the 3-tab filter set: Mine / OtherName's / Shared
+  // Build filter set: Mine / Person1 / Person2 / ... / Shared
+  // For 2-member groups: Mine / PartnerName's / Together
+  // For 3+ member groups: Mine / Person1 / Person2 / ... / Shared
   const filters: MemberFilter[] = useMemo(() => {
     const result: MemberFilter[] = [{ id: "mine", label: "Mine" }];
-    if (hasOther) {
-      result.push({ id: "partner", label: `${otherName}'s` });
+    if (!hasOther) return result;
+
+    if (otherMembers.length === 1) {
+      // Classic 2-person: Mine / Partner's / Together
+      result.push({
+        id: "partner",
+        label: `${otherMembers[0].display_name || "Partner"}'s`,
+        userId: otherMembers[0].user_id,
+      });
+      result.push({ id: "household", label: sharedLabel });
+    } else {
+      // 3+ members: Mine / Person1 / Person2 / ... / Shared
+      for (const member of otherMembers) {
+        const name = member.display_name || "Member";
+        result.push({
+          id: `member:${member.user_id}`,
+          label: name,
+          userId: member.user_id,
+        });
+      }
       result.push({ id: "household", label: sharedLabel });
     }
     return result;
-  }, [hasOther, otherName, sharedLabel]);
+  }, [hasOther, otherMembers, sharedLabel]);
 
-  // Two-tab filter for habits/workouts: Mine / OtherName's
+  // Two-tab filter for habits/workouts: Mine / OtherName's (or per-member)
   const twoTabFilters: MemberFilter[] = useMemo(() => {
     const result: MemberFilter[] = [{ id: "mine", label: "Mine" }];
-    if (hasOther) {
-      result.push({ id: "partner", label: `${otherName}'s` });
+    if (!hasOther) return result;
+
+    if (otherMembers.length === 1) {
+      result.push({
+        id: "partner",
+        label: `${otherMembers[0].display_name || "Partner"}'s`,
+        userId: otherMembers[0].user_id,
+      });
+    } else {
+      for (const member of otherMembers) {
+        const name = member.display_name || "Member";
+        result.push({
+          id: `member:${member.user_id}`,
+          label: name,
+          userId: member.user_id,
+        });
+      }
     }
     return result;
-  }, [hasOther, otherName]);
+  }, [hasOther, otherMembers]);
 
   // Google Calendar should be shown in both "All" and specific group views
   const showGoogleCalendar = true;
