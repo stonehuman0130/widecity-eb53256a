@@ -290,21 +290,148 @@ CONVERSATION PHASES:
 
 async function executeAppActions(client: any, userId: string, groupId: string, actions: any[]): Promise<any[]> {
   const results: any[] = [];
+  const now = new Date();
+
+  const parseIsoDate = (raw?: string) => {
+    if (!raw || typeof raw !== "string") return null;
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    const year = Number(m[1]);
+    const month = Number(m[2]) - 1;
+    const day = Number(m[3]);
+    if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return null;
+    if (month < 0 || month > 11 || day < 1 || day > 31) return null;
+    return { year, month, day };
+  };
+
+  const normalizeMonth = (raw: unknown, fallbackMonth: number) => {
+    const parsed = typeof raw === "string" ? Number(raw) : Number(raw);
+    if (!Number.isFinite(parsed)) return fallbackMonth;
+    const intVal = Math.trunc(parsed);
+    if (intVal >= 1 && intVal <= 12) return intVal - 1;
+    if (intVal >= 0 && intVal <= 11) return intVal;
+    return fallbackMonth;
+  };
+
+  const normalizeDay = (raw: unknown, fallbackDay: number) => {
+    const parsed = typeof raw === "string" ? Number(raw) : Number(raw);
+    if (!Number.isFinite(parsed)) return fallbackDay;
+    const intVal = Math.trunc(parsed);
+    if (intVal >= 1 && intVal <= 31) return intVal;
+    return fallbackDay;
+  };
+
+  const normalizeYear = (raw: unknown, fallbackYear: number) => {
+    const parsed = typeof raw === "string" ? Number(raw) : Number(raw);
+    if (!Number.isFinite(parsed)) return fallbackYear;
+    const intVal = Math.trunc(parsed);
+    if (intVal >= 1900 && intVal <= 3000) return intVal;
+    return fallbackYear;
+  };
+
+  const normalizeEventDate = (action: any) => {
+    const fromIso = parseIsoDate(action.date);
+    if (fromIso) return fromIso;
+
+    return {
+      day: normalizeDay(action.day, now.getDate()),
+      month: normalizeMonth(action.month, now.getMonth()),
+      year: normalizeYear(action.year, now.getFullYear()),
+    };
+  };
+
+  const normalizeEventEndDate = (action: any, start: { day: number; month: number; year: number }) => {
+    const fromIso = parseIsoDate(action.end_date);
+    if (fromIso) return fromIso;
+
+    const hasEndParts = action.end_day !== undefined || action.end_month !== undefined || action.end_year !== undefined;
+    if (!hasEndParts) return start;
+
+    return {
+      day: normalizeDay(action.end_day, start.day),
+      month: normalizeMonth(action.end_month, start.month),
+      year: normalizeYear(action.end_year, start.year),
+    };
+  };
+
+  const normalizeTaskSchedule = (action: any) => {
+    const fromIso = parseIsoDate(action.scheduled_date || action.date);
+    if (fromIso) {
+      return {
+        scheduled_day: fromIso.day,
+        scheduled_month: fromIso.month,
+        scheduled_year: fromIso.year,
+      };
+    }
+
+    const hasParts = action.scheduled_day !== undefined || action.scheduled_month !== undefined || action.scheduled_year !== undefined;
+    if (!hasParts) {
+      return {
+        scheduled_day: null,
+        scheduled_month: null,
+        scheduled_year: null,
+      };
+    }
+
+    return {
+      scheduled_day: normalizeDay(action.scheduled_day, now.getDate()),
+      scheduled_month: normalizeMonth(action.scheduled_month, now.getMonth()),
+      scheduled_year: normalizeYear(action.scheduled_year, now.getFullYear()),
+    };
+  };
+
+  const normalizeTime = (raw: unknown, fallback = "All day") => {
+    if (typeof raw !== "string") return fallback;
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : fallback;
+  };
+
+  const normalizeAssignee = (raw: unknown): "me" | "partner" | "both" => {
+    if (raw === "partner" || raw === "both") return raw;
+    return "me";
+  };
+
+  const applyGroupFilter = (query: any) => {
+    return groupId ? query.eq("group_id", groupId) : query.is("group_id", null);
+  };
 
   for (const action of actions) {
     try {
       switch (action.action_type) {
         case "create_workout": {
+          const scheduledDate = typeof action.scheduled_date === "string" && action.scheduled_date
+            ? action.scheduled_date
+            : new Date().toISOString().slice(0, 10);
+          const workoutTitle = (action.title || "Workout").trim();
+          const workoutTag = action.tag || "Full Body";
+
+          const existingWorkoutQuery = applyGroupFilter(
+            client
+              .from("workouts")
+              .select("id")
+              .eq("user_id", userId)
+              .eq("title", workoutTitle)
+              .eq("scheduled_date", scheduledDate)
+              .eq("tag", workoutTag)
+              .limit(1)
+          );
+          const { data: existingWorkout, error: existingWorkoutError } = await existingWorkoutQuery.maybeSingle();
+          if (existingWorkoutError) throw existingWorkoutError;
+          if (existingWorkout?.id) {
+            results.push({ action_type: "create_workout", success: true, id: existingWorkout.id, duplicate: true });
+            break;
+          }
+
           const { data, error } = await client.from("workouts").insert({
             user_id: userId,
             group_id: groupId,
-            title: action.title || "Workout",
+            title: workoutTitle,
             emoji: action.emoji || "💪",
             duration: action.duration || "30 min",
             cal: action.cal || 0,
-            tag: action.tag || "Full Body",
+            tag: workoutTag,
             exercises: action.exercises || [],
-            scheduled_date: action.scheduled_date || new Date().toISOString().slice(0, 10),
+            scheduled_date: scheduledDate,
           }).select().single();
           results.push({ action_type: "create_workout", success: !error, id: data?.id, error: error?.message });
           break;
@@ -315,16 +442,48 @@ async function executeAppActions(client: any, userId: string, groupId: string, a
           break;
         }
         case "create_event": {
+          const start = normalizeEventDate(action);
+          const end = normalizeEventEndDate(action, start);
+          const title = (action.title || "Event").trim();
+          const time = normalizeTime(action.time, "All day");
+          const allDay = time === "All day";
+          const endTime = allDay ? "" : normalizeTime(action.end_time, "");
+          const assignee = normalizeAssignee(action.assignee);
+
+          const existingEventQuery = applyGroupFilter(
+            client
+              .from("events")
+              .select("id")
+              .eq("user_id", userId)
+              .eq("title", title)
+              .eq("day", start.day)
+              .eq("month", start.month)
+              .eq("year", start.year)
+              .eq("time", time)
+              .eq("assignee", assignee)
+              .limit(1)
+          );
+          const { data: existingEvent, error: existingEventError } = await existingEventQuery.maybeSingle();
+          if (existingEventError) throw existingEventError;
+          if (existingEvent?.id) {
+            results.push({ action_type: "create_event", success: true, id: existingEvent.id, duplicate: true });
+            break;
+          }
+
           const { data, error } = await client.from("events").insert({
             user_id: userId,
             group_id: groupId,
-            title: action.title || "Event",
-            day: action.day,
-            month: action.month,
-            year: action.year,
-            time: action.time || "",
-            end_time: action.end_time || "",
-            assignee: action.assignee || "me",
+            title,
+            day: start.day,
+            month: start.month,
+            year: start.year,
+            end_day: end.day,
+            end_month: end.month,
+            end_year: end.year,
+            all_day: allDay,
+            time,
+            end_time: endTime,
+            assignee,
             description: action.description || null,
           }).select().single();
           results.push({ action_type: "create_event", success: !error, id: data?.id, error: error?.message });
@@ -431,16 +590,43 @@ async function executeAppActions(client: any, userId: string, groupId: string, a
           break;
         }
         case "create_task": {
+          const schedule = normalizeTaskSchedule(action);
+          const title = (action.title || "Task").trim();
+          const time = normalizeTime(action.time, "");
+          const assignee = normalizeAssignee(action.assignee);
+          const tag = action.tag || "Personal";
+
+          const existingTaskQuery = applyGroupFilter(
+            client
+              .from("tasks")
+              .select("id")
+              .eq("user_id", userId)
+              .eq("title", title)
+              .eq("time", time)
+              .eq("assignee", assignee)
+              .eq("tag", tag)
+              .eq("scheduled_day", schedule.scheduled_day)
+              .eq("scheduled_month", schedule.scheduled_month)
+              .eq("scheduled_year", schedule.scheduled_year)
+              .limit(1)
+          );
+          const { data: existingTask, error: existingTaskError } = await existingTaskQuery.maybeSingle();
+          if (existingTaskError) throw existingTaskError;
+          if (existingTask?.id) {
+            results.push({ action_type: "create_task", success: true, id: existingTask.id, duplicate: true });
+            break;
+          }
+
           const { data, error } = await client.from("tasks").insert({
             user_id: userId,
             group_id: groupId,
-            title: action.title || "Task",
-            tag: action.tag || "Personal",
-            time: action.time || "",
-            assignee: action.assignee || "me",
-            scheduled_day: action.scheduled_day || null,
-            scheduled_month: action.scheduled_month || null,
-            scheduled_year: action.scheduled_year || null,
+            title,
+            tag,
+            time,
+            assignee,
+            scheduled_day: schedule.scheduled_day,
+            scheduled_month: schedule.scheduled_month,
+            scheduled_year: schedule.scheduled_year,
           }).select().single();
           results.push({ action_type: "create_task", success: !error, id: data?.id, error: error?.message });
           break;
