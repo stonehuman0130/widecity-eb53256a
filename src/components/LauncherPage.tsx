@@ -107,12 +107,8 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
       return;
     }
 
-    // Route to AI Coach scheduling flow
-    if (onSchedule) {
-      onSchedule(input.trim());
-    } else {
-      onEnterGroup(null);
-    }
+    // Just enter the first group for now — AI is accessed via the central AI button
+    onEnterGroup(groups.length > 0 ? groups[0].id : null);
   };
 
   return (
