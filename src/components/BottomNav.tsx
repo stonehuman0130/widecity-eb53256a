@@ -291,35 +291,6 @@ const BottomNav = ({ activeTab, onTabChange, enabledPages }: BottomNavProps) => 
         })}
 
         {/* Fixed: More */}
-          const meta = TAB_META[tabId];
-          if (!meta) return null;
-          const Icon = meta.icon;
-          const active = isActive(tabId);
-          const isDragging = editMode && dragIdx !== null && middleTabs[dragIdx] === tabId;
-
-          return (
-            <button
-              key={tabId}
-              ref={(el) => { tabRefs.current[i] = el; }}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                handlePointerDown(i);
-              }}
-              onPointerUp={() => handlePointerUp(tabId)}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors select-none touch-none ${
-                active ? "text-nav-active" : "text-nav-inactive"
-              } ${editMode ? "animate-nav-wiggle" : ""} ${
-                isDragging ? "opacity-60 scale-110" : ""
-              }`}
-              style={editMode ? { animationDelay: `${i * 0.05}s` } : undefined}
-            >
-              <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-              <span className="text-[9px] font-medium">{meta.label}</span>
-            </button>
-          );
-        })}
-
-        {/* Fixed: More */}
         <button
           onClick={() => { if (!editMode) onTabChange("more"); }}
           className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
