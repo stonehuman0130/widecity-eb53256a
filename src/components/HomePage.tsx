@@ -22,7 +22,7 @@ import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { speak, stopSpeaking } from "@/lib/speak";
 import { useGroupContext } from "@/hooks/useGroupContext";
 
-type Filter = "mine" | "partner" | "household";
+type Filter = string; // "mine" | "partner" | "household" | "member:{userId}"
 
 interface ClarificationState {
   question: string;
@@ -355,10 +355,23 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   // Habit sections from context
   const { habitSections } = useAppContext();
 
+  const { filters: groupFilters, otherName, hasOther, showGoogleCalendar } = useGroupContext();
+  const partnerName = otherName;
+
+  // Helper: check if current filter is a specific member filter
+  const isSpecificMemberFilter = filter.startsWith("member:");
+  const selectedMemberUserId = isSpecificMemberFilter ? filter.replace("member:", "") : null;
+  // Find the display name for the selected member
+  const selectedMemberName = useMemo(() => {
+    if (!selectedMemberUserId) return partnerName;
+    const f = groupFilters.find((gf) => gf.id === filter);
+    return f?.label || partnerName;
+  }, [selectedMemberUserId, groupFilters, filter, partnerName]);
+
   // Morning habits: show own when "mine", partner's when "partner" — use first habit section
   const myMorningHabits = filteredHabits.filter((h) => h.category === "morning");
   const partnerMorningHabits = filteredPartnerHabits.filter((h) => h.category === "morning");
-  const displayMorningHabits = filter === "partner" ? partnerMorningHabits : myMorningHabits;
+  const displayMorningHabits = (filter === "partner" || isSpecificMemberFilter) ? partnerMorningHabits : myMorningHabits;
 
   const handleToggleHabit = useCallback((id: string) => {
     const habit = myMorningHabits.find((h) => h.id === id);
@@ -367,9 +380,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     }
     toggleHabit(id);
   }, [myMorningHabits, toggleHabit]);
-
-  const { filters: groupFilters, otherName, hasOther, showGoogleCalendar } = useGroupContext();
-  const partnerName = otherName;
 
   const sd = selectedDate;
   const selDay = sd.getDate();
@@ -383,20 +393,17 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     return day === selDay && month === selMonth && year === selYear;
   };
 
-  // INDIVIDUAL VIEW: show items assigned to me (or partner) PLUS jointly assigned items
-  // Partner filter: show PARTNER's data, not own data with assignee="partner"
+  // INDIVIDUAL VIEW: show items assigned to me (or specific member) PLUS jointly assigned items
   let dayTasks: Task[];
   let visibleEvents: ScheduledEvent[];
 
   if (filter === "mine") {
-    // My tasks where I'm responsible (assignee=me or both) + partner's tasks assigned to me (assignee=partner from their perspective = me doing it) or both
     const myResponsible = filteredTasks.filter((t) =>
       (t.assignee === "me" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
     );
     const partnerAssignedToMe = filteredPartnerTasks.filter((t) =>
       (t.assignee === "partner" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
     );
-    // Deduplicate "both" items by title+time to avoid showing same shared task twice
     const seenKeys = new Set(myResponsible.map((t) => `${t.title}|${t.time}|${t.scheduledDay}`));
     const uniquePartner = partnerAssignedToMe.filter((t) => !seenKeys.has(`${t.title}|${t.time}|${t.scheduledDay}`));
     dayTasks = [...myResponsible, ...uniquePartner];
@@ -410,9 +417,16 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const seenEventKeys = new Set(myEvents.map((e) => `${e.title}|${e.time}|${e.day}`));
     const uniquePartnerEvents = partnerEventsForMe.filter((e) => !seenEventKeys.has(`${e.title}|${e.time}|${e.day}`));
     visibleEvents = [...myEvents, ...uniquePartnerEvents];
-  } else if (filter === "partner") {
-    // Partner's own tasks (assignee=me from their view) + partner's shared (both) + my tasks assigned to partner
-    const partnerOwn = filteredPartnerTasks.filter((t) =>
+  } else if (filter === "partner" || isSpecificMemberFilter) {
+    // For "partner" (2-member) or "member:{userId}" (3+ member): show that member's data
+    const memberTasks = selectedMemberUserId
+      ? filteredPartnerTasks.filter((t) => t.ownerUserId === selectedMemberUserId)
+      : filteredPartnerTasks;
+    const memberEvents = selectedMemberUserId
+      ? filteredPartnerEvents.filter((e) => e.ownerUserId === selectedMemberUserId)
+      : filteredPartnerEvents;
+
+    const partnerOwn = memberTasks.filter((t) =>
       (t.assignee === "me" || t.assignee === "both") && isSelectedDate(t.scheduledDay, t.scheduledMonth, t.scheduledYear)
     );
     const myAssignedToPartner = filteredTasks.filter((t) =>
@@ -422,7 +436,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const uniqueMy = myAssignedToPartner.filter((t) => !seenKeys.has(`${t.title}|${t.time}|${t.scheduledDay}`));
     dayTasks = [...partnerOwn, ...uniqueMy];
 
-    const partnerOwnEvents = filteredPartnerEvents.filter((e) =>
+    const partnerOwnEvents = memberEvents.filter((e) =>
       (e.user === "me" || e.user === "both") && e.day === selDay && e.month === selMonth && e.year === selYear
     );
     const myEventsForPartner = filteredEvents.filter((e) =>
@@ -432,7 +446,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const uniqueMyEvents = myEventsForPartner.filter((e) => !seenEventKeys.has(`${e.title}|${e.time}|${e.day}`));
     visibleEvents = [...partnerOwnEvents, ...uniqueMyEvents];
   } else {
-    // "Together" / household: collect ALL items for TeamDashboard (handled separately in render)
+    // "household" / shared: collect ALL items for TeamDashboard (handled separately in render)
     dayTasks = [];
     visibleEvents = [];
   }
@@ -488,7 +502,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     if (startDate !== selDateStr) return false;
     const assignee = ge.assignee || "me";
     if (filter === "mine") return assignee === "me" || assignee === "both";
-    if (filter === "partner") return assignee === "partner" || assignee === "both";
+    if (filter === "partner" || isSpecificMemberFilter) return assignee === "partner" || assignee === "both";
     return true; // household shows all
   }) : [];
 
@@ -536,7 +550,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
 
   // Determine if we can toggle items (only own items)
-  const isViewingPartner = filter === "partner";
+  const isViewingPartner = filter === "partner" || isSpecificMemberFilter;
 
   return (
     <div className="px-5">
@@ -605,12 +619,12 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
       <GroupSelector />
 
       {groupFilters.length > 1 && (
-        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
+        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5 overflow-x-auto scrollbar-hide">
           {groupFilters.map((f) => (
             <button
               key={f.id}
-              onClick={() => setFilter(f.id as Filter)}
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              onClick={() => setFilter(f.id)}
+              className={`flex-shrink-0 px-3 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
                 filter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
               }`}
             >
@@ -797,7 +811,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   <HomeHabitSectionWidget
                     selectedDate={selectedDate}
                     categoryKey={categoryKey}
-                    sectionLabel={filter === "partner" ? `${partnerName}'s ${sectionMeta.label}` : sectionMeta.label}
+                    sectionLabel={(filter === "partner" || isSpecificMemberFilter) ? `${selectedMemberName}'s ${sectionMeta.label}` : sectionMeta.label}
                     sectionIcon={sectionMeta.icon}
                   />
                 </section>

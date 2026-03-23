@@ -18,6 +18,7 @@ export interface Habit {
   completionDates: string[];
   hiddenFromPartner?: boolean;
   groupId?: string | null;
+  ownerUserId?: string;
 }
 
 export interface ScheduledEvent {
@@ -40,6 +41,7 @@ export interface ScheduledEvent {
   updatedAt?: string | null;
   hiddenFromPartner?: boolean;
   groupId?: string | null;
+  ownerUserId?: string;
 }
 
 export interface Task {
@@ -57,6 +59,7 @@ export interface Task {
   scheduledYear?: number;
   hiddenFromPartner?: boolean;
   groupId?: string | null;
+  ownerUserId?: string;
 }
 
 export interface Workout {
@@ -72,6 +75,7 @@ export interface Workout {
   exercises?: { name: string; sets: number; reps: string }[];
   hiddenFromPartner?: boolean;
   groupId?: string | null;
+  ownerUserId?: string;
 }
 
 export interface GoogleCalendarEvent {
@@ -192,17 +196,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [habitSectionsState, setHabitSectionsState] = useState<HabitSectionMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const contextOtherUserId = useMemo(() => {
-    if (!user) return null;
+  // Get ALL other user IDs in the active context (supports 3+ member groups)
+  const contextOtherUserIds = useMemo(() => {
+    if (!user) return [];
 
     if (activeGroup) {
       const otherMembers = activeGroup.members.filter((m) => m.user_id !== user.id);
-      if (otherMembers.length === 1) return otherMembers[0].user_id;
-      return null;
+      return otherMembers.map((m) => m.user_id);
     }
 
-    return partner?.id ?? null;
+    return partner?.id ? [partner.id] : [];
   }, [activeGroup, partner?.id, user]);
+
+  // Backward compat: single partner ID (first other member or legacy partner)
+  const contextOtherUserId = contextOtherUserIds.length > 0 ? contextOtherUserIds[0] : null;
 
   // Load all data from database on mount
   useEffect(() => {
@@ -492,7 +499,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Load "other member" data for the active context (group member if selected, otherwise linked partner)
   useEffect(() => {
-    if (!user || !contextOtherUserId) {
+    if (!user || contextOtherUserIds.length === 0) {
       setPartnerHabits([]);
       setPartnerEvents([]);
       setPartnerTasks([]);
@@ -502,129 +509,156 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const loadPartnerData = async () => {
       try {
-        // Other user's habits
-        const { data: pHabits } = await supabase
-          .from("habits")
-          .select("*")
-          .eq("user_id", contextOtherUserId);
+        // Load data for ALL other members in the group
+        const allHabits: Habit[] = [];
+        const allTasks: Task[] = [];
+        const allEvents: ScheduledEvent[] = [];
+        const allWorkouts: Workout[] = [];
+        let totalWaterIntake = 0;
+        let totalWaterGoal = 3;
+        let waterCount = 0;
 
-        const { data: pCompletions } = await supabase
-          .from("habit_completions")
-          .select("*")
-          .eq("user_id", contextOtherUserId);
+        for (const otherUserId of contextOtherUserIds) {
+          // Other user's habits
+          const { data: pHabits } = await supabase
+            .from("habits")
+            .select("*")
+            .eq("user_id", otherUserId);
 
-        if (pHabits) {
-          const completionMap = new Map<string, string[]>();
-          (pCompletions || []).forEach((c: any) => {
-            const dates = completionMap.get(c.habit_id) || [];
-            dates.push(c.completed_date);
-            completionMap.set(c.habit_id, dates);
-          });
+          const { data: pCompletions } = await supabase
+            .from("habit_completions")
+            .select("*")
+            .eq("user_id", otherUserId);
 
-          const todayDate = todayStr();
-          setPartnerHabits(pHabits.map((h: any) => {
-            const completionDates = completionMap.get(h.id) || [];
-            return {
-              id: h.id,
-              label: h.label,
-              category: h.category as string,
-              done: completionDates.includes(todayDate),
-              completionDates,
-              hiddenFromPartner: h.hidden_from_partner || false,
-              groupId: h.group_id || null,
-            };
-          }));
+          if (pHabits) {
+            const completionMap = new Map<string, string[]>();
+            (pCompletions || []).forEach((c: any) => {
+              const dates = completionMap.get(c.habit_id) || [];
+              dates.push(c.completed_date);
+              completionMap.set(c.habit_id, dates);
+            });
+
+            const todayDate = todayStr();
+            allHabits.push(...pHabits.map((h: any) => {
+              const completionDates = completionMap.get(h.id) || [];
+              return {
+                id: h.id,
+                label: h.label,
+                category: h.category as string,
+                done: completionDates.includes(todayDate),
+                completionDates,
+                hiddenFromPartner: h.hidden_from_partner || false,
+                groupId: h.group_id || null,
+                ownerUserId: otherUserId,
+              };
+            }));
+          }
+
+          // Other user's tasks
+          const { data: pTasks } = await supabase
+            .from("tasks")
+            .select("*")
+            .eq("user_id", otherUserId);
+
+          if (pTasks) {
+            allTasks.push(...pTasks.map((t: any) => ({
+              id: t.id,
+              title: t.title,
+              time: t.time || "",
+              tag: t.tag as "Work" | "Personal" | "Household",
+              assignee: toViewerPerspective(t.assignee as Assignee, false),
+              done: t.done,
+              completedAt: t.completed_at ?? null,
+              completedBy: t.completed_by ?? null,
+              updatedAt: t.updated_at ?? null,
+              scheduledDay: t.scheduled_day,
+              scheduledMonth: t.scheduled_month,
+              scheduledYear: t.scheduled_year,
+              hiddenFromPartner: t.hidden_from_partner || false,
+              groupId: t.group_id || null,
+              ownerUserId: otherUserId,
+            })));
+          }
+
+          // Other user's events
+          const { data: pEvents } = await supabase
+            .from("events")
+            .select("*")
+            .eq("user_id", otherUserId);
+
+          if (pEvents) {
+            allEvents.push(...pEvents.map((e: any) => ({
+              id: e.id,
+              title: e.title,
+              time: e.time || "",
+              description: e.description,
+              day: e.day,
+              month: e.month,
+              year: e.year,
+              endDay: e.end_day ?? e.day,
+              endMonth: e.end_month ?? e.month,
+              endYear: e.end_year ?? e.year,
+              endTime: e.end_time ?? "",
+              allDay: e.all_day ?? false,
+              user: toViewerPerspective(e.assignee as Assignee, false),
+              done: e.done ?? false,
+              completedAt: e.completed_at ?? null,
+              completedBy: e.completed_by ?? null,
+              updatedAt: e.updated_at ?? null,
+              hiddenFromPartner: e.hidden_from_partner || false,
+              groupId: e.group_id || null,
+              ownerUserId: otherUserId,
+            })));
+          }
+
+          // Other user's workouts
+          const { data: pWorkouts } = await supabase
+            .from("workouts")
+            .select("*")
+            .eq("user_id", otherUserId);
+
+          if (pWorkouts) {
+            allWorkouts.push(...pWorkouts.map((w: any) => ({
+              id: w.id,
+              title: w.title,
+              duration: w.duration,
+              cal: w.cal,
+              tag: w.tag,
+              emoji: w.emoji,
+              done: w.done,
+              scheduledDate: w.scheduled_date,
+              completedDate: w.completed_date,
+              exercises: w.exercises || [],
+              hiddenFromPartner: w.hidden_from_partner || false,
+              groupId: w.group_id || null,
+              ownerUserId: otherUserId,
+            })));
+          }
+
+          // Other user's water tracking
+          const { data: pWaterData } = await supabase
+            .from("water_tracking")
+            .select("*")
+            .eq("user_id", otherUserId)
+            .eq("date", todayStr())
+            .maybeSingle();
+
+          if (pWaterData) {
+            totalWaterIntake += Number(pWaterData.intake);
+            totalWaterGoal = Math.max(totalWaterGoal, Number(pWaterData.goal));
+            waterCount++;
+          }
         }
 
-        // Other user's tasks (assignee is stored in owner's perspective, so swap for viewer)
-        const { data: pTasks } = await supabase
-          .from("tasks")
-          .select("*")
-          .eq("user_id", contextOtherUserId);
+        setPartnerHabits(allHabits);
+        setPartnerTasks(allTasks);
+        setPartnerEvents(allEvents);
+        setPartnerWorkouts(allWorkouts);
 
-        if (pTasks) {
-          setPartnerTasks(pTasks.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            time: t.time || "",
-            tag: t.tag as "Work" | "Personal" | "Household",
-            assignee: toViewerPerspective(t.assignee as Assignee, false),
-            done: t.done,
-            completedAt: t.completed_at ?? null,
-            completedBy: t.completed_by ?? null,
-            updatedAt: t.updated_at ?? null,
-            scheduledDay: t.scheduled_day,
-            scheduledMonth: t.scheduled_month,
-            scheduledYear: t.scheduled_year,
-            hiddenFromPartner: t.hidden_from_partner || false,
-            groupId: t.group_id || null,
-          })));
-        }
-
-        // Other user's events (assignee is stored in owner's perspective, so swap for viewer)
-        const { data: pEvents } = await supabase
-          .from("events")
-          .select("*")
-          .eq("user_id", contextOtherUserId);
-
-        if (pEvents) {
-          setPartnerEvents(pEvents.map((e: any) => ({
-            id: e.id,
-            title: e.title,
-            time: e.time || "",
-            description: e.description,
-            day: e.day,
-            month: e.month,
-            year: e.year,
-            endDay: e.end_day ?? e.day,
-            endMonth: e.end_month ?? e.month,
-            endYear: e.end_year ?? e.year,
-            endTime: e.end_time ?? "",
-            allDay: e.all_day ?? false,
-            user: toViewerPerspective(e.assignee as Assignee, false),
-            done: e.done ?? false,
-            completedAt: e.completed_at ?? null,
-            completedBy: e.completed_by ?? null,
-            updatedAt: e.updated_at ?? null,
-            hiddenFromPartner: e.hidden_from_partner || false,
-            groupId: e.group_id || null,
-          })));
-        }
-
-        // Other user's workouts
-        const { data: pWorkouts } = await supabase
-          .from("workouts")
-          .select("*")
-          .eq("user_id", contextOtherUserId);
-
-        if (pWorkouts) {
-          setPartnerWorkouts(pWorkouts.map((w: any) => ({
-            id: w.id,
-            title: w.title,
-            duration: w.duration,
-            cal: w.cal,
-            tag: w.tag,
-            emoji: w.emoji,
-            done: w.done,
-            scheduledDate: w.scheduled_date,
-            completedDate: w.completed_date,
-            exercises: w.exercises || [],
-            hiddenFromPartner: w.hidden_from_partner || false,
-            groupId: w.group_id || null,
-          })));
-        }
-
-        // Load partner water tracking for today
-        const { data: pWaterData } = await supabase
-          .from("water_tracking")
-          .select("*")
-          .eq("user_id", contextOtherUserId)
-          .eq("date", todayStr())
-          .maybeSingle();
-
-        if (pWaterData) {
-          setPartnerWaterIntake(Number(pWaterData.intake));
-          setPartnerWaterGoal(Number(pWaterData.goal));
+        // For water, use first partner's data for backward compat
+        if (waterCount > 0) {
+          setPartnerWaterIntake(totalWaterIntake);
+          setPartnerWaterGoal(totalWaterGoal);
         } else {
           setPartnerWaterIntake(0);
           setPartnerWaterGoal(3);
@@ -635,7 +669,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadPartnerData();
-  }, [contextOtherUserId, user]);
+  }, [contextOtherUserIds.join(","), user]);
 
   // ── Realtime subscription for tasks/events (cross-user sync) ──
   useEffect(() => {

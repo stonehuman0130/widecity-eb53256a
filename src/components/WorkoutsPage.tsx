@@ -70,7 +70,7 @@ function detectManagementIntent(prompt: string): { type: "delete"; filter: "all"
   return { type: "delete", filter: "all" };
 }
 
-type ViewFilter = "mine" | "partner";
+type ViewFilter = string; // "mine" | "partner" | "member:{userId}"
 
 const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const { workouts, filteredWorkouts, filteredPartnerWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, getPartnerWorkoutsForDate } = useAppContext();
@@ -98,7 +98,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editExSets, setEditExSets] = useState("");
   const [editExReps, setEditExReps] = useState("");
 
-  const isViewingPartner = viewFilter === "partner";
+  const isViewingPartner = viewFilter !== "mine";
   const today = todayStr();
 
   const dateRange = useMemo(() => {
@@ -398,12 +398,12 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
       {/* Mine / Member Toggle */}
       {hasOther && (
-        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5">
+        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5 overflow-x-auto scrollbar-hide">
           {twoTabFilters.map((f) => (
             <button
               key={f.id}
-              onClick={() => setViewFilter(f.id as ViewFilter)}
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              onClick={() => setViewFilter(f.id)}
+              className={`flex-shrink-0 px-3 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
                 viewFilter === f.id ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
               }`}
             >
