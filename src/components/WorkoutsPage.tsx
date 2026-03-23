@@ -75,14 +75,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const { workouts, filteredWorkouts, filteredPartnerWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, getPartnerWorkoutsForDate } = useAppContext();
   const { partner } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
-  const { listening: wListen, start: wStart, stop: wStop, isSupported: wSpeech } = useSpeechToText({
-    onResult: (t) => setAiPrompt((p) => (p ? p + " " + t : t)),
-  });
-  const [aiPlans, setAiPlans] = useState<AIPlan[] | null>(null);
-  const [aiWeeklyPlan, setAiWeeklyPlan] = useState<AIDayPlan[] | null>(null);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [showManualAdd, setShowManualAdd] = useState(false);
