@@ -94,11 +94,11 @@ const ChatPage = ({
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `group_id=eq.${group.id}` },
         (payload) => {
-          const newMsg = payload.new as Message;
+          const newMsg = payload.new as any;
           if (newMsg.is_ai_coach) return;
           setMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
+            return [...prev, newMsg as Message];
           });
           scrollToBottom();
         }
