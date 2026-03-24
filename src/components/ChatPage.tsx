@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ArrowLeft, MessageCircle, Mic, Square, Image, Play, Pause, X, Plus, Camera, Film } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Mic, Square, Image, Play, Pause, X, Plus, Camera, Film, Images } from "lucide-react";
+import ChatAlbum from "@/components/ChatAlbum";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, Group } from "@/context/AuthContext";
 import { toast } from "sonner";
