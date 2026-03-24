@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import MorePage from "@/components/MorePage";
-import BottomNav, { type Tab, type EnabledPages } from "@/components/BottomNav";
+import BottomNav, { type Tab, loadNavPages, saveNavPages, FIXED_NAV_PAGES, MAX_NAV_SLOTS } from "@/components/BottomNav";
 import HomePage from "@/components/HomePage";
 import WorkoutsPage from "@/components/WorkoutsPage";
 import NutritionPage from "@/components/NutritionPage";
@@ -21,34 +21,12 @@ import { Loader2 } from "lucide-react";
 
 type FullTab = "launcher" | Tab;
 
-const DEFAULT_ENABLED: EnabledPages = { workout: false, habits: false, sobriety: false, specialdays: false, nutrition: false };
-
-function getStorageKey(groupId: string | null) {
-  return `enabledPages_${groupId || "personal"}`;
-}
-
-function loadEnabledPages(groupId: string | null): EnabledPages {
-  try {
-    const raw = localStorage.getItem(getStorageKey(groupId));
-    if (raw) return { ...DEFAULT_ENABLED, ...JSON.parse(raw) };
-  } catch {}
-  return { ...DEFAULT_ENABLED };
-}
-
-function saveEnabledPages(groupId: string | null, pages: EnabledPages) {
-  localStorage.setItem(getStorageKey(groupId), JSON.stringify(pages));
-}
-
 const Index = () => {
   const { user, loading, groups, activeGroup, setActiveGroup } = useAuth();
   const [activeTab, setActiveTab] = useState<FullTab>("launcher");
-  const [enabledPages, setEnabledPages] = useState<EnabledPages>(DEFAULT_ENABLED);
+  const [navPages, setNavPages] = useState<Tab[]>(() => loadNavPages());
   const [chatGroup, setChatGroup] = useState<Group | null>(null);
   const [chatMode, setChatMode] = useState<"list" | "chat">("list");
-
-  useEffect(() => {
-    setEnabledPages(loadEnabledPages(activeGroup?.id ?? null));
-  }, [activeGroup?.id]);
 
   if (loading) {
     return (
@@ -88,10 +66,25 @@ const Index = () => {
     setActiveTab(tab);
   };
 
-  const handleTogglePage = (page: keyof EnabledPages) => {
-    const updated = { ...enabledPages, [page]: !enabledPages[page] };
-    setEnabledPages(updated);
-    saveEnabledPages(activeGroup?.id ?? null, updated);
+  const handleAddToNav = (pageId: Tab) => {
+    if (navPages.includes(pageId) || navPages.length >= MAX_NAV_SLOTS) return;
+    const updated = [...navPages, pageId];
+    setNavPages(updated);
+    saveNavPages(updated);
+  };
+
+  const handleRemoveFromNav = (pageId: Tab) => {
+    if (FIXED_NAV_PAGES.includes(pageId)) return;
+    const updated = navPages.filter(p => p !== pageId);
+    setNavPages(updated);
+    saveNavPages(updated);
+  };
+
+  const handleReplaceInNav = (oldPageId: Tab, newPageId: Tab) => {
+    if (FIXED_NAV_PAGES.includes(oldPageId)) return;
+    const updated = navPages.map(p => p === oldPageId ? newPageId : p);
+    setNavPages(updated);
+    saveNavPages(updated);
   };
 
   const handleOpenChat = (group: Group) => {
@@ -108,22 +101,31 @@ const Index = () => {
     if (chatGroup && chatMode === "chat") {
       return <ChatPage group={chatGroup} onBack={handleBackToList} />;
     }
-    return <ChatListPage onOpenChat={handleOpenChat} onOpenSettings={handleOpenSettings} />;
+    return <ChatListPage onOpenChat={handleOpenChat} />;
   };
 
   const pages: Record<string, React.ReactNode> = {
     launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} />,
-    home: <HomePage onBackToLauncher={handleBackToLauncher} onOpenSettings={handleOpenSettings} />,
-    workout: <WorkoutsPage onOpenSettings={handleOpenSettings} />,
-    nutrition: <NutritionPage onOpenSettings={handleOpenSettings} />,
-    habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
-    sobriety: <SobrietyPage onOpenSettings={handleOpenSettings} />,
-    specialdays: <SpecialDaysPage onOpenSettings={handleOpenSettings} />,
-    calendar: <CalendarPage onOpenSettings={handleOpenSettings} />,
+    home: <HomePage onBackToLauncher={handleBackToLauncher} />,
+    workout: <WorkoutsPage />,
+    nutrition: <NutritionPage />,
+    habits: <HabitsPage />,
+    sobriety: <SobrietyPage />,
+    specialdays: <SpecialDaysPage />,
+    calendar: <CalendarPage />,
     chat: renderChatView(),
     ai: <AiAssistantPage />,
     settings: <SettingsPage />,
-    more: <MorePage onOpenSettings={handleOpenSettings} enabledPages={enabledPages} onTogglePage={handleTogglePage} />,
+    more: (
+      <MorePage
+        navPages={navPages}
+        onNavigate={handleTabChange}
+        onAddToNav={handleAddToNav}
+        onRemoveFromNav={handleRemoveFromNav}
+        onReplaceInNav={handleReplaceInNav}
+        onOpenSettings={handleOpenSettings}
+      />
+    ),
   };
 
   const isInnerPage = activeTab !== "launcher";
@@ -148,7 +150,7 @@ const Index = () => {
           <BottomNav
             activeTab={activeTab as Tab}
             onTabChange={handleTabChange}
-            enabledPages={enabledPages}
+            navPages={navPages}
           />
         )}
       </div>

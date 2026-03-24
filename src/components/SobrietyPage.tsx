@@ -73,10 +73,10 @@ function getReachedMilestones(streak: number): number[] {
 }
 
 interface SobrietyPageProps {
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
 }
 
-const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps) => {
+const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
   const { user, activeGroup } = useAuth();
   const [categories, setCategories] = useState<SobrietyCategory[]>([]);
   const [checkins, setCheckins] = useState<SobrietyCheckin[]>([]);
