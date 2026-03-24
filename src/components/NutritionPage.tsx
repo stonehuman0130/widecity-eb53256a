@@ -271,11 +271,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Apple size={24} className="text-primary" /> Nutrition
         </h1>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowGoalSettings(true)} className="p-2 rounded-full hover:bg-secondary">
+        {onOpenSettings && (
+          <button onClick={onOpenSettings} className="p-2 rounded-full hover:bg-secondary">
             <Settings size={18} className="text-muted-foreground" />
           </button>
-        </div>
+        )}
       </div>
 
       {/* Date nav */}
@@ -304,14 +304,20 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         </div>
       </div>
 
-      {/* AI insight */}
-      <div className="px-5 mb-4">
-        <div className="bg-primary/5 rounded-xl px-4 py-3 border border-primary/10">
+      {/* AI insight + Goals button */}
+      <div className="px-5 mb-4 flex items-start gap-2">
+        <div className="flex-1 bg-primary/5 rounded-xl px-4 py-3 border border-primary/10">
           <div className="flex items-start gap-2">
             <Sparkles size={14} className="text-primary mt-0.5 flex-shrink-0" />
             <p className="text-xs text-foreground/80">{aiInsight}</p>
           </div>
         </div>
+        <button
+          onClick={() => setShowGoalSettings(true)}
+          className="flex-shrink-0 px-3 py-2.5 rounded-xl bg-secondary text-foreground text-xs font-semibold hover:bg-secondary/80 transition-colors border border-border"
+        >
+          🎯 Goals
+        </button>
       </div>
 
       {/* Today's Meals */}
@@ -413,15 +419,19 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={e => e.stopPropagation()}
-              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[80svh] overflow-y-auto"
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[80svh] flex flex-col"
             >
-              <div className="px-5 pt-5 pb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold">{detailMeal.title}</h3>
-                  <button onClick={() => setDetailMeal(null)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                    <X size={16} />
-                  </button>
-                </div>
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-border" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-2 pb-2 flex-shrink-0">
+                <h3 className="text-lg font-bold">{detailMeal.title}</h3>
+                <button onClick={() => setDetailMeal(null)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 pb-6 overflow-y-auto flex-1 -webkit-overflow-scrolling-touch">
                 <div className="flex gap-3 mb-4">
                   <div className="bg-primary/10 rounded-xl px-4 py-2 text-center flex-1">
                     <p className="text-lg font-bold text-primary">{detailMeal.protein}g</p>
