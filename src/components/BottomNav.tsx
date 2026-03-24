@@ -37,6 +37,7 @@ function getDefaultMiddleTabs(enabledPages: EnabledPages): Tab[] {
   if (enabledPages.habits) tabs.push("habits");
   if (enabledPages.sobriety) tabs.push("sobriety");
   if (enabledPages.specialdays) tabs.push("specialdays");
+  if (enabledPages.nutrition) tabs.push("nutrition");
   tabs.push("calendar", "chat");
   return tabs;
 }
