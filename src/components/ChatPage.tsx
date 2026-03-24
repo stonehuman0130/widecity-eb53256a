@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ArrowLeft, MessageCircle, Mic, Square, Image, Play, Pause, X, Plus, Camera, Film } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Mic, Square, Image, Play, Pause, X, Plus, Camera, Film, Images } from "lucide-react";
+import ChatAlbum from "@/components/ChatAlbum";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, Group } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -58,6 +59,9 @@ const ChatPage = ({
 
   // Image preview state
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  // Album state
+  const [showAlbum, setShowAlbum] = useState(false);
 
   const memberMap = new Map<string, { name: string; avatar: string | null }>();
   group.members.forEach((m) => {
@@ -442,6 +446,15 @@ const ChatPage = ({
     return <span>{msg.content}</span>;
   };
 
+  if (showAlbum) {
+    return (
+      <ChatAlbum
+        groupId={group.id}
+        onBack={() => setShowAlbum(false)}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100svh-5rem)]">
       {/* Header */}
@@ -461,6 +474,13 @@ const ChatPage = ({
               {group.members.length} member{group.members.length !== 1 ? "s" : ""}
             </p>
           </div>
+          <button
+            onClick={() => setShowAlbum(true)}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            aria-label="Album"
+          >
+            <Images size={18} />
+          </button>
         </div>
       </header>
 
