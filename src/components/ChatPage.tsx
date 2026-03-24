@@ -471,6 +471,13 @@ const ChatPage = ({
               {group.members.length} member{group.members.length !== 1 ? "s" : ""}
             </p>
           </div>
+          <button
+            onClick={() => setShowAlbum(true)}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            aria-label="Album"
+          >
+            <Images size={18} />
+          </button>
         </div>
       </header>
 
