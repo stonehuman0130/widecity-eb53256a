@@ -1134,6 +1134,7 @@ const GCalEventCard = ({ event, onToggle, onHide, onDesignate, onCongrats }: {
       )}
     </motion.div>
   );
+};
 
 const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selectedDate }: {
   tasks: Task[];
