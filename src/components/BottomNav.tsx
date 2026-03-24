@@ -94,7 +94,7 @@ const BottomNav = ({ activeTab, onTabChange, enabledPages }: BottomNavProps) => 
   useEffect(() => {
     const fresh = getDefaultMiddleTabs(enabledPages);
     setMiddleTabs((prev) => reconcileOrder(prev, fresh));
-  }, [enabledPages.workout, enabledPages.habits, enabledPages.sobriety, enabledPages.specialdays]);
+  }, [enabledPages.workout, enabledPages.habits, enabledPages.sobriety, enabledPages.specialdays, enabledPages.nutrition]);
 
   // Click outside to exit edit mode
   useEffect(() => {
