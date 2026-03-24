@@ -550,11 +550,18 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     setSelectedDate(d);
   };
 
-  const now = new Date();
-  const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // Determine if we can toggle items (only own items)
   const isViewingPartner = filter === "partner" || isSpecificMemberFilter;
+
+  const dateHeaderLabel = (() => {
+    const weekday = sd.toLocaleDateString("en-US", { weekday: "short" });
+    const monthDay = sd.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (isToday) return `Today · ${weekday}, ${monthDay}`;
+    const yearStr = selYear !== new Date().getFullYear() ? `, ${selYear}` : "";
+    return `${weekday}, ${monthDay}${yearStr}`;
+  })();
 
   return (
     <div className="px-5">
@@ -562,62 +569,73 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         <CongratsPopup type={congratsType} show={true} onClose={() => setCongratsType(null)} />
       )}
 
-      <header className="pt-12 pb-4 flex items-start justify-between">
-        <div className="flex items-center gap-2">
-          {onBackToLauncher && (
+      <header className="pt-12 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {onBackToLauncher && (
+              <button
+                onClick={onBackToLauncher}
+                className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors -ml-1"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+            <div className="flex items-center gap-1">
+              <button onClick={() => shiftDate(-1)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary active:scale-95 transition-all">
+                <ChevronLeft size={18} />
+              </button>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <button className={`px-2 py-1 rounded-lg text-lg font-bold tracking-display transition-colors ${isToday ? "text-primary" : "text-foreground"} hover:bg-secondary`}>
+                    {dateHeaderLabel}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={sd}
+                    onSelect={(date) => {
+                      if (date) {
+                        setSelectedDate(date);
+                        setDatePickerOpen(false);
+                      }
+                    }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <button onClick={() => shiftDate(1)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary active:scale-95 transition-all">
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={onBackToLauncher}
-              className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors -ml-1"
+              onClick={() => setShowCustomizer(true)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label="Customize layout"
             >
-              <ArrowLeft size={18} />
+              <LayoutGrid size={16} />
             </button>
-          )}
-          <div>
-            <h1 className="text-[1.75rem] font-bold tracking-display">{greeting} 👋</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Let's make today count, {profile?.display_name || "there"}</p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card"
+            >
+              <Plus size={18} />
+            </button>
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                aria-label="Settings"
+              >
+                <Settings size={18} />
+              </button>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 mt-1">
-          <button
-            onClick={() => setShowCustomizer(true)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-            aria-label="Customize layout"
-          >
-            <LayoutGrid size={16} />
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card"
-          >
-            <Plus size={18} />
-          </button>
-          {onOpenSettings && (
-            <button
-              onClick={onOpenSettings}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              aria-label="Settings"
-            >
-              <Settings size={18} />
-            </button>
-          )}
-        </div>
       </header>
-
-      {/* Date Selector */}
-      <div className="flex items-center justify-between bg-card rounded-xl p-2 mb-4 shadow-card border border-border">
-        <button onClick={() => shiftDate(-1)} className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary active:scale-95 transition-all">
-          <ChevronLeft size={20} />
-        </button>
-        <button
-          onClick={() => setSelectedDate(new Date())}
-          className={`flex-1 text-center py-1.5 rounded-lg text-sm font-semibold transition-colors ${isToday ? "text-primary" : "text-foreground hover:text-primary"}`}
-        >
-          {isToday ? `Today · ${dateFormatted}` : dateFormatted}
-        </button>
-        <button onClick={() => shiftDate(1)} className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary active:scale-95 transition-all">
-          <ChevronRight size={20} />
-        </button>
-      </div>
 
       {/* Group Selector */}
       <GroupSelector />
