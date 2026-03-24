@@ -1,122 +1,177 @@
 import { useState } from "react";
-import { LayoutGrid, Settings, Dumbbell, Heart, Clock, Sparkles, Apple } from "lucide-react";
-import { EnabledPages } from "@/components/BottomNav";
-
-interface MorePageProps {
-  onOpenSettings: () => void;
-  enabledPages: EnabledPages;
-  onTogglePage: (page: keyof EnabledPages) => void;
-}
-
-const MorePage = ({ onOpenSettings, enabledPages, onTogglePage }: MorePageProps) => {
-  const [showCustomize, setShowCustomize] = useState(false);
-
-  return (
-    <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between px-5 pt-6 pb-4">
-        <h1 className="text-2xl font-bold text-foreground">More</h1>
-        <button onClick={onOpenSettings} className="p-2 rounded-full hover:bg-secondary">
-          <Settings size={20} className="text-muted-foreground" />
-        </button>
-      </div>
-
-      <div className="px-5 space-y-2">
-        <button
-          onClick={() => setShowCustomize(true)}
-          className="w-full flex items-center gap-4 p-4 rounded-2xl bg-card border border-border hover:bg-secondary/50 transition-colors"
-        >
-          <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
-            <LayoutGrid size={20} className="text-primary" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-semibold text-foreground">Customize Pages</p>
-            <p className="text-xs text-muted-foreground">Add or remove pages from navigation</p>
-          </div>
-        </button>
-      </div>
-
-      {/* Customize Pages popup — reuses existing drawer UI */}
-      {showCustomize && (
-        <CustomizePagesDrawer
-          open={showCustomize}
-          onOpenChange={setShowCustomize}
-          enabledPages={enabledPages}
-          onTogglePage={onTogglePage}
-        />
-      )}
-    </div>
-  );
-};
-
-/* ── extracted drawer (same UI that was in BottomNav) ── */
+import { Settings, MoreVertical, Navigation, X } from "lucide-react";
+import { ALL_PAGE_META, CUSTOMIZABLE_PAGE_IDS, FIXED_NAV_PAGES, MAX_NAV_SLOTS, type Tab } from "@/components/BottomNav";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
 } from "@/components/ui/drawer";
 
-const OPTIONAL_PAGES: { id: keyof EnabledPages; label: string; icon: typeof Dumbbell; desc: string }[] = [
-  { id: "workout", label: "Workout", icon: Dumbbell, desc: "Track workouts and exercise plans" },
-  { id: "habits", label: "Habits", icon: Heart, desc: "Daily habit tracking and streaks" },
-  { id: "nutrition", label: "Nutrition", icon: Apple, desc: "Track protein, meals & AI suggestions" },
-  { id: "sobriety", label: "Sobriety Day Count", icon: Clock, desc: "Track sobriety milestones" },
-  { id: "specialdays", label: "Special Days", icon: Sparkles, desc: "Track anniversaries, birthdays & milestones" },
-];
+interface MorePageProps {
+  navPages: Tab[];
+  onNavigate: (tab: Tab) => void;
+  onAddToNav: (pageId: Tab) => void;
+  onRemoveFromNav: (pageId: Tab) => void;
+  onReplaceInNav: (oldPageId: Tab, newPageId: Tab) => void;
+  onOpenSettings: () => void;
+}
 
-function CustomizePagesDrawer({
-  open,
-  onOpenChange,
-  enabledPages,
-  onTogglePage,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  enabledPages: EnabledPages;
-  onTogglePage: (page: keyof EnabledPages) => void;
-}) {
+const MorePage = ({ navPages, onNavigate, onAddToNav, onRemoveFromNav, onReplaceInNav, onOpenSettings }: MorePageProps) => {
+  const [replaceTarget, setReplaceTarget] = useState<Tab | null>(null);
+
+  const isInNav = (id: Tab) => navPages.includes(id);
+  const isFixed = (id: Tab) => FIXED_NAV_PAGES.includes(id);
+  const navIsFull = navPages.length >= MAX_NAV_SLOTS;
+
+  const handleAddToNav = (pageId: Tab) => {
+    if (navIsFull) {
+      setReplaceTarget(pageId);
+    } else {
+      onAddToNav(pageId);
+    }
+  };
+
+  const handleReplace = (oldPageId: Tab) => {
+    if (replaceTarget) {
+      onReplaceInNav(oldPageId, replaceTarget);
+      setReplaceTarget(null);
+    }
+  };
+
+  // Removable nav pages for the replace drawer
+  const removableNavPages = navPages.filter(p => !isFixed(p));
+
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Customize Pages</DrawerTitle>
-          <DrawerDescription>Add or remove optional pages from your navigation.</DrawerDescription>
-        </DrawerHeader>
-        <div className="px-4 pb-8 space-y-2">
-          {OPTIONAL_PAGES.map((page) => {
-            const enabled = enabledPages[page.id];
-            return (
+    <div className="flex flex-col min-h-full">
+      <div className="px-5 pt-6 pb-4">
+        <h1 className="text-2xl font-bold text-foreground">More</h1>
+      </div>
+
+      <div className="px-4 space-y-1 flex-1">
+        {CUSTOMIZABLE_PAGE_IDS.map((pageId) => {
+          const meta = ALL_PAGE_META[pageId];
+          if (!meta) return null;
+          const Icon = meta.icon;
+          const inNav = isInNav(pageId);
+          const fixed = isFixed(pageId);
+
+          return (
+            <div key={pageId} className="flex items-center gap-3 rounded-xl hover:bg-secondary/50 transition-colors">
               <button
-                key={page.id}
-                onClick={() => onTogglePage(page.id)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                  enabled ? "bg-primary/10 border-primary/30" : "bg-card border-border"
-                }`}
+                onClick={() => onNavigate(pageId)}
+                className="flex items-center gap-3 flex-1 p-3"
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  enabled ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  inNav ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"
                 }`}>
-                  <page.icon size={20} />
+                  <Icon size={20} />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className={`text-sm font-semibold ${enabled ? "text-primary" : "text-foreground"}`}>
-                    {page.label}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{page.desc}</p>
-                </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  enabled ? "border-primary bg-primary" : "border-muted-foreground"
-                }`}>
-                  {enabled && (
-                    <svg viewBox="0 0 12 12" className="w-3 h-3 text-primary-foreground">
-                      <path d="M2 6l3 3 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">{meta.label}</span>
+                    {inNav && (
+                      <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                        In Nav
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{meta.desc}</p>
                 </div>
               </button>
-            );
-          })}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="p-2 rounded-lg hover:bg-secondary text-muted-foreground mr-1">
+                    <MoreVertical size={16} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[200px]">
+                  {!inNav && (
+                    <DropdownMenuItem onClick={() => handleAddToNav(pageId)}>
+                      <Navigation size={14} className="mr-2" />
+                      Add to Navigation Bar
+                    </DropdownMenuItem>
+                  )}
+                  {inNav && !fixed && (
+                    <DropdownMenuItem onClick={() => onRemoveFromNav(pageId)}>
+                      <X size={14} className="mr-2" />
+                      Remove from Navigation Bar
+                    </DropdownMenuItem>
+                  )}
+                  {inNav && fixed && (
+                    <DropdownMenuItem disabled className="text-muted-foreground">
+                      <Navigation size={14} className="mr-2" />
+                      Fixed in Navigation
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        })}
+
+        {/* Divider */}
+        <div className="pt-2 pb-1">
+          <div className="h-px bg-border" />
         </div>
-      </DrawerContent>
-    </Drawer>
+
+        {/* Settings row */}
+        <button
+          onClick={onOpenSettings}
+          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors"
+        >
+          <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground">
+            <Settings size={20} />
+          </div>
+          <div className="flex-1 text-left">
+            <span className="text-sm font-semibold text-foreground">Settings</span>
+            <p className="text-xs text-muted-foreground">Account, appearance & preferences</p>
+          </div>
+        </button>
+      </div>
+
+      {/* Replace drawer */}
+      <Drawer open={!!replaceTarget} onOpenChange={(v) => { if (!v) setReplaceTarget(null); }}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Replace a Navigation Page</DrawerTitle>
+            <DrawerDescription>
+              Your navigation bar is full. Choose a page to replace
+              {replaceTarget && ALL_PAGE_META[replaceTarget] ? ` with ${ALL_PAGE_META[replaceTarget].label}` : ""}.
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 pb-8 space-y-2">
+            {removableNavPages.map((pageId) => {
+              const meta = ALL_PAGE_META[pageId];
+              if (!meta) return null;
+              const Icon = meta.icon;
+              return (
+                <button
+                  key={pageId}
+                  onClick={() => handleReplace(pageId)}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-destructive/10 hover:border-destructive/30 transition-all"
+                >
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-secondary text-muted-foreground">
+                    <Icon size={20} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-semibold text-foreground">{meta.label}</p>
+                    <p className="text-xs text-muted-foreground">Replace this page</p>
+                  </div>
+                </button>
+              );
+            })}
+            {removableNavPages.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No removable pages. Calendar is fixed in your navigation.
+              </p>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </div>
   );
-}
+};
 
 export default MorePage;
