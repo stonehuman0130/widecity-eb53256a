@@ -831,8 +831,15 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                       <Clock size={18} className="text-muted-foreground" />
                       <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
                     </div>
-                    {allTimedItems.length > 0 ? (
+                    {(allDayItems.length > 0 || allTimedItems.length > 0) ? (
                       <div className="space-y-3">
+                        {/* All-day items first */}
+                        {allDayItems.map((item) => {
+                          if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                          if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                          return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
+                        })}
+                        {/* Timed items sorted by time */}
                         {allTimedItems.map((item) => {
                           if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
                           if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
@@ -845,26 +852,17 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   </section>
                 );
 
-              case "justdoit":
+              case "todo":
                 return (
-                  <section key={sectionId} className="mb-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="w-2 h-2 rounded-full bg-foreground" />
-                      <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
-                      <span className="text-sm text-muted-foreground">({allUntimedItems.length})</span>
-                    </div>
-                    {allUntimedItems.length > 0 ? (
-                      <div className="space-y-3">
-                        {allUntimedItems.map((item) => {
-                          if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
-                          if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
-                          return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
-                    )}
-                  </section>
+                  <TodoListSection
+                    key={sectionId}
+                    tasks={todoTasks}
+                    onToggle={isViewingPartner ? undefined : toggleTask}
+                    onCongrats={() => setCongratsType("task")}
+                    readOnly={isViewingPartner}
+                    addTask={addTask}
+                    selectedDate={selectedDate}
+                  />
                 );
 
               case "water":
