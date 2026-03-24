@@ -4,6 +4,7 @@ import MorePage from "@/components/MorePage";
 import BottomNav, { type Tab, type EnabledPages } from "@/components/BottomNav";
 import HomePage from "@/components/HomePage";
 import WorkoutsPage from "@/components/WorkoutsPage";
+import NutritionPage from "@/components/NutritionPage";
 import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
 import ChatListPage from "@/components/ChatListPage";
