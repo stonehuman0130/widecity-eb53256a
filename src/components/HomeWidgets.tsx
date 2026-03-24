@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useAppContext, Workout } from "@/context/AppContext";
-import { Droplets, Dumbbell, Trophy, Check, Flame, Heart } from "lucide-react";
+import { Droplets, Dumbbell, Trophy, Check, Flame, Heart, Apple, Sparkles } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { Progress } from "@/components/ui/progress";
 
 const fmtDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
