@@ -617,12 +617,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
             >
               <LayoutGrid size={16} />
             </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-card"
-            >
-              <Plus size={18} />
-            </button>
             {onOpenSettings && (
               <button
                 onClick={onOpenSettings}
