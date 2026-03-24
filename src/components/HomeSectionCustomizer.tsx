@@ -58,12 +58,13 @@ export function loadSectionPrefs(groupId: string | null): SectionPrefs {
       const migrateId = (id: string) => {
         if (id === "morning-habits") return "habit:morning";
         if (id === "other-habits") return "habit:other";
+        if (id === "justdoit") return "todo";
         return id;
       };
       const order = (parsed.order || DEFAULT_ORDER).map(migrateId);
       const vis = new Set<string>((parsed.visible || DEFAULT_ORDER).map(migrateId));
       vis.add("scheduled");
-      vis.add("justdoit");
+      vis.add("todo");
       return {
         order,
         visible: vis,
