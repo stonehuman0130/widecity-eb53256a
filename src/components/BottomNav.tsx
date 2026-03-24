@@ -15,9 +15,9 @@ export const ALL_PAGE_META: Record<string, { label: string; icon: typeof Home; d
 
 export const CUSTOMIZABLE_PAGE_IDS = Object.keys(ALL_PAGE_META) as Tab[];
 
-// Calendar is fixed in nav and can't be removed
+// Calendar is fixed in nav and can't be removed, and doesn't appear in More page
 export const FIXED_NAV_PAGES: Tab[] = ["calendar"];
-export const MAX_NAV_SLOTS = 3;
+export const MAX_NAV_SLOTS = 10;
 
 const NAV_PAGES_KEY = "navBarPages";
 const LONG_PRESS_MS = 500;
