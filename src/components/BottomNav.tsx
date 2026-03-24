@@ -23,6 +23,7 @@ const TAB_META: Record<string, { label: string; icon: typeof Home }> = {
   habits: { label: "Habits", icon: Heart },
   sobriety: { label: "Sobriety", icon: Clock },
   specialdays: { label: "Special", icon: Sparkles },
+  nutrition: { label: "Nutrition", icon: Apple },
   calendar: { label: "Calendar", icon: CalendarDays },
   chat: { label: "Chat", icon: MessageCircle },
 };
