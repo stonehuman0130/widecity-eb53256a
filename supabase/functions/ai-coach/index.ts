@@ -131,6 +131,8 @@ ACTION TYPES:
 - "send_message": { group_id, content }
 - "create_task": { title, tag, time, assignee, scheduled_day, scheduled_month, scheduled_year }
 - "delete_task": { task_id }
+- "log_meal": { meal_type (breakfast/lunch/dinner/snack), title, protein (grams), calories, meal_date (YYYY-MM-DD) }
+- "delete_meal": { meal_id }
 
 CRITICAL RULES:
 1. When the user clearly states what they want, EXECUTE IT with actions. Don't just suggest—DO IT.
