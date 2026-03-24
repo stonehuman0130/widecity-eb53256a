@@ -108,6 +108,7 @@ CAPABILITIES:
 7. **Group Chat** - Send messages to group chats
 8. **Tasks** - Create, edit, delete tasks
 9. **Summaries** - Summarize activity, completions, streaks
+10. **Nutrition** - Log meals, answer protein/calorie questions, suggest meals
 
 ACTION SYSTEM:
 When the user wants you to DO something (create, edit, delete, send), you MUST include an "actions" array.
