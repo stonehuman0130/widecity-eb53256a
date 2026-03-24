@@ -60,6 +60,9 @@ const ChatPage = ({
   // Image preview state
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // Album state
+  const [showAlbum, setShowAlbum] = useState(false);
+
   const memberMap = new Map<string, { name: string; avatar: string | null }>();
   group.members.forEach((m) => {
     memberMap.set(m.user_id, { name: m.display_name || "Member", avatar: m.avatar_url });
