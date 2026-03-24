@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -595,10 +597,29 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       {/* ── Header ──────────────────────────────────────── */}
       <header className="pt-10 pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-foreground">{monthName}</h1>
-            <span className="text-xl font-light text-muted-foreground">{year}</span>
-          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex items-center gap-2 hover:bg-secondary rounded-lg px-2 py-1 transition-colors">
+                <h1 className="text-xl font-bold text-foreground">{monthName}</h1>
+                <span className="text-xl font-light text-muted-foreground">{year}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                defaultMonth={currentDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setSelectedDate(date);
+                    setCurrentDate(new Date(date.getFullYear(), date.getMonth(), 1));
+                  }
+                }}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
           <div className="flex items-center gap-0.5">
             <button onClick={() => setShowSearch(true)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground">
               <Search size={16} />
