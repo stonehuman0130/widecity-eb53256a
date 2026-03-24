@@ -108,9 +108,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
       time: "",
       tag: "Personal",
       assignee: "me",
-      scheduledDay: selectedDate.getDate(),
-      scheduledMonth: selectedDate.getMonth(),
-      scheduledYear: selectedDate.getFullYear(),
     });
     setInput("");
   };
