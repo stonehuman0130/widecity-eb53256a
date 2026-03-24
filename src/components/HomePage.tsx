@@ -470,7 +470,8 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   );
 
   const hasSpecificTime = (time?: string) => Boolean(time) && time !== "" && time !== "All day";
-  const isTaskScheduled = (t: Task) => hasSpecificTime(t.time);
+  const isTaskScheduled = (t: Task) => t.scheduledDay !== undefined && t.scheduledMonth !== undefined && t.scheduledYear !== undefined;
+  const isTaskTimed = (t: Task) => hasSpecificTime(t.time);
 
   // Helper: parse any time representation to minutes for sorting
   const toSortMinutes = (time?: string, isoStart?: string): number => {
@@ -512,8 +513,12 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     | { kind: "event"; data: ScheduledEvent; sortMinutes: number }
     | { kind: "gcal"; data: GoogleCalendarEvent; sortMinutes: number };
 
-  const scheduledTasks = dayTasks.filter((t) => isTaskScheduled(t));
-  const justDoIt = dayTasks.filter((t) => !isTaskScheduled(t));
+  // Scheduled tasks = tasks that have a date (whether timed or all-day)
+  const scheduledTimedTasks = dayTasks.filter((t) => isTaskScheduled(t) && isTaskTimed(t));
+  const scheduledAllDayTasks = dayTasks.filter((t) => isTaskScheduled(t) && !isTaskTimed(t));
+  // To Do tasks = tasks that are NOT scheduled to any date
+  const todoTasks = dayTasks.filter((t) => !isTaskScheduled(t));
+
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
   const gcalTimed = gcalEventsForDay.filter((ge) => !ge.allDay);
@@ -522,20 +527,20 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   // Merge all timed items into one sorted list
   const allTimedItems: UnifiedHomeItem[] = useMemo(() => {
     const items: UnifiedHomeItem[] = [
-      ...scheduledTasks.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: toSortMinutes(t.time) })),
+      ...scheduledTimedTasks.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: toSortMinutes(t.time) })),
       ...timedEvents.map((e): UnifiedHomeItem => ({ kind: "event", data: e, sortMinutes: toSortMinutes(e.time) })),
       ...gcalTimed.map((ge): UnifiedHomeItem => ({ kind: "gcal", data: ge, sortMinutes: toSortMinutes(undefined, ge.start) })),
     ];
     items.sort((a, b) => a.sortMinutes - b.sortMinutes);
     return items;
-  }, [scheduledTasks, timedEvents, gcalTimed]);
+  }, [scheduledTimedTasks, timedEvents, gcalTimed]);
 
-  // Merge all untimed items
-  const allUntimedItems: UnifiedHomeItem[] = useMemo(() => [
-    ...justDoIt.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: -1 })),
+  // Merge all-day items (shown at top of Scheduled)
+  const allDayItems: UnifiedHomeItem[] = useMemo(() => [
+    ...scheduledAllDayTasks.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: -1 })),
     ...allDayEvents.map((e): UnifiedHomeItem => ({ kind: "event", data: e, sortMinutes: -1 })),
     ...gcalAllDay.map((ge): UnifiedHomeItem => ({ kind: "gcal", data: ge, sortMinutes: -1 })),
-  ], [justDoIt, allDayEvents, gcalAllDay]);
+  ], [scheduledAllDayTasks, allDayEvents, gcalAllDay]);
 
   const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: userTimezone });
   const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
