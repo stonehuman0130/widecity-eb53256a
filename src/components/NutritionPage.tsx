@@ -981,8 +981,8 @@ function SingleDayView({ dateStr, meals, suggestions, isViewingOwn, isTogether, 
   );
 }
 
-/* ────────── Multi Day View ────────── */
-interface MultiDayViewProps {
+/* ────────── Weekly Calendar View ────────── */
+interface WeeklyCalendarViewProps {
   dates: string[];
   meals: MealLog[];
   suggestions: MealSuggestion[];
@@ -993,16 +993,36 @@ interface MultiDayViewProps {
   onAddMeal: (mt: string, date: string) => void;
   aiLoading: boolean;
   onGenerate: () => void;
+  onGenerateWeek?: (weekDates: string[]) => void;
   otherName: string;
   profile: any;
 }
 
-function MultiDayView({ dates, meals, suggestions, isViewingOwn, isTogether, partnerMeals, onDetailMeal, onAddMeal, aiLoading, onGenerate, otherName, profile }: MultiDayViewProps) {
+function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogether, partnerMeals, onDetailMeal, onAddMeal, aiLoading, onGenerate, otherName, profile }: WeeklyCalendarViewProps) {
   const today = fmtDate(new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  // Split dates into weeks of 7
+  const weeks = useMemo(() => {
+    const result: string[][] = [];
+    for (let i = 0; i < dates.length; i += 7) {
+      result.push(dates.slice(i, i + 7));
+    }
+    return result;
+  }, [dates]);
+
+  const getMealsForDate = (date: string) => meals.filter(m => m.meal_date === date);
+  const getSuggestionsForDate = (date: string) => suggestions.filter(s => (s as any).suggestion_date === date);
+  const getPartnerMealsForDate = (date: string) => partnerMeals.filter(m => m.meal_date === date);
+
+  // Day detail data
+  const dayMeals = selectedDay ? getMealsForDate(selectedDay) : [];
+  const daySuggestions = selectedDay ? getSuggestionsForDate(selectedDay) : [];
+  const dayPartnerMeals = selectedDay ? getPartnerMealsForDate(selectedDay) : [];
 
   return (
     <>
-      {/* Generate button for the range */}
+      {/* Generate for entire range */}
       {isViewingOwn && (
         <div className="flex justify-end mb-3">
           <button
@@ -1011,102 +1031,217 @@ function MultiDayView({ dates, meals, suggestions, isViewingOwn, isTogether, par
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            {suggestions.length > 0 ? "Regenerate Plan" : "Generate AI Plan"}
+            Generate Entire Range
           </button>
         </div>
       )}
 
-      {dates.map(date => {
-        const dayMeals = meals.filter(m => m.meal_date === date);
-        const daySuggestions = suggestions.filter(s => (s as any).suggestion_date === date);
-        const dayLabel = new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-        const isDateToday = date === today;
+      {weeks.map((week, wi) => {
+        const weekStart = new Date(week[0] + "T12:00:00");
+        const weekEnd = new Date(week[week.length - 1] + "T12:00:00");
+        const weekLabel = `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 
         return (
-          <div key={date} className="mb-5">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className={`text-sm font-bold ${isDateToday ? "text-primary" : "text-foreground"}`}>
-                {isDateToday ? "Today" : dayLabel}
+          <div key={wi} className="mb-5">
+            <div className="flex items-center justify-between mb-2.5">
+              <h3 className="text-sm font-bold text-foreground">
+                Week {wi + 1} <span className="text-muted-foreground font-normal text-xs ml-1">{weekLabel}</span>
               </h3>
-              {dayMeals.length > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
-                  {dayMeals.reduce((s, m) => s + m.protein, 0)}g protein
-                </span>
+              {isViewingOwn && (
+                <button
+                  onClick={onGenerate}
+                  disabled={aiLoading}
+                  className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                >
+                  {aiLoading ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                  AI Plan
+                </button>
               )}
             </div>
 
-            {/* Logged meals for this day */}
-            {dayMeals.length > 0 && (
-              <div className="mb-2">
-                {dayMeals.map(m => (
-                  <button key={m.id} onClick={() => onDetailMeal(m)}
-                    className="w-full bg-card rounded-xl p-3 mb-1.5 shadow-card border border-border text-left hover:border-primary/30 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-xs">{MEAL_TYPES.find(mt => mt.key === m.meal_type)?.icon || "🍽️"}</span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{m.title}</p>
-                          <p className="text-[10px] text-muted-foreground capitalize flex items-center gap-1">
-                            {m.meal_type} <Check size={8} className="text-primary" /> Logged
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-xs font-bold text-primary flex-shrink-0">{m.protein}g</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* 7-column day card grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {week.map(date => {
+                const d = new Date(date + "T12:00:00");
+                const dayName = d.toLocaleDateString("en-US", { weekday: "narrow" });
+                const dayNum = d.getDate();
+                const isDateToday = date === today;
+                const dMeals = getMealsForDate(date);
+                const dSuggs = getSuggestionsForDate(date);
+                const totalItems = dMeals.length + dSuggs.length;
+                const totalProtein = dMeals.reduce((s, m) => s + m.protein, 0);
+                const hasLogged = dMeals.length > 0;
+                const hasPlanned = dSuggs.length > 0;
 
-            {/* Planned meals (suggestions) for this day */}
-            {daySuggestions.length > 0 && (
-              <div className="mb-2">
-                {daySuggestions.map(s => (
-                  <button key={s.id} onClick={() => onDetailMeal(s)}
-                    className="w-full bg-card rounded-xl p-3 mb-1.5 shadow-card border border-dashed border-primary/20 text-left hover:border-primary/40 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Sparkles size={10} className="text-primary flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{s.title}</p>
-                          <p className="text-[10px] text-muted-foreground capitalize">{s.meal_type} · Planned</p>
-                        </div>
-                      </div>
-                      <p className="text-xs font-bold text-primary flex-shrink-0">{s.protein}g</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Empty state + add for each meal type */}
-            {dayMeals.length === 0 && daySuggestions.length === 0 && (
-              <div className="grid grid-cols-4 gap-1.5">
-                {MEAL_TYPES.map(mt => (
-                  <button key={mt.key}
-                    onClick={() => isViewingOwn && onAddMeal(mt.key, date)}
-                    className="bg-card rounded-lg p-2 border border-border text-center hover:border-primary/30 transition-colors"
+                return (
+                  <button
+                    key={date}
+                    onClick={() => setSelectedDay(date)}
+                    className={`flex flex-col items-center rounded-xl p-1.5 border transition-colors min-h-[72px] ${
+                      selectedDay === date
+                        ? "border-primary bg-primary/10"
+                        : isDateToday
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border bg-card hover:border-primary/20"
+                    }`}
                   >
-                    <span className="text-sm">{mt.icon}</span>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">{mt.label}</p>
-                    {isViewingOwn && <Plus size={10} className="text-primary mx-auto mt-0.5" />}
+                    <span className={`text-[9px] font-semibold ${isDateToday ? "text-primary" : "text-muted-foreground"}`}>
+                      {dayName}
+                    </span>
+                    <span className={`text-sm font-bold leading-tight ${isDateToday ? "text-primary" : "text-foreground"}`}>
+                      {dayNum}
+                    </span>
+                    {/* Meal indicators */}
+                    <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
+                      {hasLogged && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                      {hasPlanned && <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />}
+                    </div>
+                    {totalProtein > 0 && (
+                      <span className="text-[8px] font-bold text-primary mt-0.5">{totalProtein}g</span>
+                    )}
+                    {totalItems === 0 && (
+                      <span className="text-[8px] text-muted-foreground mt-0.5">–</span>
+                    )}
                   </button>
-                ))}
-              </div>
-            )}
-
-            {/* Add button when there are some meals but not all slots filled */}
-            {(dayMeals.length > 0 || daySuggestions.length > 0) && isViewingOwn && (
-              <button
-                onClick={() => onAddMeal("snack", date)}
-                className="flex items-center gap-1.5 text-xs text-primary font-semibold mt-1 hover:underline"
-              >
-                <Plus size={12} /> Add meal
-              </button>
-            )}
+                );
+              })}
+            </div>
           </div>
         );
       })}
+
+      {/* Day Detail Bottom Sheet */}
+      <AnimatePresence>
+        {selectedDay && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+            onClick={() => setSelectedDay(null)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[85svh] flex flex-col"
+            >
+              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-border" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-1 pb-3 flex-shrink-0 border-b border-border">
+                <h3 className="text-lg font-bold">
+                  {selectedDay === today
+                    ? "Today"
+                    : new Date(selectedDay + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                </h3>
+                <button onClick={() => setSelectedDay(null)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                  <X size={16} />
+                </button>
+              </div>
+              <div
+                className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain"
+                style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}
+              >
+                {/* Meal slots */}
+                {MEAL_TYPES.map(mt => {
+                  const slotLogged = dayMeals.filter(m => m.meal_type === mt.key);
+                  const slotPlanned = daySuggestions.filter(s => s.meal_type === mt.key);
+                  const partnerSlot = isTogether ? dayPartnerMeals.filter(m => m.meal_type === mt.key) : [];
+
+                  return (
+                    <div key={mt.key} className="py-3 border-b border-border last:border-b-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-base">{mt.icon}</span>
+                        <h4 className="text-sm font-semibold">{mt.label}</h4>
+                      </div>
+
+                      {/* Logged */}
+                      {slotLogged.map(m => (
+                        <button key={m.id} onClick={() => onDetailMeal(m)}
+                          className="w-full bg-background rounded-xl p-3 mb-1.5 border border-border text-left hover:border-primary/30 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{m.title}</p>
+                              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Check size={8} className="text-primary" /> Logged
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <p className="text-xs font-bold text-primary">{m.protein}g</p>
+                              <p className="text-[10px] text-muted-foreground">{m.calories} kcal</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+
+                      {/* Planned */}
+                      {slotPlanned.map(s => (
+                        <button key={s.id} onClick={() => onDetailMeal(s)}
+                          className="w-full bg-background rounded-xl p-3 mb-1.5 border border-dashed border-primary/20 text-left hover:border-primary/40 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Sparkles size={10} className="text-primary flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">{s.title}</p>
+                                <p className="text-[10px] text-muted-foreground">AI Planned</p>
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <p className="text-xs font-bold text-primary">{s.protein}g</p>
+                              <p className="text-[10px] text-muted-foreground">{s.calories} kcal</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+
+                      {/* Partner meals in Together view */}
+                      {isTogether && partnerSlot.length > 0 && (
+                        <div className="mt-1">
+                          {partnerSlot.map(m => (
+                            <button key={m.id} onClick={() => onDetailMeal(m)}
+                              className="w-full bg-background rounded-xl p-2.5 mb-1 border border-border/60 text-left">
+                              <div className="flex items-center justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-medium truncate">{m.title}</p>
+                                  <p className="text-[9px] text-muted-foreground">{otherName}</p>
+                                </div>
+                                <p className="text-[10px] font-bold text-primary ml-2">{m.protein}g</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Empty: add button */}
+                      {slotLogged.length === 0 && slotPlanned.length === 0 && isViewingOwn && (
+                        <button
+                          onClick={() => { onAddMeal(mt.key, selectedDay); setSelectedDay(null); }}
+                          className="flex items-center gap-1.5 text-xs text-primary font-semibold hover:underline py-1"
+                        >
+                          <Plus size={12} /> Add {mt.label.toLowerCase()}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Day protein summary */}
+                {dayMeals.length > 0 && (
+                  <div className="py-3 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground">Day Total</span>
+                    <span className="text-sm font-bold text-primary">
+                      {dayMeals.reduce((s, m) => s + m.protein, 0)}g protein
+                    </span>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
