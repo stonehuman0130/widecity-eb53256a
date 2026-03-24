@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_meal_suggestions: {
+        Row: {
+          calories: number | null
+          created_at: string
+          group_id: string | null
+          id: string
+          ingredients: Json | null
+          meal_type: string
+          prep_steps: Json | null
+          protein: number
+          suggestion_date: string
+          tags: Json | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          calories?: number | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          ingredients?: Json | null
+          meal_type?: string
+          prep_steps?: Json | null
+          protein?: number
+          suggestion_date?: string
+          tags?: Json | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          calories?: number | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          ingredients?: Json | null
+          meal_type?: string
+          prep_steps?: Json | null
+          protein?: number
+          suggestion_date?: string
+          tags?: Json | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_meal_suggestions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_conversations: {
         Row: {
           context: Json
@@ -499,6 +552,62 @@ export type Database = {
           },
         ]
       }
+      meal_logs: {
+        Row: {
+          ai_tags: Json | null
+          calories: number | null
+          created_at: string
+          group_id: string | null
+          id: string
+          ingredients: Json | null
+          is_ai_generated: boolean
+          meal_date: string
+          meal_type: string
+          prep_steps: Json | null
+          protein: number
+          title: string
+          user_id: string
+        }
+        Insert: {
+          ai_tags?: Json | null
+          calories?: number | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          ingredients?: Json | null
+          is_ai_generated?: boolean
+          meal_date?: string
+          meal_type?: string
+          prep_steps?: Json | null
+          protein?: number
+          title: string
+          user_id: string
+        }
+        Update: {
+          ai_tags?: Json | null
+          calories?: number | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          ingredients?: Json | null
+          is_ai_generated?: boolean
+          meal_date?: string
+          meal_type?: string
+          prep_steps?: Json | null
+          protein?: number
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_logs_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -571,6 +680,47 @@ export type Database = {
             columns: ["habit_id"]
             isOneToOne: false
             referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_goals: {
+        Row: {
+          calorie_goal: number | null
+          created_at: string
+          group_id: string | null
+          id: string
+          protein_goal: number
+          show_calories: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calorie_goal?: number | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          protein_goal?: number
+          show_calories?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calorie_goal?: number | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          protein_goal?: number
+          show_calories?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_goals_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
             referencedColumns: ["id"]
           },
         ]

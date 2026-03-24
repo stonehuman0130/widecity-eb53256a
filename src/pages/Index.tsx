@@ -4,6 +4,7 @@ import MorePage from "@/components/MorePage";
 import BottomNav, { type Tab, type EnabledPages } from "@/components/BottomNav";
 import HomePage from "@/components/HomePage";
 import WorkoutsPage from "@/components/WorkoutsPage";
+import NutritionPage from "@/components/NutritionPage";
 import HabitsPage from "@/components/HabitsPage";
 import CalendarPage from "@/components/CalendarPage";
 import ChatListPage from "@/components/ChatListPage";
@@ -20,7 +21,7 @@ import { Loader2 } from "lucide-react";
 
 type FullTab = "launcher" | Tab;
 
-const DEFAULT_ENABLED: EnabledPages = { workout: false, habits: false, sobriety: false, specialdays: false };
+const DEFAULT_ENABLED: EnabledPages = { workout: false, habits: false, sobriety: false, specialdays: false, nutrition: false };
 
 function getStorageKey(groupId: string | null) {
   return `enabledPages_${groupId || "personal"}`;
@@ -114,6 +115,7 @@ const Index = () => {
     launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} />,
     home: <HomePage onBackToLauncher={handleBackToLauncher} onOpenSettings={handleOpenSettings} />,
     workout: <WorkoutsPage onOpenSettings={handleOpenSettings} />,
+    nutrition: <NutritionPage onOpenSettings={handleOpenSettings} />,
     habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
     sobriety: <SobrietyPage onOpenSettings={handleOpenSettings} />,
     specialdays: <SpecialDaysPage onOpenSettings={handleOpenSettings} />,

@@ -1,13 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Home, CalendarDays, MessageCircle, MoreHorizontal, Dumbbell, Heart, Clock, Sparkles } from "lucide-react";
+import { Home, CalendarDays, MessageCircle, MoreHorizontal, Dumbbell, Heart, Clock, Sparkles, Apple } from "lucide-react";
 
-export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "calendar" | "chat" | "ai" | "settings" | "more";
+export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "nutrition" | "calendar" | "chat" | "ai" | "settings" | "more";
 
 export interface EnabledPages {
   workout: boolean;
   habits: boolean;
   sobriety: boolean;
   specialdays: boolean;
+  nutrition: boolean;
 }
 
 interface BottomNavProps {
@@ -22,6 +23,7 @@ const TAB_META: Record<string, { label: string; icon: typeof Home }> = {
   habits: { label: "Habits", icon: Heart },
   sobriety: { label: "Sobriety", icon: Clock },
   specialdays: { label: "Special", icon: Sparkles },
+  nutrition: { label: "Nutrition", icon: Apple },
   calendar: { label: "Calendar", icon: CalendarDays },
   chat: { label: "Chat", icon: MessageCircle },
 };
@@ -35,6 +37,7 @@ function getDefaultMiddleTabs(enabledPages: EnabledPages): Tab[] {
   if (enabledPages.habits) tabs.push("habits");
   if (enabledPages.sobriety) tabs.push("sobriety");
   if (enabledPages.specialdays) tabs.push("specialdays");
+  if (enabledPages.nutrition) tabs.push("nutrition");
   tabs.push("calendar", "chat");
   return tabs;
 }
@@ -91,7 +94,7 @@ const BottomNav = ({ activeTab, onTabChange, enabledPages }: BottomNavProps) => 
   useEffect(() => {
     const fresh = getDefaultMiddleTabs(enabledPages);
     setMiddleTabs((prev) => reconcileOrder(prev, fresh));
-  }, [enabledPages.workout, enabledPages.habits, enabledPages.sobriety, enabledPages.specialdays]);
+  }, [enabledPages.workout, enabledPages.habits, enabledPages.sobriety, enabledPages.specialdays, enabledPages.nutrition]);
 
   // Click outside to exit edit mode
   useEffect(() => {
