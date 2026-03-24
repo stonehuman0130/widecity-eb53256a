@@ -545,3 +545,64 @@ export const HomeHabitSectionWidget = ({ selectedDate, categoryKey, sectionLabel
     </div>
   );
 };
+
+/** Compact nutrition widget for Home page */
+export const HomeNutritionWidget = ({ selectedDate }: { selectedDate: Date }) => {
+  const { user, activeGroup } = useAuth();
+  const [totalProtein, setTotalProtein] = useState(0);
+  const [proteinGoal, setProteinGoal] = useState(150);
+  const [suggestions, setSuggestions] = useState<{ title: string; protein: number; meal_type: string }[]>([]);
+
+  const dateStr = fmtDate(selectedDate);
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const groupId = activeGroup?.id || null;
+
+      const [mealsRes, goalsRes, suggestionsRes] = await Promise.all([
+        supabase.from("meal_logs").select("protein").eq("user_id", user.id).eq("meal_date", dateStr),
+        groupId
+          ? supabase.from("nutrition_goals").select("protein_goal").eq("user_id", user.id).eq("group_id", groupId).maybeSingle()
+          : supabase.from("nutrition_goals").select("protein_goal").eq("user_id", user.id).is("group_id", null).maybeSingle(),
+        supabase.from("ai_meal_suggestions").select("title,protein,meal_type").eq("user_id", user.id).eq("suggestion_date", dateStr).limit(2),
+      ]);
+
+      if (mealsRes.data) setTotalProtein(mealsRes.data.reduce((s, m) => s + (m.protein || 0), 0));
+      if (goalsRes.data) setProteinGoal((goalsRes.data as any).protein_goal || 150);
+      if (suggestionsRes.data) setSuggestions(suggestionsRes.data as any[]);
+    };
+    load();
+  }, [user, dateStr, activeGroup?.id]);
+
+  const percent = proteinGoal > 0 ? Math.min((totalProtein / proteinGoal) * 100, 100) : 0;
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">
+        <Apple size={18} className="text-primary" /> Nutrition
+      </h2>
+      <div className="bg-card rounded-xl p-4 shadow-card border border-border">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold">Protein</span>
+          <span className="text-xs font-bold text-primary">{totalProtein}g / {proteinGoal}g</span>
+        </div>
+        <Progress value={percent} className="h-2.5 mb-3" />
+        <p className="text-[10px] text-muted-foreground mb-2">
+          {percent >= 100 ? "🎉 Goal reached!" : `${Math.round(proteinGoal - totalProtein)}g remaining`}
+        </p>
+        {suggestions.length > 0 && (
+          <div className="space-y-1.5">
+            {suggestions.map((s, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-primary/5">
+                <Sparkles size={10} className="text-primary flex-shrink-0" />
+                <span className="flex-1 text-[11px] font-medium truncate">{s.title}</span>
+                <span className="text-[10px] font-bold text-primary">{s.protein}g</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
