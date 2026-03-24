@@ -35,8 +35,8 @@ export function buildAllSections(habitSections: HabitSectionMeta[]): HomeSection
   return [...habitHomeSections, ...FIXED_SECTIONS];
 }
 
-export const DEFAULT_ORDER = ["habit:morning", "scheduled", "justdoit"];
-export const DEFAULT_VISIBLE = new Set(["habit:morning", "scheduled", "justdoit"]);
+export const DEFAULT_ORDER = ["habit:morning", "scheduled", "todo"];
+export const DEFAULT_VISIBLE = new Set(["habit:morning", "scheduled", "todo"]);
 
 function getStorageKey(groupId: string | null) {
   return `homeSections_${groupId || "personal"}`;
