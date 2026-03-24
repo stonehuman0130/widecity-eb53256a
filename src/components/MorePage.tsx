@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutGrid, Settings, Dumbbell, Heart, Clock, Sparkles } from "lucide-react";
+import { LayoutGrid, Settings, Dumbbell, Heart, Clock, Sparkles, Apple } from "lucide-react";
 import { EnabledPages } from "@/components/BottomNav";
 
 interface MorePageProps {
