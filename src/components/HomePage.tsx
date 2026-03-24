@@ -1134,6 +1134,159 @@ const GCalEventCard = ({ event, onToggle, onHide, onDesignate, onCongrats }: {
       )}
     </motion.div>
   );
+
+const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selectedDate }: {
+  tasks: Task[];
+  onToggle?: (id: string) => void;
+  onCongrats: () => void;
+  readOnly?: boolean;
+  addTask: (task: Omit<Task, "id" | "done">) => void;
+  selectedDate: Date;
+}) => {
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (adding) inputRef.current?.focus();
+  }, [adding]);
+
+  const handleAdd = () => {
+    if (!newTitle.trim()) return;
+    addTask({
+      title: newTitle.trim(),
+      time: "",
+      tag: "Personal",
+      assignee: "me",
+    });
+    setNewTitle("");
+    setAdding(false);
+  };
+
+  const pendingTasks = tasks.filter((t) => !t.done);
+  const doneTasks = tasks.filter((t) => t.done);
+
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <ListTodo size={18} className="text-muted-foreground" />
+          <h2 className="text-lg font-semibold tracking-display">To Do List</h2>
+          {tasks.length > 0 && (
+            <span className="text-xs font-medium text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-md">
+              {pendingTasks.length}
+            </span>
+          )}
+        </div>
+        {!readOnly && (
+          <button
+            onClick={() => setAdding(true)}
+            className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
+          >
+            <Plus size={15} />
+          </button>
+        )}
+      </div>
+
+      {/* Inline quick-add */}
+      <AnimatePresence>
+        {adding && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden mb-3"
+          >
+            <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 border border-primary/30 shadow-card">
+              <input
+                ref={inputRef}
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAdd();
+                  if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
+                }}
+                placeholder="What do you need to do?"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
+              />
+              <button
+                onClick={handleAdd}
+                disabled={!newTitle.trim()}
+                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-40"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => { setAdding(false); setNewTitle(""); }}
+                className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {pendingTasks.length > 0 ? (
+        <div className="space-y-2">
+          {pendingTasks.map((task) => (
+            <TodoItem key={task.id} task={task} onToggle={onToggle} onCongrats={onCongrats} readOnly={readOnly} />
+          ))}
+        </div>
+      ) : !adding ? (
+        <button
+          onClick={() => !readOnly && setAdding(true)}
+          className="w-full py-4 text-sm text-muted-foreground text-center border border-dashed border-border rounded-xl hover:border-primary/30 hover:text-primary/60 transition-colors"
+        >
+          Tap + to add a to-do
+        </button>
+      ) : null}
+
+      {doneTasks.length > 0 && (
+        <div className="mt-3 space-y-2 opacity-60">
+          {doneTasks.map((task) => (
+            <TodoItem key={task.id} task={task} onToggle={onToggle} onCongrats={onCongrats} readOnly={readOnly} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+};
+
+const TodoItem = ({ task, onToggle, onCongrats, readOnly }: {
+  task: Task;
+  onToggle?: (id: string) => void;
+  onCongrats: () => void;
+  readOnly?: boolean;
+}) => {
+  const handleToggle = () => {
+    if (readOnly || !onToggle) return;
+    if (!task.done) onCongrats();
+    onToggle(task.id);
+  };
+
+  return (
+    <motion.div
+      layout
+      className={`flex items-center gap-3 bg-card rounded-xl px-4 py-3 shadow-card border transition-all active:scale-[0.99] ${
+        task.done ? "border-habit-green/30" : "border-border"
+      }`}
+    >
+      <button
+        onClick={handleToggle}
+        disabled={readOnly}
+        className={`w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+          task.done ? "bg-habit-green border-habit-green" : "border-muted hover:border-primary"
+        } ${readOnly ? "opacity-60" : ""}`}
+      >
+        {task.done && <Check size={12} className="text-primary-foreground" />}
+      </button>
+      <span className={`flex-1 text-sm font-medium ${task.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
+        {task.title}
+      </span>
+      {!readOnly && <TaskActionMenu taskId={task.id} />}
+    </motion.div>
+  );
 };
 
 export default HomePage;
