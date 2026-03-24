@@ -443,6 +443,15 @@ const ChatPage = ({
     return <span>{msg.content}</span>;
   };
 
+  if (showAlbum) {
+    return (
+      <ChatAlbum
+        groupId={group.id}
+        onBack={() => setShowAlbum(false)}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100svh-5rem)]">
       {/* Header */}
