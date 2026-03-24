@@ -1,13 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Home, CalendarDays, MessageCircle, MoreHorizontal, Dumbbell, Heart, Clock, Sparkles } from "lucide-react";
+import { Home, CalendarDays, MessageCircle, MoreHorizontal, Dumbbell, Heart, Clock, Sparkles, Apple } from "lucide-react";
 
-export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "calendar" | "chat" | "ai" | "settings" | "more";
+export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "nutrition" | "calendar" | "chat" | "ai" | "settings" | "more";
 
 export interface EnabledPages {
   workout: boolean;
   habits: boolean;
   sobriety: boolean;
   specialdays: boolean;
+  nutrition: boolean;
 }
 
 interface BottomNavProps {
