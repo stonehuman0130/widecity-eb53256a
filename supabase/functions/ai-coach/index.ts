@@ -47,7 +47,7 @@ serve(async (req) => {
     // Fetch current app data for context
     let currentData = "";
     try {
-      const [workoutsRes, eventsRes, habitsRes, sectionsRes, sobrietyRes, specialDaysRes, exerciseLogsRes] = await Promise.all([
+      const [workoutsRes, eventsRes, habitsRes, sectionsRes, sobrietyRes, specialDaysRes, exerciseLogsRes, mealLogsRes, nutritionGoalsRes] = await Promise.all([
         adminClient.from("workouts").select("id,title,emoji,tag,duration,cal,done,scheduled_date,exercises").eq("user_id", userId).eq("group_id", groupId).order("scheduled_date", { ascending: true }).limit(50),
         adminClient.from("events").select("id,title,day,month,year,time,end_time,assignee,done,description").eq("group_id", groupId).order("year", { ascending: true }).order("month", { ascending: true }).order("day", { ascending: true }).limit(50),
         adminClient.from("habits").select("id,label,category").eq("user_id", userId).eq("group_id", groupId),
@@ -55,6 +55,8 @@ serve(async (req) => {
         adminClient.from("sobriety_categories").select("id,label,icon,start_date,money_per_day").eq("user_id", userId).eq("group_id", groupId),
         adminClient.from("special_days").select("id,title,icon,event_date,count_direction,repeats_yearly,is_featured").eq("user_id", userId).eq("group_id", groupId),
         adminClient.from("exercise_logs").select("exercise_name,set_number,weight,unit,reps,completed,logged_date,workout_id").eq("user_id", userId).order("logged_date", { ascending: false }).order("exercise_name").order("set_number").limit(200),
+        adminClient.from("meal_logs").select("id,meal_type,title,protein,calories,meal_date,is_ai_generated").eq("user_id", userId).order("meal_date", { ascending: false }).limit(50),
+        adminClient.from("nutrition_goals").select("protein_goal,calorie_goal,show_calories").eq("user_id", userId).eq("group_id", groupId).maybeSingle(),
       ]);
 
       const upcoming = (eventsRes.data || []).filter((e: any) => {
@@ -63,6 +65,10 @@ serve(async (req) => {
       }).slice(0, 20);
 
       const futureWorkouts = (workoutsRes.data || []).filter((w: any) => w.scheduled_date >= todayStr && !w.done).slice(0, 20);
+
+      const nutritionGoal = nutritionGoalsRes.data || { protein_goal: 150, calorie_goal: null };
+      const todayMeals = (mealLogsRes.data || []).filter((m: any) => m.meal_date === todayStr);
+      const todayProtein = todayMeals.reduce((s: number, m: any) => s + (m.protein || 0), 0);
 
       currentData = `
 CURRENT APP DATA (for this group "${activeGroupName}"):
@@ -73,8 +79,13 @@ Habit Sections: ${JSON.stringify(sectionsRes.data || [])}
 Sobriety Trackers: ${JSON.stringify(sobrietyRes.data || [])}
 Special Days: ${JSON.stringify(specialDaysRes.data || [])}
 Exercise Logs (recent weight/rep history, sorted newest first): ${JSON.stringify(exerciseLogsRes.data || [])}
+Meal Logs (recent): ${JSON.stringify(mealLogsRes.data || [])}
+Nutrition Goals: protein_goal=${nutritionGoal.protein_goal}g, calorie_goal=${nutritionGoal.calorie_goal || 'not set'}
+Today's nutrition: ${todayProtein}g protein consumed from ${todayMeals.length} meals
 
-EXERCISE LOG INSTRUCTIONS: When the user asks about weights they've used, their recent lifts, or strength progress, use the Exercise Logs data above. Each log entry has exercise_name, weight, unit (lb/kg), reps, set_number, logged_date, and workout_id. Summarize clearly (e.g. "Your last bench press was 185 lb for 3 sets of 8 reps on March 20").`;
+EXERCISE LOG INSTRUCTIONS: When the user asks about weights they've used, their recent lifts, or strength progress, use the Exercise Logs data above.
+
+NUTRITION INSTRUCTIONS: When the user asks about protein intake, meals eaten, or nutrition progress, use the Meal Logs and Nutrition Goals data above. Answer questions like "How much protein have I had today?", "What did I eat yesterday?", "Am I hitting my protein goal?" using the logged data.`;
     } catch (e) {
       console.error("Failed to fetch context data:", e);
     }
