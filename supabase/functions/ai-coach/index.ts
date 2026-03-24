@@ -655,6 +655,26 @@ async function executeAppActions(client: any, userId: string, groupId: string, a
           results.push({ action_type: "delete_task", success: !error, error: error?.message });
           break;
         }
+        case "log_meal": {
+          const mealDate = action.meal_date || now.toISOString().slice(0, 10);
+          const { data, error } = await client.from("meal_logs").insert({
+            user_id: userId,
+            group_id: groupId,
+            meal_date: mealDate,
+            meal_type: action.meal_type || "snack",
+            title: (action.title || "Meal").trim(),
+            protein: action.protein || 0,
+            calories: action.calories || 0,
+            is_ai_generated: false,
+          }).select().single();
+          results.push({ action_type: "log_meal", success: !error, id: data?.id, error: error?.message });
+          break;
+        }
+        case "delete_meal": {
+          const { error } = await client.from("meal_logs").delete().eq("id", action.meal_id).eq("user_id", userId);
+          results.push({ action_type: "delete_meal", success: !error, error: error?.message });
+          break;
+        }
         default:
           results.push({ action_type: action.action_type, success: false, error: "Unknown action type" });
       }
