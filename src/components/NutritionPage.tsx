@@ -490,6 +490,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   )}
                 </div>
               </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
