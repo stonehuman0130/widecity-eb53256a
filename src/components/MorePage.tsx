@@ -49,7 +49,7 @@ const MorePage = ({ navPages, onNavigate, onAddToNav, onRemoveFromNav, onReplace
       </div>
 
       <div className="px-4 space-y-1 flex-1">
-        {CUSTOMIZABLE_PAGE_IDS.map((pageId) => {
+        {CUSTOMIZABLE_PAGE_IDS.filter(id => !FIXED_NAV_PAGES.includes(id)).map((pageId) => {
           const meta = ALL_PAGE_META[pageId];
           if (!meta) return null;
           const Icon = meta.icon;
