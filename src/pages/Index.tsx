@@ -115,6 +115,7 @@ const Index = () => {
     launcher: <LauncherPage onEnterGroup={handleEnterGroup} onOpenSettings={handleOpenSettings} />,
     home: <HomePage onBackToLauncher={handleBackToLauncher} onOpenSettings={handleOpenSettings} />,
     workout: <WorkoutsPage onOpenSettings={handleOpenSettings} />,
+    nutrition: <NutritionPage onOpenSettings={handleOpenSettings} />,
     habits: <HabitsPage onOpenSettings={handleOpenSettings} />,
     sobriety: <SobrietyPage onOpenSettings={handleOpenSettings} />,
     specialdays: <SpecialDaysPage onOpenSettings={handleOpenSettings} />,
