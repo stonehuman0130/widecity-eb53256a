@@ -17,7 +17,7 @@ export interface HomeSection {
 // Core fixed sections (non-habit)
 export const FIXED_SECTIONS: HomeSection[] = [
   { id: "scheduled", label: "Scheduled", icon: "🕐", locked: true },
-  { id: "justdoit", label: "Just Do It", icon: "⚡", locked: true },
+  { id: "todo", label: "To Do List", icon: "✅", locked: true },
   { id: "water", label: "Water Intake", icon: "💧" },
   { id: "nutrition", label: "Nutrition", icon: "🍎" },
   { id: "workout", label: "Today's Workout", icon: "💪" },
@@ -35,8 +35,8 @@ export function buildAllSections(habitSections: HabitSectionMeta[]): HomeSection
   return [...habitHomeSections, ...FIXED_SECTIONS];
 }
 
-export const DEFAULT_ORDER = ["habit:morning", "scheduled", "justdoit"];
-export const DEFAULT_VISIBLE = new Set(["habit:morning", "scheduled", "justdoit"]);
+export const DEFAULT_ORDER = ["habit:morning", "scheduled", "todo"];
+export const DEFAULT_VISIBLE = new Set(["habit:morning", "scheduled", "todo"]);
 
 function getStorageKey(groupId: string | null) {
   return `homeSections_${groupId || "personal"}`;
@@ -58,12 +58,13 @@ export function loadSectionPrefs(groupId: string | null): SectionPrefs {
       const migrateId = (id: string) => {
         if (id === "morning-habits") return "habit:morning";
         if (id === "other-habits") return "habit:other";
+        if (id === "justdoit") return "todo";
         return id;
       };
       const order = (parsed.order || DEFAULT_ORDER).map(migrateId);
       const vis = new Set<string>((parsed.visible || DEFAULT_ORDER).map(migrateId));
       vis.add("scheduled");
-      vis.add("justdoit");
+      vis.add("todo");
       return {
         order,
         visible: vis,

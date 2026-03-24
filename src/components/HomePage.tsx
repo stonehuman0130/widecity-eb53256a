@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft, EyeOff, Eye, Settings, LayoutGrid } from "lucide-react";
+import { Plus, Sparkles, Clock, Check, Loader2, MoreVertical, Trash2, ChevronLeft, ChevronRight, Mic, MicOff, Volume2, Users, ArrowLeft, EyeOff, Eye, Settings, LayoutGrid, ListTodo } from "lucide-react";
 import GroupBadge from "@/components/GroupBadge";
 import ItemActionMenu from "@/components/ItemActionMenu";
 import GroupSelector from "@/components/GroupSelector";
@@ -108,9 +108,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
       time: "",
       tag: "Personal",
       assignee: "me",
-      scheduledDay: selectedDate.getDate(),
-      scheduledMonth: selectedDate.getMonth(),
-      scheduledYear: selectedDate.getFullYear(),
     });
     setInput("");
   };
@@ -470,7 +467,8 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   );
 
   const hasSpecificTime = (time?: string) => Boolean(time) && time !== "" && time !== "All day";
-  const isTaskScheduled = (t: Task) => hasSpecificTime(t.time);
+  const isTaskScheduled = (t: Task) => t.scheduledDay !== undefined && t.scheduledMonth !== undefined && t.scheduledYear !== undefined;
+  const isTaskTimed = (t: Task) => hasSpecificTime(t.time);
 
   // Helper: parse any time representation to minutes for sorting
   const toSortMinutes = (time?: string, isoStart?: string): number => {
@@ -512,8 +510,12 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     | { kind: "event"; data: ScheduledEvent; sortMinutes: number }
     | { kind: "gcal"; data: GoogleCalendarEvent; sortMinutes: number };
 
-  const scheduledTasks = dayTasks.filter((t) => isTaskScheduled(t));
-  const justDoIt = dayTasks.filter((t) => !isTaskScheduled(t));
+  // Scheduled tasks = tasks that have a date (whether timed or all-day)
+  const scheduledTimedTasks = dayTasks.filter((t) => isTaskScheduled(t) && isTaskTimed(t));
+  const scheduledAllDayTasks = dayTasks.filter((t) => isTaskScheduled(t) && !isTaskTimed(t));
+  // To Do tasks = tasks that are NOT scheduled to any date
+  const todoTasks = dayTasks.filter((t) => !isTaskScheduled(t));
+
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
   const gcalTimed = gcalEventsForDay.filter((ge) => !ge.allDay);
@@ -522,20 +524,20 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   // Merge all timed items into one sorted list
   const allTimedItems: UnifiedHomeItem[] = useMemo(() => {
     const items: UnifiedHomeItem[] = [
-      ...scheduledTasks.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: toSortMinutes(t.time) })),
+      ...scheduledTimedTasks.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: toSortMinutes(t.time) })),
       ...timedEvents.map((e): UnifiedHomeItem => ({ kind: "event", data: e, sortMinutes: toSortMinutes(e.time) })),
       ...gcalTimed.map((ge): UnifiedHomeItem => ({ kind: "gcal", data: ge, sortMinutes: toSortMinutes(undefined, ge.start) })),
     ];
     items.sort((a, b) => a.sortMinutes - b.sortMinutes);
     return items;
-  }, [scheduledTasks, timedEvents, gcalTimed]);
+  }, [scheduledTimedTasks, timedEvents, gcalTimed]);
 
-  // Merge all untimed items
-  const allUntimedItems: UnifiedHomeItem[] = useMemo(() => [
-    ...justDoIt.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: -1 })),
+  // Merge all-day items (shown at top of Scheduled)
+  const allDayItems: UnifiedHomeItem[] = useMemo(() => [
+    ...scheduledAllDayTasks.map((t): UnifiedHomeItem => ({ kind: "task", data: t, sortMinutes: -1 })),
     ...allDayEvents.map((e): UnifiedHomeItem => ({ kind: "event", data: e, sortMinutes: -1 })),
     ...gcalAllDay.map((ge): UnifiedHomeItem => ({ kind: "gcal", data: ge, sortMinutes: -1 })),
-  ], [justDoIt, allDayEvents, gcalAllDay]);
+  ], [scheduledAllDayTasks, allDayEvents, gcalAllDay]);
 
   const dateFormatted = sd.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: userTimezone });
   const isToday = selDay === new Date().getDate() && selMonth === new Date().getMonth() && selYear === new Date().getFullYear();
@@ -826,8 +828,15 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                       <Clock size={18} className="text-muted-foreground" />
                       <h2 className="text-lg font-semibold tracking-display">Scheduled</h2>
                     </div>
-                    {allTimedItems.length > 0 ? (
+                    {(allDayItems.length > 0 || allTimedItems.length > 0) ? (
                       <div className="space-y-3">
+                        {/* All-day items first */}
+                        {allDayItems.map((item) => {
+                          if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                          if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
+                          return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
+                        })}
+                        {/* Timed items sorted by time */}
                         {allTimedItems.map((item) => {
                           if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
                           if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
@@ -840,26 +849,17 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   </section>
                 );
 
-              case "justdoit":
+              case "todo":
                 return (
-                  <section key={sectionId} className="mb-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="w-2 h-2 rounded-full bg-foreground" />
-                      <h2 className="text-lg font-semibold tracking-display">Just Do it</h2>
-                      <span className="text-sm text-muted-foreground">({allUntimedItems.length})</span>
-                    </div>
-                    {allUntimedItems.length > 0 ? (
-                      <div className="space-y-3">
-                        {allUntimedItems.map((item) => {
-                          if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
-                          if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
-                          return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">All clear! Add tasks with the + button</p>
-                    )}
-                  </section>
+                  <TodoListSection
+                    key={sectionId}
+                    tasks={todoTasks}
+                    onToggle={isViewingPartner ? undefined : toggleTask}
+                    onCongrats={() => setCongratsType("task")}
+                    readOnly={isViewingPartner}
+                    addTask={addTask}
+                    selectedDate={selectedDate}
+                  />
                 );
 
               case "water":
@@ -1129,6 +1129,160 @@ const GCalEventCard = ({ event, onToggle, onHide, onDesignate, onCongrats }: {
           <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Google</span>
         </div>
       )}
+    </motion.div>
+  );
+};
+
+const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selectedDate }: {
+  tasks: Task[];
+  onToggle?: (id: string) => void;
+  onCongrats: () => void;
+  readOnly?: boolean;
+  addTask: (task: Omit<Task, "id" | "done">) => void;
+  selectedDate: Date;
+}) => {
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (adding) inputRef.current?.focus();
+  }, [adding]);
+
+  const handleAdd = () => {
+    if (!newTitle.trim()) return;
+    addTask({
+      title: newTitle.trim(),
+      time: "",
+      tag: "Personal",
+      assignee: "me",
+    });
+    setNewTitle("");
+    setAdding(false);
+  };
+
+  const pendingTasks = tasks.filter((t) => !t.done);
+  const doneTasks = tasks.filter((t) => t.done);
+
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <ListTodo size={18} className="text-muted-foreground" />
+          <h2 className="text-lg font-semibold tracking-display">To Do List</h2>
+          {tasks.length > 0 && (
+            <span className="text-xs font-medium text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-md">
+              {pendingTasks.length}
+            </span>
+          )}
+        </div>
+        {!readOnly && (
+          <button
+            onClick={() => setAdding(true)}
+            className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
+          >
+            <Plus size={15} />
+          </button>
+        )}
+      </div>
+
+      {/* Inline quick-add */}
+      <AnimatePresence>
+        {adding && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden mb-3"
+          >
+            <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 border border-primary/30 shadow-card">
+              <input
+                ref={inputRef}
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAdd();
+                  if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
+                }}
+                placeholder="What do you need to do?"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
+              />
+              <button
+                onClick={handleAdd}
+                disabled={!newTitle.trim()}
+                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-40"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => { setAdding(false); setNewTitle(""); }}
+                className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {pendingTasks.length > 0 ? (
+        <div className="space-y-2">
+          {pendingTasks.map((task) => (
+            <TodoItem key={task.id} task={task} onToggle={onToggle} onCongrats={onCongrats} readOnly={readOnly} />
+          ))}
+        </div>
+      ) : !adding ? (
+        <button
+          onClick={() => !readOnly && setAdding(true)}
+          className="w-full py-4 text-sm text-muted-foreground text-center border border-dashed border-border rounded-xl hover:border-primary/30 hover:text-primary/60 transition-colors"
+        >
+          Tap + to add a to-do
+        </button>
+      ) : null}
+
+      {doneTasks.length > 0 && (
+        <div className="mt-3 space-y-2 opacity-60">
+          {doneTasks.map((task) => (
+            <TodoItem key={task.id} task={task} onToggle={onToggle} onCongrats={onCongrats} readOnly={readOnly} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+};
+
+const TodoItem = ({ task, onToggle, onCongrats, readOnly }: {
+  task: Task;
+  onToggle?: (id: string) => void;
+  onCongrats: () => void;
+  readOnly?: boolean;
+}) => {
+  const handleToggle = () => {
+    if (readOnly || !onToggle) return;
+    if (!task.done) onCongrats();
+    onToggle(task.id);
+  };
+
+  return (
+    <motion.div
+      layout
+      className={`flex items-center gap-3 bg-card rounded-xl px-4 py-3 shadow-card border transition-all active:scale-[0.99] ${
+        task.done ? "border-habit-green/30" : "border-border"
+      }`}
+    >
+      <button
+        onClick={handleToggle}
+        disabled={readOnly}
+        className={`w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+          task.done ? "bg-habit-green border-habit-green" : "border-muted hover:border-primary"
+        } ${readOnly ? "opacity-60" : ""}`}
+      >
+        {task.done && <Check size={12} className="text-primary-foreground" />}
+      </button>
+      <span className={`flex-1 text-sm font-medium ${task.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
+        {task.title}
+      </span>
+      {!readOnly && <TaskActionMenu taskId={task.id} />}
     </motion.div>
   );
 };
