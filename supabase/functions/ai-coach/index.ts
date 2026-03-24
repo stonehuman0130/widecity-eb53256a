@@ -185,7 +185,8 @@ CONVERSATION PHASES:
                       "create_sobriety", "delete_sobriety",
                       "create_special_day", "delete_special_day",
                       "send_message",
-                      "create_task", "delete_task"
+                      "create_task", "delete_task",
+                      "log_meal", "delete_meal"
                     ]},
                     title: { type: "string" },
                     emoji: { type: "string" },
