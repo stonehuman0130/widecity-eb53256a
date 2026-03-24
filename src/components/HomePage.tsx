@@ -869,6 +869,13 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   </section>
                 );
 
+              case "nutrition":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <HomeNutritionWidget selectedDate={selectedDate} />
+                  </section>
+                );
+
               case "workout":
                 return (
                   <section key={sectionId} className="mb-6">
