@@ -304,14 +304,20 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         </div>
       </div>
 
-      {/* AI insight */}
-      <div className="px-5 mb-4">
-        <div className="bg-primary/5 rounded-xl px-4 py-3 border border-primary/10">
+      {/* AI insight + Goals button */}
+      <div className="px-5 mb-4 flex items-start gap-2">
+        <div className="flex-1 bg-primary/5 rounded-xl px-4 py-3 border border-primary/10">
           <div className="flex items-start gap-2">
             <Sparkles size={14} className="text-primary mt-0.5 flex-shrink-0" />
             <p className="text-xs text-foreground/80">{aiInsight}</p>
           </div>
         </div>
+        <button
+          onClick={() => setShowGoalSettings(true)}
+          className="flex-shrink-0 px-3 py-2.5 rounded-xl bg-secondary text-foreground text-xs font-semibold hover:bg-secondary/80 transition-colors border border-border"
+        >
+          🎯 Goals
+        </button>
       </div>
 
       {/* Today's Meals */}
