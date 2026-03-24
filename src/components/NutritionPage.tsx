@@ -271,11 +271,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Apple size={24} className="text-primary" /> Nutrition
         </h1>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowGoalSettings(true)} className="p-2 rounded-full hover:bg-secondary">
+        {onOpenSettings && (
+          <button onClick={onOpenSettings} className="p-2 rounded-full hover:bg-secondary">
             <Settings size={18} className="text-muted-foreground" />
           </button>
-        </div>
+        )}
       </div>
 
       {/* Date nav */}
