@@ -544,7 +544,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             profile={profile}
           />
         ) : (
-          <MultiDayView
+          <WeeklyCalendarView
             dates={rangeDates}
             meals={displayMeals}
             suggestions={displaySuggestions}
