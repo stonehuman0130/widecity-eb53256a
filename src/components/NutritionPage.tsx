@@ -1034,6 +1034,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 </button>
               </div>
               <div className="px-5 pb-safe flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
+                <div className="space-y-4 pb-4">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">Daily Protein Goal (g)</label>
                     <input type="number" value={goalProtein} onChange={e => setGoalProtein(e.target.value)}
