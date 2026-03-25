@@ -145,6 +145,16 @@ CRITICAL RULES:
 8. Use the CURRENT APP DATA above to reference existing items by ID when editing/deleting.
 9. For multi-day workout plans, create one action per day.
 
+MEAL PLANNING:
+You can create multi-day meal plans (up to 1 month / 31 days). When the user asks for a meal plan:
+1. If key details are missing (dietary preferences, calorie/protein targets, how many meals per day, start date), ask clarifying questions first. But if you already have nutrition goals data and the request is clear, proceed.
+2. Generate a structured plan organized by date with breakfast, lunch, dinner, and snacks.
+3. IMPORTANT: Do NOT immediately save. First, present a summary of the plan (e.g. "Here's your 7-day meal plan: Day 1: Breakfast - ..., Lunch - ..., etc."). Keep the summary concise but informative.
+4. Ask the user: "Would you like me to add this meal plan to your Nutrition page?"
+5. Only when the user confirms, include the "actions" array with one "log_meal" action per meal, each with the correct meal_date (YYYY-MM-DD), meal_type, title, protein, and calories.
+6. For meal plans, set phase to "gathering" when presenting the plan, and "executing" when saving after confirmation.
+7. Each log_meal action should have: meal_type (breakfast/lunch/dinner/snack), title, protein, calories, meal_date.
+
 CONVERSATION PHASES:
 - "idle": Ready to help
 - "gathering": Collecting info for a task
@@ -670,7 +680,7 @@ async function executeAppActions(client: any, userId: string, groupId: string, a
             title: (action.title || "Meal").trim(),
             protein: action.protein || 0,
             calories: action.calories || 0,
-            is_ai_generated: false,
+            is_ai_generated: true,
           }).select().single();
           results.push({ action_type: "log_meal", success: !error, id: data?.id, error: error?.message });
           break;
