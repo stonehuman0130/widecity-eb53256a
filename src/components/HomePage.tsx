@@ -515,8 +515,19 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   // Scheduled tasks = tasks that have a date (whether timed or all-day)
   const scheduledTimedTasks = dayTasks.filter((t) => isTaskScheduled(t) && isTaskTimed(t));
   const scheduledAllDayTasks = dayTasks.filter((t) => isTaskScheduled(t) && !isTaskTimed(t));
-  // To Do tasks = tasks that are NOT scheduled to any date
-  const todoTasks = dayTasks.filter((t) => !isTaskScheduled(t));
+  // To Do tasks = tasks that are NOT scheduled to any date, filtered by due date visibility
+  const todoTasksRaw = dayTasks.filter((t) => !isTaskScheduled(t));
+  const todoTasks = todoTasksRaw.filter((t) => {
+    if (t.done) return false; // completed tasks hidden
+    if (!t.dueDate) return true; // no due date = always visible
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(t.dueDate + "T00:00:00");
+    const notice = t.priorNoticeDays ?? 0;
+    const showFrom = new Date(due);
+    showFrom.setDate(showFrom.getDate() - notice);
+    return today >= showFrom;
+  });
 
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
