@@ -151,6 +151,10 @@ const Index = () => {
             activeTab={activeTab as Tab}
             onTabChange={handleTabChange}
             navPages={navPages}
+            onReorder={(newPages) => {
+              setNavPages(newPages);
+              saveNavPages(newPages);
+            }}
           />
         )}
       </div>
