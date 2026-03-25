@@ -556,6 +556,7 @@ export type Database = {
         Row: {
           ai_tags: Json | null
           calories: number | null
+          consumed: boolean
           created_at: string
           group_id: string | null
           id: string
@@ -571,6 +572,7 @@ export type Database = {
         Insert: {
           ai_tags?: Json | null
           calories?: number | null
+          consumed?: boolean
           created_at?: string
           group_id?: string | null
           id?: string
@@ -586,6 +588,7 @@ export type Database = {
         Update: {
           ai_tags?: Json | null
           calories?: number | null
+          consumed?: boolean
           created_at?: string
           group_id?: string | null
           id?: string
