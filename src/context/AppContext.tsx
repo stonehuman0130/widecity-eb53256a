@@ -297,6 +297,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             scheduledDay: t.scheduled_day,
             scheduledMonth: t.scheduled_month,
             scheduledYear: t.scheduled_year,
+            dueDate: t.due_date ?? null,
+            priorNoticeDays: t.prior_notice_days ?? 0,
             hiddenFromPartner: t.hidden_from_partner || false,
             groupId: t.group_id || null,
           })));
