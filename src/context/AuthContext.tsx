@@ -75,6 +75,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const getGroupsCacheKey = (userId: string) => `groups_cache_${userId}`;
+
+  const loadCachedGroups = (userId: string): Group[] => {
+    try {
+      const raw = localStorage.getItem(getGroupsCacheKey(userId));
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as Group[]) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveCachedGroups = (userId: string, nextGroups: Group[]) => {
+    try {
+      localStorage.setItem(getGroupsCacheKey(userId), JSON.stringify(nextGroups));
+    } catch {
+      // no-op
+    }
+  };
+
+  const clearAllGroupCaches = () => {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith("groups_cache_")) keysToRemove.push(key);
+      }
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
+    } catch {
+      // no-op
+    }
+  };
+
   const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
   const isRetriableError = (message?: string) => {
@@ -152,6 +186,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (!memberships || memberships.length === 0) {
       setGroups([]);
+      setActiveGroup(null);
+      saveCachedGroups(user.id, []);
       return;
     }
 
@@ -213,6 +249,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     setGroups(enrichedGroups);
+    saveCachedGroups(user.id, enrichedGroups);
 
     if (activeGroup) {
       const still = enrichedGroups.find((g) => g.id === activeGroup.id);
@@ -237,6 +274,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    if (!user) return;
+    const cachedGroups = loadCachedGroups(user.id);
+    if (cachedGroups.length === 0) return;
+
+    setGroups((prev) => (prev.length > 0 ? prev : cachedGroups));
+    setActiveGroup((prev) => prev ?? cachedGroups[0] ?? null);
+  }, [user]);
+
+  useEffect(() => {
     const loadingFallback = window.setTimeout(() => {
       setLoading((current) => (current ? false : current));
     }, 8000);
@@ -253,6 +299,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setPartner(null);
           setGroups([]);
           setActiveGroup(null);
+          clearAllGroupCaches();
         }
         setLoading(false);
       }
@@ -291,6 +338,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setPartner(null);
     setGroups([]);
     setActiveGroup(null);
+    clearAllGroupCaches();
   };
 
   const connectPartner = async (code: string) => {
