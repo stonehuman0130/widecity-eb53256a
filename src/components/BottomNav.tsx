@@ -46,9 +46,10 @@ interface BottomNavProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   navPages: Tab[];
+  onReorder?: (newPages: Tab[]) => void;
 }
 
-const BottomNav = ({ activeTab, onTabChange, navPages }: BottomNavProps) => {
+const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavProps) => {
   const aiActive = activeTab === "ai";
   const [editMode, setEditMode] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -92,7 +93,10 @@ const BottomNav = ({ activeTab, onTabChange, navPages }: BottomNavProps) => {
     clearLongPress();
 
     if (editMode && dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
-      // Reorder handled by parent via event - for now just visual
+      const next = [...navPages];
+      const [moved] = next.splice(dragIdx, 1);
+      next.splice(dragOverIdx, 0, moved);
+      onReorder?.(next);
     }
 
     setDragIdx(null);
