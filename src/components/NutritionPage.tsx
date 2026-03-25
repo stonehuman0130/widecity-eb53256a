@@ -549,14 +549,22 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   {isTogether ? `${profile?.display_name || "My"} Planned Meals` : "Planned Meals"}
                 </h2>
                 {isViewingOwn && (
-                  <button
-                    onClick={generateSuggestions}
-                    disabled={aiLoading}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-                  >
-                    {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                    AI Suggest
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setShowAddMeal({ mealType: "snack", date: dateStr })}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                    >
+                      <Plus size={12} /> Add
+                    </button>
+                    <button
+                      onClick={generateSuggestions}
+                      disabled={aiLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                    >
+                      {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                      AI Suggest
+                    </button>
+                  </div>
                 )}
               </div>
 
