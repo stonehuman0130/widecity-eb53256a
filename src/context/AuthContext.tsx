@@ -307,25 +307,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
         if (session?.user) {
+          setSession(session);
+          setUser(session.user);
+          restoreGroupsFromCache(session.user.id);
           setTimeout(() => fetchProfile(session.user.id), 0);
-        } else {
+        } else if (event === "SIGNED_OUT") {
+          setSession(null);
+          setUser(null);
           setProfile(null);
           setPartner(null);
           setGroups([]);
           setActiveGroup(null);
+        } else {
+          // Transient auth refresh issue: keep local state instead of wiping calendars.
+          console.warn("Auth session temporarily unavailable, preserving local state", event);
         }
         setLoading(false);
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
       if (session?.user) {
+        setSession(session);
+        setUser(session.user);
+        restoreGroupsFromCache(session.user.id);
         fetchProfile(session.user.id);
       }
       setLoading(false);
