@@ -218,7 +218,7 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
         </button>
 
         {/* Right section: right tabs + More */}
-        <div className="flex items-center min-w-0">
+        <div className="flex items-center min-w-0 overflow-hidden">
           {rightTabs.map((tabId, rawI) => {
             const i = rawI + halfLen;
             return renderTab(tabId, i);
