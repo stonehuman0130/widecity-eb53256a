@@ -158,13 +158,13 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
         ref={(el) => { tabRefs.current[i] = el; }}
         onPointerDown={(e) => { e.preventDefault(); handlePointerDown(i); }}
         onPointerUp={() => handlePointerUp(tabId)}
-        className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors select-none touch-none ${
+        className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1.5 rounded-lg transition-colors select-none touch-none ${
           active ? "text-nav-active" : "text-nav-inactive"
         } ${editMode ? "animate-nav-wiggle" : ""} ${isDragging ? "opacity-60 scale-110" : ""}`}
         style={editMode ? { animationDelay: `${i * 0.05}s` } : undefined}
       >
-        <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-        <span className="text-[9px] font-medium">{meta.label}</span>
+        <Icon size={20} strokeWidth={active ? 2.5 : 1.8} className="shrink-0" />
+        <span className="text-[9px] font-medium truncate max-w-full">{meta.label}</span>
       </button>
     );
   };
@@ -172,7 +172,7 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
   return (
     <nav
       ref={navRef}
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card border-t border-border z-50"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card border-t border-border z-50 overflow-hidden"
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onPointerCancel={handlePointerCancel}
@@ -189,14 +189,14 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
       )}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {/* Left section: Home + left tabs */}
-        <div className="flex items-center justify-evenly">
+        <div className="flex items-center min-w-0">
           <button
             onClick={() => { if (!editMode) onTabChange("home"); }}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
+            className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1.5 rounded-lg transition-colors ${
               isActive("home") ? "text-nav-active" : "text-nav-inactive"
             }`}
           >
-            <Home size={20} strokeWidth={isActive("home") ? 2.5 : 1.8} />
+            <Home size={20} strokeWidth={isActive("home") ? 2.5 : 1.8} className="shrink-0" />
             <span className="text-[9px] font-medium">Home</span>
           </button>
           {leftTabs.map((tabId, i) => renderTab(tabId, i))}
@@ -205,7 +205,7 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
         {/* Center: AI Button - always in exact center column */}
         <button
           onClick={() => { if (!editMode) onTabChange("ai"); }}
-          className={`flex flex-col items-center gap-0.5 -mt-4 transition-all px-3 ${editMode ? "pointer-events-none opacity-50" : ""}`}
+          className={`flex flex-col items-center gap-0.5 -mt-4 transition-all px-2 shrink-0 ${editMode ? "pointer-events-none opacity-50" : ""}`}
         >
           <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all ${
             aiActive
@@ -218,18 +218,18 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
         </button>
 
         {/* Right section: right tabs + More */}
-        <div className="flex items-center justify-evenly">
+        <div className="flex items-center min-w-0">
           {rightTabs.map((tabId, rawI) => {
             const i = rawI + halfLen;
             return renderTab(tabId, i);
           })}
           <button
             onClick={() => { if (!editMode) onTabChange("more"); }}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
+            className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1.5 rounded-lg transition-colors ${
               isActive("more") ? "text-nav-active" : "text-nav-inactive"
             }`}
           >
-            <MoreHorizontal size={20} strokeWidth={isActive("more") ? 2.5 : 1.8} />
+            <MoreHorizontal size={20} strokeWidth={isActive("more") ? 2.5 : 1.8} className="shrink-0" />
             <span className="text-[9px] font-medium">More</span>
           </button>
         </div>
