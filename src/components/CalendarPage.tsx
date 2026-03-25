@@ -165,7 +165,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     toggleEventCompletion,
   } = useAppContext();
   const { activeGroup, groups } = useAuth();
-  const { showGoogleCalendar } = useGroupContext();
+  const { showGoogleCalendar, filters: calGroupFilters } = useGroupContext();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -182,7 +182,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [newEndDate, setNewEndDate] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
   const [newAllDay, setNewAllDay] = useState(false);
-  const [newUser, setNewUser] = useState<"me" | "partner" | "both">("me");
+  const [newUser, setNewUser] = useState<string>("me");
   const [newDesc, setNewDesc] = useState("");
 
   // To Do mode state
@@ -524,7 +524,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       endYear: endParts.year,
       endTime: newAllDay ? "" : (newEndTime || newStartTime || ""),
       allDay: newAllDay,
-      user: newUser,
+      user: newUser as "me" | "partner" | "both",
     });
 
     toast.success(`Scheduled: ${newTitle.trim()}`);
@@ -544,7 +544,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       title: newTitle.trim(),
       time: "",
       tag: newTodoTag,
-      assignee: newUser,
+      assignee: newUser as "me" | "partner" | "both",
       dueDate: dueDateStr,
       priorNoticeDays: notice,
     });
@@ -896,15 +896,25 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           )}
 
           {/* Assignee */}
-          <div className="flex gap-1.5">
-            {(["me", "partner", "both"] as const).map((u) => (
-              <button key={u} onClick={() => setNewUser(u)}
-                className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
-                  newUser === u ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                }`}>
-                {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+            {calGroupFilters.length <= 1 ? (
+              <button className="flex-1 py-1.5 text-[11px] font-medium rounded-lg border border-primary bg-primary/10 text-primary">
+                Mine
               </button>
-            ))}
+            ) : (
+              calGroupFilters.map((f) => {
+                const assigneeValue = f.id === "mine" ? "me" : f.id === "partner" ? "partner" : f.id === "household" ? "both" : f.id;
+                const label = f.id === "mine" ? "Mine" : f.id === "household" ? "All" : f.label;
+                return (
+                  <button key={f.id} onClick={() => setNewUser(assigneeValue)}
+                    className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all whitespace-nowrap px-2 ${
+                      newUser === assigneeValue ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                    }`}>
+                    {label}
+                  </button>
+                );
+              })
+            )}
           </div>
 
           <button onClick={newIsTodo ? handleAddTodo : handleAddEvent} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold">
