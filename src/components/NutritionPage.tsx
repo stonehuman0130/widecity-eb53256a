@@ -109,7 +109,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults);
+  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!editingMeal);
 
   const groupId = activeGroup?.id || null;
   const dateStr = fmtDate(selectedDate);
