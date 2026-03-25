@@ -1195,15 +1195,16 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden mb-3"
           >
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 border border-primary/30 shadow-card">
+            <div className="bg-card rounded-xl border border-primary/30 shadow-card overflow-hidden">
+              {/* Title row */}
+              <div className="flex items-center gap-2 p-2 pl-4">
                 <input
                   ref={inputRef}
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleAdd();
-                    if (e.key === "Escape") { setAdding(false); setNewTitle(""); setNewAssignee("me"); }
+                    if (e.key === "Escape") resetForm();
                   }}
                   placeholder="What do you need to do?"
                   className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
@@ -1216,37 +1217,94 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
                   Add
                 </button>
                 <button
-                  onClick={() => { setAdding(false); setNewTitle(""); setNewAssignee("me"); }}
+                  onClick={resetForm}
                   className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
                 >
                   ✕
                 </button>
               </div>
-              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-                {memberFilters.length <= 1 ? (
-                  /* No group or solo — just show Mine */
-                  <button className="flex-1 py-1.5 text-[11px] font-medium rounded-lg border border-primary bg-primary/10 text-primary">
-                    Mine
-                  </button>
-                ) : (
-                  <>
+
+              {/* Options row: due date + assignee */}
+              <div className="px-3 pb-3 pt-1 space-y-2">
+                {/* Due date chip */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Popover open={dueDatePickerOpen} onOpenChange={setDueDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-all",
+                        newDueDate
+                          ? "border-primary/40 bg-primary/5 text-primary"
+                          : "border-border text-muted-foreground hover:border-primary/30"
+                      )}>
+                        <CalendarDays size={12} />
+                        {newDueDate
+                          ? newDueDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          : "Due date"
+                        }
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[70]" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={newDueDate}
+                        onSelect={(date) => { setNewDueDate(date); setDueDatePickerOpen(false); }}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  {newDueDate && (
+                    <button
+                      onClick={() => { setNewDueDate(undefined); setNewPriorNotice(0); }}
+                      className="text-[11px] text-destructive hover:text-destructive/80"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Give notice — only when due date is set */}
+                {newDueDate && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] uppercase font-semibold text-muted-foreground mr-0.5">Notice:</span>
+                    {[-1, 0, 1, 3, 7].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setNewPriorNotice(n)}
+                        className={cn(
+                          "px-2 py-1 rounded-md text-[10px] font-medium border transition-all",
+                          newPriorNotice === n
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground"
+                        )}
+                      >
+                        {n === -1 ? "Today" : n === 0 ? "Due day" : n === 1 ? "1d" : `${n}d`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Assignee row */}
+                {memberFilters.length > 1 && (
+                  <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
                     {memberFilters.map((f) => {
-                      // Map filter id → assignee value
                       const assigneeValue = f.id === "mine" ? "me" : f.id === "partner" ? "partner" : f.id === "household" ? "both" : f.id;
                       const label = f.id === "mine" ? "Mine" : f.id === "household" ? "All" : f.label;
                       return (
                         <button
                           key={f.id}
                           onClick={() => setNewAssignee(assigneeValue)}
-                          className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all whitespace-nowrap px-2 ${
+                          className={cn(
+                            "flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all whitespace-nowrap px-2",
                             newAssignee === assigneeValue ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                          }`}
+                          )}
                         >
                           {label}
                         </button>
                       );
                     })}
-                  </>
+                  </div>
                 )}
               </div>
             </div>
