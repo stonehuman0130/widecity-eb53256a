@@ -1278,13 +1278,30 @@ const TimeGridView = ({
         ))}
       </div>
 
+      {/* To-do tasks row (above all-day) */}
+      {columns.some((c) => c.items.some((it) => it.isDueDateTask)) && (
+        <div className="flex border-b border-border">
+          <div className="w-12 flex-shrink-0 text-[10px] text-violet-500 flex items-center justify-end pr-2 font-medium">to-do</div>
+          {columns.map((col, ci) => (
+            <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
+              {col.items.filter((it) => it.isDueDateTask).map((it) => (
+                <div key={it.id} className={`text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5 ${it.done ? "line-through opacity-40" : ""}`}
+                  style={{ backgroundColor: TODO_COLOR + "22", color: TODO_COLOR }}>
+                  {it.title}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* All-day row */}
-      {columns.some((c) => c.items.some((it) => it.allDay)) && (
+      {columns.some((c) => c.items.some((it) => it.allDay && !it.isDueDateTask)) && (
         <div className="flex border-b border-border">
           <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground flex items-center justify-end pr-2">all-day</div>
           {columns.map((col, ci) => (
             <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
-              {col.items.filter((it) => it.allDay).map((it) => {
+              {col.items.filter((it) => it.allDay && !it.isDueDateTask).map((it) => {
                 const colorIdx = getGroupColorIndex(it.groupId, groups);
                 return (
                   <div key={it.id} className="text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5"
