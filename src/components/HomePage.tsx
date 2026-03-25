@@ -1124,6 +1124,7 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
 }) => {
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newAssignee, setNewAssignee] = useState<"me" | "partner" | "both">("me");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1136,9 +1137,10 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
       title: newTitle.trim(),
       time: "",
       tag: "Personal",
-      assignee: "me",
+      assignee: newAssignee,
     });
     setNewTitle("");
+    setNewAssignee("me");
     setAdding(false);
   };
 
@@ -1176,31 +1178,46 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden mb-3"
           >
-            <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 border border-primary/30 shadow-card">
-              <input
-                ref={inputRef}
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAdd();
-                  if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
-                }}
-                placeholder="What do you need to do?"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
-              />
-              <button
-                onClick={handleAdd}
-                disabled={!newTitle.trim()}
-                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-40"
-              >
-                Add
-              </button>
-              <button
-                onClick={() => { setAdding(false); setNewTitle(""); }}
-                className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-              >
-                ✕
-              </button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 border border-primary/30 shadow-card">
+                <input
+                  ref={inputRef}
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAdd();
+                    if (e.key === "Escape") { setAdding(false); setNewTitle(""); setNewAssignee("me"); }
+                  }}
+                  placeholder="What do you need to do?"
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
+                />
+                <button
+                  onClick={handleAdd}
+                  disabled={!newTitle.trim()}
+                  className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-40"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => { setAdding(false); setNewTitle(""); setNewAssignee("me"); }}
+                  className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex gap-1.5">
+                {(["me", "partner", "both"] as const).map((u) => (
+                  <button
+                    key={u}
+                    onClick={() => setNewAssignee(u)}
+                    className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
+                      newAssignee === u ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                    }`}
+                  >
+                    {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
+                  </button>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
