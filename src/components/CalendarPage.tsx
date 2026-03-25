@@ -444,6 +444,11 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     }
 
     items.sort((a, b) => {
+      // Due-date tasks first
+      if (a.isDueDateTask && !b.isDueDateTask) return -1;
+      if (!a.isDueDateTask && b.isDueDateTask) return 1;
+
+      // Then all-day
       if (a.allDay && !b.allDay) return -1;
       if (!a.allDay && b.allDay) return 1;
 
