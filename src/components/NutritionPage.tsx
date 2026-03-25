@@ -411,7 +411,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     const selectedItems = shopPrompt.ingredients.filter((_, i) => shopChecked[i]);
     if (selectedItems.length === 0) {
       toast.info("No items selected");
-      setShopPrompt(null);
+      dismissShopPrompt();
       setShopSaving(false);
       return;
     }
