@@ -789,7 +789,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={e => e.stopPropagation()}
               onTouchMove={e => e.stopPropagation()}
-              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[82svh] flex flex-col"
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg h-[92dvh] max-h-[92dvh] flex flex-col min-h-0"
             >
               <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
                 <div className="w-10 h-1 rounded-full bg-border" />
