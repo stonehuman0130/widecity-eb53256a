@@ -42,6 +42,48 @@ serve(async (req) => {
       });
     }
 
+    if (body.action === "analyze_image") {
+      const { image_base64 } = body;
+      if (!image_base64) throw new Error("No image provided");
+
+      const systemPrompt = `You are a nutrition expert. Analyze the provided image. It could be:
+1. A photo of food - estimate the meal name, protein (grams), and calories
+2. A nutrition label - extract the protein (grams) and calories from the label, and identify the food name
+
+Return ONLY valid JSON with keys: title (string, food/product name), protein (integer, grams), calories (integer). Be as accurate as possible.`;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Analyze this food image or nutrition label and extract the nutritional information." },
+                { type: "image_url", image_url: { url: image_base64 } },
+              ],
+            },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      });
+
+      if (!response.ok) throw new Error(`AI error: ${response.status}`);
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || "{}";
+      const parsed = JSON.parse(content);
+
+      return new Response(JSON.stringify(parsed), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (body.action === "suggest_meals") {
       const { protein_goal, protein_consumed, meals_logged, recent_history, date } = body;
       const remaining = protein_goal - protein_consumed;

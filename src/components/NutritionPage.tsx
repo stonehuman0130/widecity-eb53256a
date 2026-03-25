@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Apple, Plus, Sparkles, RefreshCw, ChevronLeft, ChevronRight, Check, X, Loader2, Settings, Calendar, Target, ShoppingCart, Bookmark, ArrowLeftRight, Eye } from "lucide-react";
+import { Apple, Plus, Sparkles, RefreshCw, ChevronLeft, ChevronRight, Check, X, Loader2, Settings, Calendar, Target, Camera, ArrowLeftRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -17,8 +17,6 @@ const addDays = (d: Date, n: number) => {
   return r;
 };
 
-const shortLabel = (d: Date) => d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-
 interface MealLog {
   id: string;
   meal_type: string;
@@ -30,6 +28,7 @@ interface MealLog {
   is_ai_generated: boolean;
   meal_date: string;
   user_id?: string;
+  consumed?: boolean;
 }
 
 interface MealSuggestion {
@@ -50,7 +49,7 @@ interface NutritionGoals {
   show_calories: boolean;
 }
 
-type ViewFilter = string; // "mine" | "partner" | "member:uuid" | "together"
+type ViewFilter = string;
 type DateRange = "today" | "1week" | "2weeks" | "3weeks" | "1month";
 
 const DATE_RANGES: { key: DateRange; label: string; days: number }[] = [
@@ -85,6 +84,10 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
+  // AI suggestion results (not yet added)
+  const [aiResults, setAiResults] = useState<any[]>([]);
+  const [showAiResults, setShowAiResults] = useState(false);
+
   // Modals
   const [detailMeal, setDetailMeal] = useState<(MealLog | MealSuggestion) & { _type?: "log" | "suggestion" } | null>(null);
   const [showAddMeal, setShowAddMeal] = useState<{ mealType: string; date: string } | null>(null);
@@ -97,14 +100,15 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [goalProtein, setGoalProtein] = useState("150");
   const [goalCalories, setGoalCalories] = useState("");
   const [goalShowCal, setGoalShowCal] = useState(false);
+  const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings);
+  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults);
 
   const groupId = activeGroup?.id || null;
   const dateStr = fmtDate(selectedDate);
   const isToday = dateStr === fmtDate(new Date());
 
-  // Compute dates in range
   const rangeDates = useMemo(() => {
     const rangeInfo = DATE_RANGES.find(r => r.key === dateRange) || DATE_RANGES[0];
     if (rangeInfo.key === "today") return [fmtDate(selectedDate)];
@@ -115,7 +119,6 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     return dates;
   }, [dateRange, selectedDate]);
 
-  // Determine which user_id to query for the current view
   const viewUserId = useMemo(() => {
     if (viewFilter === "mine") return user?.id;
     if (viewFilter === "partner") {
@@ -159,7 +162,6 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       }
       if (suggestionsRes.data) setSuggestions(suggestionsRes.data as MealSuggestion[]);
 
-      // Load partner/other data for Together view
       if (hasOther) {
         const otherIds = activeGroup?.members
           .filter(m => m.user_id !== user.id)
@@ -186,11 +188,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     load();
   }, [user, rangeDates, groupId, hasOther, activeGroup, partner]);
 
-  // Filtered meals for current view
   const displayMeals = useMemo(() => {
     if (viewFilter === "mine") return meals;
-    if (viewFilter === "together") return meals; // Together shows both separately
-    // Partner or specific member
+    if (viewFilter === "together") return meals;
     return partnerMeals.filter(m => m.user_id === viewUserId);
   }, [viewFilter, meals, partnerMeals, viewUserId]);
 
@@ -200,13 +200,13 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     return partnerSuggestions.filter(s => s.user_id === viewUserId);
   }, [viewFilter, suggestions, partnerSuggestions, viewUserId]);
 
-  // Today's totals
+  // Totals: only count CONSUMED meals
   const todayMeals = useMemo(() => displayMeals.filter(m => m.meal_date === dateStr), [displayMeals, dateStr]);
-  const totalProtein = useMemo(() => todayMeals.reduce((s, m) => s + m.protein, 0), [todayMeals]);
-  const totalCalories = useMemo(() => todayMeals.reduce((s, m) => s + (m.calories || 0), 0), [todayMeals]);
+  const consumedMeals = useMemo(() => todayMeals.filter(m => m.consumed), [todayMeals]);
+  const totalProtein = useMemo(() => consumedMeals.reduce((s, m) => s + m.protein, 0), [consumedMeals]);
+  const totalCalories = useMemo(() => consumedMeals.reduce((s, m) => s + (m.calories || 0), 0), [consumedMeals]);
   const proteinPercent = goals.protein_goal > 0 ? Math.min((totalProtein / goals.protein_goal) * 100, 100) : 0;
 
-  // View tabs
   const viewTabs = useMemo(() => {
     const tabs: { id: string; label: string }[] = [{ id: "mine", label: "Mine" }];
     if (hasOther) {
@@ -229,11 +229,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     setSelectedDate(d);
   };
 
+  // Generate AI suggestions → show as selectable results (don't auto-add)
   const generateSuggestions = async () => {
     if (!user) return;
     setAiLoading(true);
     try {
-      const rangeInfo = DATE_RANGES.find(r => r.key === dateRange) || DATE_RANGES[0];
       const recentMeals = await supabase.from("meal_logs").select("title,protein,calories,meal_type,ai_tags")
         .eq("user_id", user.id).order("created_at", { ascending: false }).limit(30);
 
@@ -245,36 +245,18 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
           meals_logged: todayMeals.map(m => ({ type: m.meal_type, title: m.title, protein: m.protein })),
           recent_history: recentMeals.data || [],
           date: dateStr,
-          days: rangeInfo.days,
+          days: 1,
           date_range: rangeDates,
         },
       });
       if (error) throw error;
 
       const parsed = typeof data === "string" ? JSON.parse(data) : data;
-      if (parsed.suggestions) {
-        const toInsert = parsed.suggestions.map((s: any) => ({
-          user_id: user.id,
-          group_id: groupId,
-          suggestion_date: s.date || dateStr,
-          meal_type: s.meal_type || "lunch",
-          title: s.title,
-          ingredients: s.ingredients || [],
-          prep_steps: s.prep_steps || [],
-          protein: s.protein || 0,
-          calories: s.calories || 0,
-          tags: s.tags || [],
-        }));
-
-        // Clear old suggestions for these dates
-        await supabase.from("ai_meal_suggestions").delete()
-          .eq("user_id", user.id)
-          .gte("suggestion_date", rangeDates[0])
-          .lte("suggestion_date", rangeDates[rangeDates.length - 1]);
-
-        const { data: inserted } = await supabase.from("ai_meal_suggestions").insert(toInsert).select();
-        if (inserted) setSuggestions(inserted as MealSuggestion[]);
-        toast.success("Meal plan updated!");
+      if (parsed.suggestions && parsed.suggestions.length > 0) {
+        setAiResults(parsed.suggestions);
+        setShowAiResults(true);
+      } else {
+        toast("No suggestions generated. Try again!");
       }
     } catch (e: any) {
       console.error("AI nutrition error:", e);
@@ -284,30 +266,40 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
-  const logMealFromSuggestion = async (suggestion: MealSuggestion, targetDate?: string) => {
+  // Add a selected AI suggestion as a planned meal
+  const addAiMealAsPlanned = async (suggestion: any) => {
     if (!user) return;
-    const mealDate = targetDate || dateStr;
     const { data, error } = await supabase.from("meal_logs").insert({
       user_id: user.id,
       group_id: groupId,
-      meal_date: mealDate,
-      meal_type: suggestion.meal_type,
+      meal_date: dateStr,
+      meal_type: suggestion.meal_type || "lunch",
       title: suggestion.title,
-      ingredients: suggestion.ingredients,
-      prep_steps: suggestion.prep_steps,
-      protein: suggestion.protein,
-      calories: suggestion.calories,
+      ingredients: suggestion.ingredients || [],
+      prep_steps: suggestion.prep_steps || [],
+      protein: suggestion.protein || 0,
+      calories: suggestion.calories || 0,
       is_ai_generated: true,
-      ai_tags: [],
+      ai_tags: suggestion.tags || [],
+      consumed: false,
     }).select().single();
 
     if (!error && data) {
       setMeals(prev => [...prev, data as MealLog]);
-      setDetailMeal(null);
-      toast.success(`${suggestion.title} logged!`);
+      toast.success(`${suggestion.title} added to planned meals!`);
     }
   };
 
+  // Mark meal as consumed / unconsume
+  const toggleConsumed = async (mealId: string, consumed: boolean) => {
+    const { error } = await supabase.from("meal_logs").update({ consumed }).eq("id", mealId);
+    if (!error) {
+      setMeals(prev => prev.map(m => m.id === mealId ? { ...m, consumed } : m));
+      toast.success(consumed ? "Marked as consumed ✓" : "Unmarked");
+    }
+  };
+
+  // Log manual meal as planned (consumed=false)
   const logManualMeal = async (mealType: string, targetDate?: string) => {
     if (!user || !manualTitle.trim()) return;
     const mealDate = targetDate || dateStr;
@@ -320,6 +312,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       protein: parseInt(manualProtein) || 0,
       calories: parseInt(manualCalories) || 0,
       is_ai_generated: false,
+      consumed: false,
     }).select().single();
 
     if (!error && data) {
@@ -329,7 +322,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       setManualProtein("");
       setManualCalories("");
       setManualFoodText("");
-      toast.success("Meal logged!");
+      toast.success("Meal added to plan!");
     }
   };
 
@@ -338,13 +331,6 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     setMeals(prev => prev.filter(m => m.id !== mealId));
     setDetailMeal(null);
     toast.success("Meal removed");
-  };
-
-  const replaceSuggestion = async (suggestionId: string) => {
-    await supabase.from("ai_meal_suggestions").delete().eq("id", suggestionId);
-    setSuggestions(prev => prev.filter(s => s.id !== suggestionId));
-    setDetailMeal(null);
-    toast.success("Meal removed from plan");
   };
 
   const saveGoals = async () => {
@@ -384,17 +370,44 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
+  // Camera: capture/upload photo and analyze
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCameraAnalyzing(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("ai-nutrition", {
+        body: { action: "analyze_image", image_base64: base64 },
+      });
+      if (error) throw error;
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      if (parsed.title) setManualTitle(parsed.title);
+      if (parsed.protein) setManualProtein(String(parsed.protein));
+      if (parsed.calories) setManualCalories(String(parsed.calories));
+      toast.success("Food analyzed from photo!");
+    } catch (err) {
+      console.error("Camera analysis error:", err);
+      toast.error("Couldn't analyze the photo");
+    } finally {
+      setCameraAnalyzing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const dateLabel = selectedDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const isViewingOwn = viewFilter === "mine";
   const isTogether = viewFilter === "together";
 
-  // Partner totals for Together view
   const partnerTodayMeals = useMemo(() => partnerMeals.filter(m => m.meal_date === dateStr), [partnerMeals, dateStr]);
-  const partnerTotalProtein = useMemo(() => partnerTodayMeals.reduce((s, m) => s + m.protein, 0), [partnerTodayMeals]);
-
-  // Get meals for a specific date
-  const getMealsForDate = (date: string) => displayMeals.filter(m => m.meal_date === date);
-  const getSuggestionsForDate = (date: string) => displaySuggestions.filter(s => (s as any).suggestion_date === date);
+  const partnerConsumed = useMemo(() => partnerTodayMeals.filter(m => m.consumed), [partnerTodayMeals]);
+  const partnerTotalProtein = useMemo(() => partnerConsumed.reduce((s, m) => s + m.protein, 0), [partnerConsumed]);
 
   return (
     <div className="flex flex-col min-h-full">
@@ -410,7 +423,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         )}
       </div>
 
-      {/* View Filter Tabs (Mine / Partner / Together) */}
+      {/* View Filter Tabs */}
       {viewTabs.length > 1 && (
         <div className="flex gap-1.5 px-5 pb-2">
           {viewTabs.map(tab => (
@@ -429,7 +442,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         </div>
       )}
 
-      {/* Top scrollable quick actions: Goals + Date Ranges */}
+      {/* Quick actions: Goals + Date Ranges */}
       <div className="px-5 pb-2">
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
           <button
@@ -454,7 +467,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         </div>
       </div>
 
-      {/* Date nav (single day mode) */}
+      {/* Date nav (single day) */}
       {dateRange === "today" && (
         <div className="flex items-center justify-between px-5 py-1">
           <button onClick={() => changeDate(-1)} className="p-2 rounded-full hover:bg-secondary"><ChevronLeft size={18} /></button>
@@ -465,7 +478,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         </div>
       )}
 
-      {/* Protein progress card */}
+      {/* Protein progress */}
       {!isTogether && (
         <div className="px-5 mb-2 mt-1">
           <div className="bg-card rounded-2xl p-4 shadow-card border border-border">
@@ -480,6 +493,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 <span className="text-xs font-semibold">{totalCalories} / {goals.calorie_goal} kcal</span>
               </div>
             )}
+            <p className="text-[10px] text-muted-foreground mt-2">
+              {consumedMeals.length} consumed · {todayMeals.filter(m => !m.consumed).length} planned
+            </p>
           </div>
         </div>
       )}
@@ -488,19 +504,17 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       {isTogether && (
         <div className="px-5 mb-3 mt-1">
           <div className="grid grid-cols-2 gap-2.5">
-            {/* My summary */}
             <div className="bg-card rounded-2xl p-3.5 shadow-card border border-border">
               <p className="text-xs font-semibold text-muted-foreground mb-1">{profile?.display_name || "Me"}</p>
               <p className="text-xl font-bold text-primary">{totalProtein}g</p>
               <Progress value={proteinPercent} className="h-2 mt-1.5" />
-              <p className="text-[10px] text-muted-foreground mt-1.5">{todayMeals.length} meal{todayMeals.length !== 1 ? "s" : ""} logged</p>
+              <p className="text-[10px] text-muted-foreground mt-1.5">{consumedMeals.length} consumed</p>
             </div>
-            {/* Partner summary */}
             <div className="bg-card rounded-2xl p-3.5 shadow-card border border-border">
               <p className="text-xs font-semibold text-muted-foreground mb-1">{otherName}</p>
               <p className="text-xl font-bold text-primary">{partnerTotalProtein}g</p>
               <Progress value={goals.protein_goal > 0 ? Math.min((partnerTotalProtein / goals.protein_goal) * 100, 100) : 0} className="h-2 mt-1.5" />
-              <p className="text-[10px] text-muted-foreground mt-1.5">{partnerTodayMeals.length} meal{partnerTodayMeals.length !== 1 ? "s" : ""} logged</p>
+              <p className="text-[10px] text-muted-foreground mt-1.5">{partnerConsumed.length} consumed</p>
             </div>
           </div>
         </div>
@@ -513,8 +527,8 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             <div className="flex items-start gap-2">
               <Sparkles size={14} className="text-primary mt-0.5 flex-shrink-0" />
               <p className="text-xs text-foreground/80">
-                {todayMeals.length === 0
-                  ? "Log your first meal to get personalized nutrition insights."
+                {consumedMeals.length === 0
+                  ? "Plan your meals and mark them as consumed to track nutrition."
                   : goals.protein_goal - totalProtein <= 0
                     ? "🎉 You've hit your protein goal! Great job today."
                     : `${goals.protein_goal - totalProtein}g of protein remaining. Keep it up!`}
@@ -524,25 +538,108 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         </div>
       )}
 
-      {/* Content: single day or multi-day */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto px-5 pb-24">
         {dateRange === "today" ? (
-          <SingleDayView
-            dateStr={dateStr}
-            meals={displayMeals.filter(m => m.meal_date === dateStr)}
-            suggestions={displaySuggestions.filter(s => (s as any).suggestion_date === dateStr)}
-            isViewingOwn={isViewingOwn}
-            isTogether={isTogether}
-            partnerMeals={partnerTodayMeals}
-            partnerSuggestions={partnerSuggestions.filter(s => (s as any).suggestion_date === dateStr)}
-            onDetailMeal={setDetailMeal}
-            onAddMeal={(mt) => setShowAddMeal({ mealType: mt, date: dateStr })}
-            aiLoading={aiLoading}
-            onGenerate={generateSuggestions}
-            suggestionsExist={displaySuggestions.filter(s => (s as any).suggestion_date === dateStr).length > 0}
-            otherName={otherName}
-            profile={profile}
-          />
+          <>
+            {/* Planned Meals - main section */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  {isTogether ? `${profile?.display_name || "My"} Planned Meals` : "Planned Meals"}
+                </h2>
+                {isViewingOwn && (
+                  <button
+                    onClick={generateSuggestions}
+                    disabled={aiLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                  >
+                    {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    AI Suggest
+                  </button>
+                )}
+              </div>
+
+              {todayMeals.length > 0 ? (
+                <div className="space-y-2">
+                  {todayMeals.map(meal => (
+                    <div key={meal.id} className={`bg-card rounded-xl p-3 shadow-card border transition-colors ${
+                      meal.consumed ? "border-primary/30 bg-primary/5" : "border-border"
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        {/* Check button */}
+                        {isViewingOwn && (
+                          <button
+                            onClick={() => toggleConsumed(meal.id, !meal.consumed)}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                              meal.consumed
+                                ? "bg-primary text-primary-foreground"
+                                : "border-2 border-muted-foreground/30 hover:border-primary"
+                            }`}
+                          >
+                            {meal.consumed && <Check size={16} />}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setDetailMeal(meal)}
+                          className="flex-1 text-left min-w-0"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-sm font-medium truncate ${meal.consumed ? "line-through text-muted-foreground" : ""}`}>
+                                {meal.title}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground capitalize flex items-center gap-1">
+                                {MEAL_TYPES.find(mt => mt.key === meal.meal_type)?.icon} {meal.meal_type}
+                                {meal.is_ai_generated && <><Sparkles size={8} className="text-primary" /> AI</>}
+                                {meal.consumed && <><Check size={8} className="text-primary" /> Consumed</>}
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <p className="text-xs font-bold text-primary">{meal.protein}g</p>
+                              <p className="text-[10px] text-muted-foreground">{meal.calories} kcal</p>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-card rounded-xl p-4 border border-dashed border-border text-center">
+                  <p className="text-xs text-muted-foreground">No meals planned yet. Use AI Suggest or tap + to add.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Together: Partner section */}
+            {isTogether && (
+              <div className="mb-4">
+                <h2 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
+                  {otherName}'s Planned Meals
+                </h2>
+                {partnerTodayMeals.length > 0 ? (
+                  <div className="space-y-2">
+                    {partnerTodayMeals.map(meal => (
+                      <div key={meal.id} className={`bg-card rounded-xl p-3 shadow-card border ${meal.consumed ? "border-primary/30 bg-primary/5" : "border-border"}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-medium truncate ${meal.consumed ? "line-through text-muted-foreground" : ""}`}>{meal.title}</p>
+                            <p className="text-[10px] text-muted-foreground capitalize">
+                              {meal.meal_type} {meal.consumed && "· ✓ Consumed"}
+                            </p>
+                          </div>
+                          <p className="text-xs font-bold text-primary ml-2">{meal.protein}g</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No meals planned</p>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <WeeklyCalendarView
             dates={rangeDates}
@@ -555,6 +652,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             onAddMeal={(mt, date) => setShowAddMeal({ mealType: mt, date })}
             aiLoading={aiLoading}
             onGenerate={generateSuggestions}
+            onToggleConsumed={toggleConsumed}
             otherName={otherName}
             profile={profile}
           />
@@ -571,9 +669,83 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         </button>
       )}
 
-      {/* ───── MODALS ───── */}
+      {/* Hidden file input for camera */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCameraCapture}
+      />
 
-      {/* Meal Detail / Suggestion Detail Modal */}
+      {/* ───── AI Results Selection Modal ───── */}
+      <AnimatePresence>
+        {showAiResults && aiResults.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+            onClick={() => setShowAiResults(false)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[82svh] flex flex-col"
+            >
+              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-border" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-1 pb-3 flex-shrink-0">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Sparkles size={18} className="text-primary" /> AI Meal Suggestions
+                </h3>
+                <button onClick={() => setShowAiResults(false)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="px-5 text-xs text-muted-foreground mb-3">Select the meals you want to add to your plan:</p>
+              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain space-y-3" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
+                {aiResults.map((s, idx) => (
+                  <div key={idx} className="bg-background rounded-xl p-4 border border-border">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold">{s.title}</p>
+                        <p className="text-[10px] text-muted-foreground capitalize">{s.meal_type}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-3">
+                        <p className="text-sm font-bold text-primary">{s.protein}g</p>
+                        <p className="text-[10px] text-muted-foreground">{s.calories} kcal</p>
+                      </div>
+                    </div>
+                    {s.ingredients && s.ingredients.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground mb-2 line-clamp-2">
+                        {(s.ingredients as string[]).join(", ")}
+                      </p>
+                    )}
+                    <button
+                      onClick={() => {
+                        addAiMealAsPlanned(s);
+                        setAiResults(prev => prev.filter((_, i) => i !== idx));
+                        if (aiResults.length <= 1) setShowAiResults(false);
+                      }}
+                      className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
+                    >
+                      <Plus size={14} /> Add to Plan
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ───── Meal Detail Modal ───── */}
       <AnimatePresence>
         {detailMeal && (
           <motion.div
@@ -600,11 +772,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   <X size={16} />
                 </button>
               </div>
-              <div
-                className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain"
-                style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}
-              >
-                {/* Macros */}
+              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
                 <div className="flex gap-3 mb-4">
                   <div className="bg-primary/10 rounded-xl px-4 py-2 text-center flex-1">
                     <p className="text-lg font-bold text-primary">{detailMeal.protein}g</p>
@@ -644,42 +812,26 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   </div>
                 )}
 
-                {/* Action buttons */}
                 <div className="flex flex-col gap-2 mt-4 pb-4">
-                  {/* If it's a suggestion (planned meal) */}
-                  {"suggestion_date" in detailMeal && !("meal_date" in detailMeal) && isViewingOwn && (
+                  {"meal_date" in detailMeal && isViewingOwn && (
                     <>
                       <button
-                        onClick={() => logMealFromSuggestion(detailMeal as MealSuggestion, (detailMeal as any).suggestion_date)}
-                        className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                        onClick={() => { toggleConsumed((detailMeal as MealLog).id, !(detailMeal as MealLog).consumed); setDetailMeal(null); }}
+                        className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+                          (detailMeal as MealLog).consumed
+                            ? "bg-secondary text-foreground hover:bg-secondary/80"
+                            : "bg-primary text-primary-foreground hover:opacity-90"
+                        }`}
                       >
-                        <Check size={16} /> Log This Meal
+                        <Check size={16} /> {(detailMeal as MealLog).consumed ? "Unmark Consumed" : "Mark as Consumed"}
                       </button>
                       <button
-                        onClick={() => replaceSuggestion(detailMeal.id)}
-                        className="w-full py-2.5 rounded-xl bg-secondary text-foreground text-sm font-semibold hover:bg-secondary/80 transition-colors flex items-center justify-center gap-2"
+                        onClick={() => deleteMeal((detailMeal as MealLog).id)}
+                        className="w-full py-2.5 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-colors"
                       >
-                        <ArrowLeftRight size={16} /> Replace Meal
+                        Remove
                       </button>
                     </>
-                  )}
-                  {/* If it's also a suggestion without suggestion_date (legacy) */}
-                  {"id" in detailMeal && !("meal_date" in detailMeal) && !("suggestion_date" in detailMeal) && isViewingOwn && (
-                    <button
-                      onClick={() => logMealFromSuggestion(detailMeal as MealSuggestion)}
-                      className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-                    >
-                      Log This Meal
-                    </button>
-                  )}
-                  {/* If it's a logged meal */}
-                  {"meal_date" in detailMeal && isViewingOwn && (
-                    <button
-                      onClick={() => deleteMeal((detailMeal as MealLog).id)}
-                      className="w-full py-2.5 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-colors"
-                    >
-                      Remove
-                    </button>
                   )}
                 </div>
               </div>
@@ -688,7 +840,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         )}
       </AnimatePresence>
 
-      {/* Add Meal Modal */}
+      {/* ───── Add Meal Modal ───── */}
       <AnimatePresence>
         {showAddMeal && (
           <motion.div
@@ -709,16 +861,14 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
                 <div className="w-10 h-1 rounded-full bg-border" />
               </div>
-              <div
-                className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain"
-                style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}
-              >
+              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
                 <div className="flex items-center justify-between mb-4 pt-2">
-                  <h3 className="text-lg font-bold capitalize">Add {showAddMeal.mealType}</h3>
+                  <h3 className="text-lg font-bold">Add Meal</h3>
                   <button onClick={() => { setShowAddMeal(null); setManualFoodText(""); }} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                     <X size={16} />
                   </button>
                 </div>
+
                 {showAddMeal.date !== dateStr && (
                   <p className="text-xs text-muted-foreground mb-3">
                     For: {new Date(showAddMeal.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
@@ -742,23 +892,43 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   ))}
                 </div>
 
-                {/* AI Estimate */}
-                <div className="mb-4 bg-primary/5 rounded-xl p-3 border border-primary/10">
-                  <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1.5"><Sparkles size={12} /> AI Estimate</p>
-                  <div className="flex gap-2">
-                    <input
-                      value={manualFoodText}
-                      onChange={e => setManualFoodText(e.target.value)}
-                      placeholder="e.g. grilled chicken salad"
-                      className="flex-1 text-sm px-3 py-2 rounded-lg border border-border bg-background placeholder:text-muted-foreground"
-                    />
-                    <button
-                      onClick={aiEstimateMacros}
-                      disabled={aiEstimating || !manualFoodText.trim()}
-                      className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-50"
-                    >
-                      {aiEstimating ? <Loader2 size={14} className="animate-spin" /> : "Estimate"}
-                    </button>
+                {/* Camera + AI Estimate row */}
+                <div className="flex gap-2 mb-4">
+                  {/* Camera button */}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={cameraAnalyzing}
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl bg-secondary border border-border hover:border-primary/30 transition-colors disabled:opacity-50"
+                  >
+                    {cameraAnalyzing ? (
+                      <Loader2 size={18} className="animate-spin text-primary" />
+                    ) : (
+                      <Camera size={18} className="text-primary" />
+                    )}
+                    <div className="text-left">
+                      <p className="text-xs font-semibold">{cameraAnalyzing ? "Analyzing..." : "Photo"}</p>
+                      <p className="text-[9px] text-muted-foreground">Snap food or label</p>
+                    </div>
+                  </button>
+
+                  {/* AI Estimate */}
+                  <div className="flex-1 bg-primary/5 rounded-xl p-3 border border-primary/10">
+                    <p className="text-[10px] font-semibold text-primary mb-1.5 flex items-center gap-1"><Sparkles size={10} /> AI Estimate</p>
+                    <div className="flex gap-1.5">
+                      <input
+                        value={manualFoodText}
+                        onChange={e => setManualFoodText(e.target.value)}
+                        placeholder="e.g. chicken salad"
+                        className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background placeholder:text-muted-foreground"
+                      />
+                      <button
+                        onClick={aiEstimateMacros}
+                        disabled={aiEstimating || !manualFoodText.trim()}
+                        className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-[10px] font-semibold disabled:opacity-50"
+                      >
+                        {aiEstimating ? <Loader2 size={12} className="animate-spin" /> : "Go"}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -786,7 +956,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                     disabled={!manualTitle.trim()}
                     className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
                   >
-                    Log Meal
+                    Add to Plan
                   </button>
                 </div>
               </div>
@@ -795,7 +965,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         )}
       </AnimatePresence>
 
-      {/* Goal Settings Modal */}
+      {/* ───── Goal Settings Modal ───── */}
       <AnimatePresence>
         {showGoalSettings && (
           <motion.div
@@ -816,10 +986,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
                 <div className="w-10 h-1 rounded-full bg-border" />
               </div>
-              <div
-                className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain"
-                style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}
-              >
+              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
                 <div className="flex items-center justify-between mb-4 pt-2">
                   <h3 className="text-lg font-bold">Nutrition Goals</h3>
                   <button onClick={() => setShowGoalSettings(false)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
@@ -862,125 +1029,6 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   );
 };
 
-/* ────────── Single Day View ────────── */
-interface SingleDayViewProps {
-  dateStr: string;
-  meals: MealLog[];
-  suggestions: MealSuggestion[];
-  isViewingOwn: boolean;
-  isTogether: boolean;
-  partnerMeals: MealLog[];
-  partnerSuggestions: MealSuggestion[];
-  onDetailMeal: (m: any) => void;
-  onAddMeal: (mt: string) => void;
-  aiLoading: boolean;
-  onGenerate: () => void;
-  suggestionsExist: boolean;
-  otherName: string;
-  profile: any;
-}
-
-function SingleDayView({ dateStr, meals, suggestions, isViewingOwn, isTogether, partnerMeals, partnerSuggestions, onDetailMeal, onAddMeal, aiLoading, onGenerate, suggestionsExist, otherName, profile }: SingleDayViewProps) {
-  const isToday = dateStr === fmtDate(new Date());
-
-  return (
-    <>
-      {/* Logged Meals */}
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
-          {isTogether ? `${profile?.display_name || "My"} Logged Meals` : "Logged Meals"}
-        </h2>
-        <MealGrid
-          meals={meals}
-          onDetail={onDetailMeal}
-          onAdd={isViewingOwn ? onAddMeal : undefined}
-          type="logged"
-        />
-      </div>
-
-      {/* Planned Meals (suggestions) */}
-      {(suggestions.length > 0 || isViewingOwn) && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              {isTogether ? `${profile?.display_name || "My"} Planned` : "Planned Meals"}
-            </h2>
-            {isViewingOwn && (
-              <button
-                onClick={onGenerate}
-                disabled={aiLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-              >
-                {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                {suggestionsExist ? "Regenerate" : "AI Plan"}
-              </button>
-            )}
-          </div>
-          {suggestions.length > 0 ? (
-            <div className="space-y-2">
-              {suggestions.map(s => (
-                <button key={s.id} onClick={() => onDetailMeal(s)}
-                  className="w-full bg-card rounded-xl p-3 shadow-card border border-dashed border-primary/20 text-left hover:border-primary/40 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Sparkles size={10} className="text-primary flex-shrink-0" />
-                        <p className="text-sm font-medium truncate">{s.title}</p>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground capitalize">{s.meal_type} · AI Planned</p>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-2">
-                      <p className="text-xs font-bold text-primary">{s.protein}g</p>
-                      <p className="text-[10px] text-muted-foreground">{s.calories} kcal</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : isViewingOwn ? (
-            <div className="bg-card rounded-xl p-4 border border-dashed border-border text-center">
-              <p className="text-xs text-muted-foreground">Tap "AI Plan" to generate personalized meal ideas</p>
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {/* Together: Partner section */}
-      {isTogether && (
-        <>
-          <div className="mb-4">
-            <h2 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
-              {otherName}'s Logged Meals
-            </h2>
-            <MealGrid meals={partnerMeals} onDetail={onDetailMeal} type="logged" />
-          </div>
-          {partnerSuggestions.length > 0 && (
-            <div className="mb-4">
-              <h2 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
-                {otherName}'s Planned
-              </h2>
-              <div className="space-y-2">
-                {partnerSuggestions.map(s => (
-                  <button key={s.id} onClick={() => onDetailMeal(s)}
-                    className="w-full bg-card rounded-xl p-3 shadow-card border border-dashed border-border text-left">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{s.title}</p>
-                        <p className="text-[10px] text-muted-foreground capitalize">{s.meal_type}</p>
-                      </div>
-                      <p className="text-xs font-bold text-primary">{s.protein}g</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </>
-  );
-}
-
 /* ────────── Weekly Calendar View ────────── */
 interface WeeklyCalendarViewProps {
   dates: string[];
@@ -993,16 +1041,15 @@ interface WeeklyCalendarViewProps {
   onAddMeal: (mt: string, date: string) => void;
   aiLoading: boolean;
   onGenerate: () => void;
-  onGenerateWeek?: (weekDates: string[]) => void;
+  onToggleConsumed: (id: string, consumed: boolean) => void;
   otherName: string;
   profile: any;
 }
 
-function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogether, partnerMeals, onDetailMeal, onAddMeal, aiLoading, onGenerate, otherName, profile }: WeeklyCalendarViewProps) {
+function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogether, partnerMeals, onDetailMeal, onAddMeal, aiLoading, onGenerate, onToggleConsumed, otherName, profile }: WeeklyCalendarViewProps) {
   const today = fmtDate(new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  // Split dates into weeks of 7
   const weeks = useMemo(() => {
     const result: string[][] = [];
     for (let i = 0; i < dates.length; i += 7) {
@@ -1012,17 +1059,10 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
   }, [dates]);
 
   const getMealsForDate = (date: string) => meals.filter(m => m.meal_date === date);
-  const getSuggestionsForDate = (date: string) => suggestions.filter(s => (s as any).suggestion_date === date);
-  const getPartnerMealsForDate = (date: string) => partnerMeals.filter(m => m.meal_date === date);
-
-  // Day detail data
   const dayMeals = selectedDay ? getMealsForDate(selectedDay) : [];
-  const daySuggestions = selectedDay ? getSuggestionsForDate(selectedDay) : [];
-  const dayPartnerMeals = selectedDay ? getPartnerMealsForDate(selectedDay) : [];
 
   return (
     <>
-      {/* Generate for entire range */}
       {isViewingOwn && (
         <div className="flex justify-end mb-3">
           <button
@@ -1031,7 +1071,7 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            Generate Entire Range
+            AI Suggest
           </button>
         </div>
       )}
@@ -1047,19 +1087,8 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
               <h3 className="text-sm font-bold text-foreground">
                 Week {wi + 1} <span className="text-muted-foreground font-normal text-xs ml-1">{weekLabel}</span>
               </h3>
-              {isViewingOwn && (
-                <button
-                  onClick={onGenerate}
-                  disabled={aiLoading}
-                  className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-                >
-                  {aiLoading ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                  AI Plan
-                </button>
-              )}
             </div>
 
-            {/* 7-column day card grid */}
             <div className="grid grid-cols-7 gap-1">
               {week.map(date => {
                 const d = new Date(date + "T12:00:00");
@@ -1067,11 +1096,8 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
                 const dayNum = d.getDate();
                 const isDateToday = date === today;
                 const dMeals = getMealsForDate(date);
-                const dSuggs = getSuggestionsForDate(date);
-                const totalItems = dMeals.length + dSuggs.length;
-                const totalProtein = dMeals.reduce((s, m) => s + m.protein, 0);
-                const hasLogged = dMeals.length > 0;
-                const hasPlanned = dSuggs.length > 0;
+                const consumedCount = dMeals.filter(m => m.consumed).length;
+                const totalProtein = dMeals.filter(m => m.consumed).reduce((s, m) => s + m.protein, 0);
 
                 return (
                   <button
@@ -1085,23 +1111,16 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
                           : "border-border bg-card hover:border-primary/20"
                     }`}
                   >
-                    <span className={`text-[9px] font-semibold ${isDateToday ? "text-primary" : "text-muted-foreground"}`}>
-                      {dayName}
-                    </span>
-                    <span className={`text-sm font-bold leading-tight ${isDateToday ? "text-primary" : "text-foreground"}`}>
-                      {dayNum}
-                    </span>
-                    {/* Meal indicators */}
+                    <span className={`text-[9px] font-semibold ${isDateToday ? "text-primary" : "text-muted-foreground"}`}>{dayName}</span>
+                    <span className={`text-sm font-bold leading-tight ${isDateToday ? "text-primary" : "text-foreground"}`}>{dayNum}</span>
                     <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
-                      {hasLogged && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                      {hasPlanned && <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />}
+                      {dMeals.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                      {consumedCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
                     </div>
                     {totalProtein > 0 && (
                       <span className="text-[8px] font-bold text-primary mt-0.5">{totalProtein}g</span>
                     )}
-                    {totalItems === 0 && (
-                      <span className="text-[8px] text-muted-foreground mt-0.5">–</span>
-                    )}
+                    {dMeals.length === 0 && <span className="text-[8px] text-muted-foreground mt-0.5">–</span>}
                   </button>
                 );
               })}
@@ -1141,15 +1160,9 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
                   <X size={16} />
                 </button>
               </div>
-              <div
-                className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain"
-                style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}
-              >
-                {/* Meal slots */}
+              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
                 {MEAL_TYPES.map(mt => {
-                  const slotLogged = dayMeals.filter(m => m.meal_type === mt.key);
-                  const slotPlanned = daySuggestions.filter(s => s.meal_type === mt.key);
-                  const partnerSlot = isTogether ? dayPartnerMeals.filter(m => m.meal_type === mt.key) : [];
+                  const slotMeals = dayMeals.filter(m => m.meal_type === mt.key);
 
                   return (
                     <div key={mt.key} className="py-3 border-b border-border last:border-b-0">
@@ -1158,65 +1171,33 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
                         <h4 className="text-sm font-semibold">{mt.label}</h4>
                       </div>
 
-                      {/* Logged */}
-                      {slotLogged.map(m => (
-                        <button key={m.id} onClick={() => onDetailMeal(m)}
-                          className="w-full bg-background rounded-xl p-3 mb-1.5 border border-border text-left hover:border-primary/30 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{m.title}</p>
-                              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                <Check size={8} className="text-primary" /> Logged
-                              </p>
-                            </div>
-                            <div className="text-right flex-shrink-0 ml-2">
-                              <p className="text-xs font-bold text-primary">{m.protein}g</p>
-                              <p className="text-[10px] text-muted-foreground">{m.calories} kcal</p>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-
-                      {/* Planned */}
-                      {slotPlanned.map(s => (
-                        <button key={s.id} onClick={() => onDetailMeal(s)}
-                          className="w-full bg-background rounded-xl p-3 mb-1.5 border border-dashed border-primary/20 text-left hover:border-primary/40 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <Sparkles size={10} className="text-primary flex-shrink-0" />
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium truncate">{s.title}</p>
-                                <p className="text-[10px] text-muted-foreground">AI Planned</p>
-                              </div>
-                            </div>
-                            <div className="text-right flex-shrink-0 ml-2">
-                              <p className="text-xs font-bold text-primary">{s.protein}g</p>
-                              <p className="text-[10px] text-muted-foreground">{s.calories} kcal</p>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-
-                      {/* Partner meals in Together view */}
-                      {isTogether && partnerSlot.length > 0 && (
-                        <div className="mt-1">
-                          {partnerSlot.map(m => (
-                            <button key={m.id} onClick={() => onDetailMeal(m)}
-                              className="w-full bg-background rounded-xl p-2.5 mb-1 border border-border/60 text-left">
+                      {slotMeals.map(m => (
+                        <div key={m.id} className={`w-full bg-background rounded-xl p-3 mb-1.5 border transition-colors ${m.consumed ? "border-primary/30 bg-primary/5" : "border-border"}`}>
+                          <div className="flex items-center gap-2">
+                            {isViewingOwn && (
+                              <button
+                                onClick={() => onToggleConsumed(m.id, !m.consumed)}
+                                className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                                  m.consumed ? "bg-primary text-primary-foreground" : "border-2 border-muted-foreground/30 hover:border-primary"
+                                }`}
+                              >
+                                {m.consumed && <Check size={12} />}
+                              </button>
+                            )}
+                            <button onClick={() => onDetailMeal(m)} className="flex-1 text-left min-w-0">
                               <div className="flex items-center justify-between">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-medium truncate">{m.title}</p>
-                                  <p className="text-[9px] text-muted-foreground">{otherName}</p>
+                                <p className={`text-sm font-medium truncate ${m.consumed ? "line-through text-muted-foreground" : ""}`}>{m.title}</p>
+                                <div className="text-right flex-shrink-0 ml-2">
+                                  <p className="text-xs font-bold text-primary">{m.protein}g</p>
+                                  <p className="text-[10px] text-muted-foreground">{m.calories} kcal</p>
                                 </div>
-                                <p className="text-[10px] font-bold text-primary ml-2">{m.protein}g</p>
                               </div>
                             </button>
-                          ))}
+                          </div>
                         </div>
-                      )}
+                      ))}
 
-                      {/* Empty: add button */}
-                      {slotLogged.length === 0 && slotPlanned.length === 0 && isViewingOwn && (
+                      {slotMeals.length === 0 && isViewingOwn && (
                         <button
                           onClick={() => { onAddMeal(mt.key, selectedDay); setSelectedDay(null); }}
                           className="flex items-center gap-1.5 text-xs text-primary font-semibold hover:underline py-1"
@@ -1228,12 +1209,11 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
                   );
                 })}
 
-                {/* Day protein summary */}
-                {dayMeals.length > 0 && (
+                {dayMeals.filter(m => m.consumed).length > 0 && (
                   <div className="py-3 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-muted-foreground">Day Total</span>
+                    <span className="text-xs font-semibold text-muted-foreground">Consumed Total</span>
                     <span className="text-sm font-bold text-primary">
-                      {dayMeals.reduce((s, m) => s + m.protein, 0)}g protein
+                      {dayMeals.filter(m => m.consumed).reduce((s, m) => s + m.protein, 0)}g protein
                     </span>
                   </div>
                 )}
@@ -1243,53 +1223,6 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
         )}
       </AnimatePresence>
     </>
-  );
-}
-
-/* ────────── Meal Grid (2x2) ────────── */
-function MealGrid({ meals, onDetail, onAdd, type }: {
-  meals: MealLog[];
-  onDetail: (m: MealLog) => void;
-  onAdd?: (mealType: string) => void;
-  type: "logged" | "planned";
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      {MEAL_TYPES.map(mt => {
-        const typeMeals = meals.filter(m => m.meal_type === mt.key);
-        const totalP = typeMeals.reduce((s, m) => s + m.protein, 0);
-        return (
-          <button
-            key={mt.key}
-            onClick={() => typeMeals.length > 0 ? onDetail(typeMeals[0]) : onAdd?.(mt.key)}
-            className="bg-card rounded-xl p-3 shadow-card border border-border text-left hover:border-primary/30 transition-colors"
-          >
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-base">{mt.icon}</span>
-              <span className="text-xs font-semibold">{mt.label}</span>
-            </div>
-            {typeMeals.length > 0 ? (
-              <>
-                <p className="text-[11px] font-medium truncate">{typeMeals.map(m => m.title).join(", ")}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-bold text-primary">{totalP}g</span>
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Check size={9} /> Logged</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-[10px] text-muted-foreground">No meals yet</p>
-                {onAdd && (
-                  <div className="flex items-center gap-1 mt-1 text-primary">
-                    <Plus size={10} /><span className="text-[10px] font-semibold">Add</span>
-                  </div>
-                )}
-              </>
-            )}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
