@@ -75,25 +75,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+  const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-    if (error) {
-      console.error("Error fetching profile:", error);
-      return;
+  const isRetriableError = (message?: string) => {
+    if (!message) return false;
+    return /timeout|failed to fetch|network|connection/i.test(message);
+  };
+
+  const fetchProfile = async (userId: string) => {
+    let profileData: Profile | null = null;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (!error && data) {
+        profileData = data as Profile;
+        break;
+      }
+
+      if (attempt === 2 || !isRetriableError(error?.message)) {
+        console.error("Error fetching profile:", error);
+        setProfile(null);
+        setPartner(null);
+        return;
+      }
+
+      await wait(350 * (attempt + 1));
     }
 
-    setProfile(data as Profile);
+    if (!profileData) return;
 
-    if (data?.partner_id) {
+    setProfile(profileData);
+
+    if (profileData.partner_id) {
       const { data: partnerData } = await supabase
         .from("profiles")
         .select("id, display_name, avatar_url, email")
-        .eq("id", data.partner_id)
+        .eq("id", profileData.partner_id)
         .single();
 
       if (partnerData) {
@@ -107,42 +129,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchGroups = useCallback(async () => {
     if (!user) return;
 
-    // Get group IDs the user belongs to
-    const { data: memberships } = await supabase
-      .from("group_members")
-      .select("group_id")
-      .eq("user_id", user.id);
+    let memberships: { group_id: string }[] | null = null;
+
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const { data, error } = await supabase
+        .from("group_members")
+        .select("group_id")
+        .eq("user_id", user.id);
+
+      if (!error) {
+        memberships = (data ?? []) as { group_id: string }[];
+        break;
+      }
+
+      if (attempt === 3 || !isRetriableError(error.message)) {
+        console.error("Error fetching group memberships:", error);
+        return;
+      }
+
+      await wait(400 * (attempt + 1));
+    }
 
     if (!memberships || memberships.length === 0) {
       setGroups([]);
       return;
     }
 
-    const groupIds = memberships.map((m: any) => m.group_id);
+    const groupIds = memberships.map((m) => m.group_id);
 
-    // Fetch groups
-    const { data: groupsData } = await supabase
+    const { data: groupsData, error: groupsError } = await supabase
       .from("groups")
       .select("*")
       .in("id", groupIds);
 
-    if (!groupsData) {
-      setGroups([]);
+    if (groupsError || !groupsData) {
+      console.error("Error fetching groups:", groupsError);
       return;
     }
 
-    // Fetch all members for these groups
-    const { data: allMembers } = await supabase
+    const { data: allMembers, error: membersError } = await supabase
       .from("group_members")
       .select("*")
       .in("group_id", groupIds);
 
-    // Fetch profiles for all members
+    if (membersError) {
+      console.error("Error fetching group members:", membersError);
+      return;
+    }
+
     const memberUserIds = [...new Set((allMembers || []).map((m: any) => m.user_id))];
-    const { data: memberProfiles } = await supabase
+    const { data: memberProfiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, display_name, avatar_url, email")
       .in("id", memberUserIds);
+
+    if (profilesError) {
+      console.error("Error fetching member profiles:", profilesError);
+      return;
+    }
 
     const profileMap = new Map((memberProfiles || []).map((p: any) => [p.id, p]));
 
@@ -170,7 +214,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setGroups(enrichedGroups);
 
-    // Restore active group or set first one
     if (activeGroup) {
       const still = enrichedGroups.find((g) => g.id === activeGroup.id);
       if (still) {
@@ -183,7 +226,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else if (enrichedGroups.length > 0) {
       setActiveGroup(enrichedGroups[0]);
     }
-  }, [user]);
+  }, [user, activeGroup]);
 
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.id);
