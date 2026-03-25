@@ -1115,17 +1115,18 @@ const GCalEventCard = ({ event, onToggle, onHide, onDesignate, onCongrats }: {
   );
 };
 
-const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selectedDate }: {
+const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selectedDate, memberFilters }: {
   tasks: Task[];
   onToggle?: (id: string) => void;
   onCongrats: () => void;
   readOnly?: boolean;
   addTask: (task: Omit<Task, "id" | "done">) => void;
   selectedDate: Date;
+  memberFilters: { id: string; label: string; userId?: string }[];
 }) => {
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newAssignee, setNewAssignee] = useState<"me" | "partner" | "both">("me");
+  const [newAssignee, setNewAssignee] = useState("me");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
