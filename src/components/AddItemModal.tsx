@@ -1,11 +1,16 @@
 import { useState } from "react";
-import { X, CalendarDays, Sparkles } from "lucide-react";
+import { X, CalendarDays, ListTodo } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 type ModalStep = "choose" | "calendar" | "habit";
+
+const NOTICE_OPTIONS = [0, 1, 2, 3, 7];
 
 interface AddItemModalProps {
   open: boolean;
@@ -29,6 +34,12 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const [calUser, setCalUser] = useState<"me" | "partner" | "both">("me");
   const [calTag, setCalTag] = useState<"Work" | "Personal" | "Household">("Personal");
 
+  // To Do mode state
+  const [isTodoMode, setIsTodoMode] = useState(false);
+  const [todoDueDate, setTodoDueDate] = useState<Date | undefined>(undefined);
+  const [todoPriorNotice, setTodoPriorNotice] = useState(0);
+  const [todoDueDatePickerOpen, setTodoDueDatePickerOpen] = useState(false);
+
   // Habit form state
   const [habitLabel, setHabitLabel] = useState("");
 
@@ -45,6 +56,10 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     setCalUser("me");
     setCalTag("Personal");
     setHabitLabel("");
+    setIsTodoMode(false);
+    setTodoDueDate(undefined);
+    setTodoPriorNotice(0);
+    setTodoDueDatePickerOpen(false);
   };
 
   const handleClose = () => {
@@ -93,6 +108,25 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
     handleClose();
   };
 
+  const handleAddTodo = () => {
+    if (!calTitle.trim()) return;
+    const dueDateStr = todoDueDate
+      ? `${todoDueDate.getFullYear()}-${String(todoDueDate.getMonth() + 1).padStart(2, "0")}-${String(todoDueDate.getDate()).padStart(2, "0")}`
+      : null;
+
+    addTask({
+      title: calTitle.trim(),
+      time: "",
+      tag: calTag,
+      assignee: calUser,
+      dueDate: dueDateStr,
+      priorNoticeDays: todoPriorNotice,
+    });
+
+    toast.success(`To-do added: ${calTitle.trim()}`);
+    handleClose();
+  };
+
   const handleAddHabit = () => {
     if (!habitLabel.trim() || !selectedCategory) return;
     addHabit(habitLabel.trim(), selectedCategory);
@@ -122,7 +156,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
           {/* Fixed header */}
           <div className="flex items-center justify-between p-5 pb-3 flex-shrink-0">
             <h2 className="text-lg font-bold tracking-display">
-              {step === "choose" ? "Add New" : step === "calendar" ? "Schedule Event" : "New Habit"}
+              {step === "choose" ? "Add New" : step === "calendar" ? (isTodoMode ? "New To Do" : "Schedule Event") : "New Habit"}
             </h2>
             <button onClick={handleClose} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
               <X size={16} />
@@ -141,8 +175,8 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                     <CalendarDays size={22} />
                   </span>
                   <div className="text-left">
-                    <p className="text-[15px] font-semibold">Calendar Schedule</p>
-                    <p className="text-xs text-muted-foreground">Add an event with date, time & details</p>
+                    <p className="text-[15px] font-semibold">Calendar / To Do</p>
+                    <p className="text-xs text-muted-foreground">Add an event or a to-do item</p>
                   </div>
                 </button>
                 {habitSections.map((section) => (
@@ -165,59 +199,155 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
 
             {step === "calendar" && (
               <div className="space-y-3">
+                {/* Mode toggle: Event vs To Do */}
+                <div className="flex gap-2 bg-secondary rounded-xl p-1">
+                  <button
+                    onClick={() => setIsTodoMode(false)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-lg transition-all ${
+                      !isTodoMode ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+                    }`}
+                  >
+                    <CalendarDays size={14} /> Event
+                  </button>
+                  <button
+                    onClick={() => setIsTodoMode(true)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-lg transition-all ${
+                      isTodoMode ? "bg-card text-foreground shadow-card" : "text-muted-foreground"
+                    }`}
+                  >
+                    <ListTodo size={14} /> To Do
+                  </button>
+                </div>
+
                 <input
                   value={calTitle}
                   onChange={(e) => setCalTitle(e.target.value)}
-                  placeholder="Event title..."
+                  placeholder={isTodoMode ? "What do you need to do?" : "Event title..."}
                   className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
                   autoFocus
                 />
-                <label className="flex items-center gap-2 text-sm px-1">
-                  <input type="checkbox" checked={calAllDay} onChange={(e) => setCalAllDay(e.target.checked)} className="rounded" />
-                  <span className="text-muted-foreground">All-day</span>
-                </label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">Start</label>
-                    <input type="date" value={calStartDate} onChange={(e) => {
-                      setCalStartDate(e.target.value);
-                      if (!calEndDate || e.target.value > calEndDate) setCalEndDate(e.target.value);
-                    }} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
-                  </div>
-                  {!calAllDay && (
-                    <div className="w-28">
-                      <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">Time</label>
-                      <input type="time" value={calStartTime} onChange={(e) => {
-                        setCalStartTime(e.target.value);
-                        if (e.target.value && !calEndTime) {
-                          const [h, m] = e.target.value.split(":").map(Number);
-                          setCalEndTime(`${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-                        }
-                      }} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+
+                {isTodoMode ? (
+                  /* ── To Do mode fields ── */
+                  <>
+                    {/* Due date picker */}
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Due date (optional)</p>
+                      <Popover open={todoDueDatePickerOpen} onOpenChange={setTodoDueDatePickerOpen}>
+                        <PopoverTrigger asChild>
+                          <button className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-left flex items-center gap-2">
+                            <CalendarDays size={14} className="text-muted-foreground" />
+                            {todoDueDate
+                              ? todoDueDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
+                              : <span className="text-muted-foreground">No due date</span>
+                            }
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 z-[70]" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={todoDueDate}
+                            onSelect={(date) => {
+                              setTodoDueDate(date);
+                              setTodoDueDatePickerOpen(false);
+                            }}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {todoDueDate && (
+                        <button
+                          onClick={() => setTodoDueDate(undefined)}
+                          className="text-xs text-destructive mt-1 ml-1"
+                        >
+                          Remove due date
+                        </button>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">End</label>
-                    <input type="date" value={calEndDate} onChange={(e) => setCalEndDate(e.target.value)} min={calStartDate}
-                      className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
-                  </div>
-                  {!calAllDay && (
-                    <div className="w-28">
-                      <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">Time</label>
-                      <input type="time" value={calEndTime} onChange={(e) => setCalEndTime(e.target.value)}
-                        className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+
+                    {/* Prior notice selector - only show when due date is set */}
+                    {todoDueDate && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Show starting</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {NOTICE_OPTIONS.map((n) => (
+                            <button
+                              key={n}
+                              onClick={() => setTodoPriorNotice(n)}
+                              className={`px-2.5 py-2 rounded-xl text-xs font-medium border transition-all ${
+                                todoPriorNotice === n
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border text-muted-foreground"
+                              }`}
+                            >
+                              {n === 0 ? "Due day only" : n === 1 ? "1 day before" : `${n} days before`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Description */}
+                    <textarea
+                      value={calDesc}
+                      onChange={(e) => setCalDesc(e.target.value)}
+                      placeholder="Notes (optional)..."
+                      rows={2}
+                      className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground resize-none"
+                    />
+                  </>
+                ) : (
+                  /* ── Event mode fields (existing) ── */
+                  <>
+                    <label className="flex items-center gap-2 text-sm px-1">
+                      <input type="checkbox" checked={calAllDay} onChange={(e) => setCalAllDay(e.target.checked)} className="rounded" />
+                      <span className="text-muted-foreground">All-day</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">Start</label>
+                        <input type="date" value={calStartDate} onChange={(e) => {
+                          setCalStartDate(e.target.value);
+                          if (!calEndDate || e.target.value > calEndDate) setCalEndDate(e.target.value);
+                        }} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+                      </div>
+                      {!calAllDay && (
+                        <div className="w-28">
+                          <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">Time</label>
+                          <input type="time" value={calStartTime} onChange={(e) => {
+                            setCalStartTime(e.target.value);
+                            if (e.target.value && !calEndTime) {
+                              const [h, m] = e.target.value.split(":").map(Number);
+                              setCalEndTime(`${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+                            }
+                          }} className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <textarea
-                  value={calDesc}
-                  onChange={(e) => setCalDesc(e.target.value)}
-                  placeholder="Description (optional)..."
-                  rows={2}
-                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground resize-none"
-                />
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">End</label>
+                        <input type="date" value={calEndDate} onChange={(e) => setCalEndDate(e.target.value)} min={calStartDate}
+                          className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+                      </div>
+                      {!calAllDay && (
+                        <div className="w-28">
+                          <label className="text-[10px] uppercase font-semibold text-muted-foreground px-1">Time</label>
+                          <input type="time" value={calEndTime} onChange={(e) => setCalEndTime(e.target.value)}
+                            className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none text-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <textarea
+                      value={calDesc}
+                      onChange={(e) => setCalDesc(e.target.value)}
+                      placeholder="Description (optional)..."
+                      rows={2}
+                      className="w-full bg-secondary rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground resize-none"
+                    />
+                  </>
+                )}
 
                 {/* Category / Tag selector */}
                 <div>
@@ -264,10 +394,10 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                 </div>
 
                 <button
-                  onClick={handleAddCalendar}
+                  onClick={isTodoMode ? handleAddTodo : handleAddCalendar}
                   className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold"
                 >
-                  Add to Calendar
+                  {isTodoMode ? "Add To Do" : "Add to Calendar"}
                 </button>
               </div>
             )}
