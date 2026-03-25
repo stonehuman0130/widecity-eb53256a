@@ -317,6 +317,36 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         });
       });
 
+    // Add to-do tasks with due dates (only on the due date itself, not notice days)
+    const dateKey = dateToKey(d, m, y);
+    filteredTasks
+      .filter((t) => {
+        if (!t.dueDate) return false;
+        if (t.dueDate !== dateKey) return false;
+        // Avoid duplicates: skip if already added via scheduledDay
+        if (t.scheduledDay === d && t.scheduledMonth === m && t.scheduledYear === y) return false;
+        return true;
+      })
+      .forEach((t) => {
+        items.push({
+          id: `todo-${t.id}`,
+          title: t.title,
+          time: "All day",
+          allDay: true,
+          hour: null,
+          endHour: null,
+          assignee: t.assignee,
+          done: t.done,
+          tag: t.tag,
+          groupId: t.groupId,
+          type: "task",
+          raw: t,
+          startDateTime: new Date(y, m, d, 0, 0, 0, 0),
+          endDateTime: new Date(y, m, d, 23, 59, 59, 999),
+          isDueDateTask: true,
+        });
+      });
+
     if (showGoogleCalendar) {
       googleCalendarEvents.forEach((ge) => {
         const gcalStart = parseGoogleDateValue(ge.start);
