@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Apple, Plus, Sparkles, RefreshCw, ChevronLeft, ChevronRight, Check, X, Loader2, Settings, Calendar, Target, Camera, ArrowLeftRight, MoreVertical, Trash2 } from "lucide-react";
+import { Apple, Plus, Sparkles, RefreshCw, ChevronLeft, ChevronRight, Check, X, Loader2, Settings, Calendar, Target, Camera, ArrowLeftRight, MoreVertical, Trash2, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -99,12 +99,17 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [aiEstimating, setAiEstimating] = useState(false);
   const [goalProtein, setGoalProtein] = useState("150");
   const [mealMenuOpen, setMealMenuOpen] = useState<string | null>(null);
+  const [editingMeal, setEditingMeal] = useState<MealLog | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editProtein, setEditProtein] = useState("");
+  const [editCalories, setEditCalories] = useState("");
+  const [editMealType, setEditMealType] = useState("lunch");
   const [goalCalories, setGoalCalories] = useState("");
   const [goalShowCal, setGoalShowCal] = useState(false);
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults);
+  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!editingMeal);
 
   const groupId = activeGroup?.id || null;
   const dateStr = fmtDate(selectedDate);
@@ -333,7 +338,34 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     await supabase.from("meal_logs").delete().eq("id", mealId);
     setMeals(prev => prev.filter(m => m.id !== mealId));
     setDetailMeal(null);
+    setEditingMeal(null);
     toast.success("Meal removed");
+  };
+
+  const openEditMeal = (meal: MealLog) => {
+    setEditingMeal(meal);
+    setEditTitle(meal.title);
+    setEditProtein(String(meal.protein));
+    setEditCalories(String(meal.calories || 0));
+    setEditMealType(meal.meal_type);
+    setDetailMeal(null);
+    setMealMenuOpen(null);
+  };
+
+  const saveEditMeal = async () => {
+    if (!editingMeal || !editTitle.trim()) return;
+    const updates = {
+      title: editTitle.trim(),
+      protein: parseInt(editProtein) || 0,
+      calories: parseInt(editCalories) || 0,
+      meal_type: editMealType,
+    };
+    const { error } = await supabase.from("meal_logs").update(updates).eq("id", editingMeal.id);
+    if (!error) {
+      setMeals(prev => prev.map(m => m.id === editingMeal.id ? { ...m, ...updates } : m));
+      setEditingMeal(null);
+      toast.success("Meal updated");
+    }
   };
 
   const saveGoals = async () => {
@@ -626,6 +658,12 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                                 <div className="fixed inset-0 z-40" onClick={() => setMealMenuOpen(null)} />
                                 <div className="absolute right-0 top-8 z-50 bg-card rounded-xl border border-border shadow-lg py-1 min-w-[140px]">
                                   <button
+                                    onClick={() => openEditMeal(meal)}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+                                  >
+                                    <Pencil size={14} /> Edit
+                                  </button>
+                                  <button
                                     onClick={() => { deleteMeal(meal.id); setMealMenuOpen(null); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                                   >
@@ -844,6 +882,12 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   {"meal_date" in detailMeal && isViewingOwn && (
                     <>
                       <button
+                        onClick={() => openEditMeal(detailMeal as MealLog)}
+                        className="w-full py-2.5 rounded-xl bg-secondary text-foreground text-sm font-semibold hover:bg-secondary/80 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Pencil size={16} /> Edit Meal
+                      </button>
+                      <button
                         onClick={() => { toggleConsumed((detailMeal as MealLog).id, !(detailMeal as MealLog).consumed); setDetailMeal(null); }}
                         className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
                           (detailMeal as MealLog).consumed
@@ -988,6 +1032,84 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                     Add to Plan
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ───── Edit Meal Modal ───── */}
+      <AnimatePresence>
+        {editingMeal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
+            onClick={() => setEditingMeal(null)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg"
+            >
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-border" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-1 pb-3">
+                <h3 className="text-lg font-bold flex items-center gap-2"><Pencil size={18} className="text-primary" /> Edit Meal</h3>
+                <button onClick={() => setEditingMeal(null)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 pb-6 space-y-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
+                {/* Meal type selector */}
+                <div className="flex gap-1.5">
+                  {MEAL_TYPES.map(mt => (
+                    <button
+                      key={mt.key}
+                      onClick={() => setEditMealType(mt.key)}
+                      className={`flex-1 py-2 rounded-lg text-[10px] font-semibold transition-colors ${
+                        editMealType === mt.key
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      {mt.icon} {mt.label}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Meal Name</label>
+                  <input
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background placeholder:text-muted-foreground"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Protein (g)</label>
+                    <input type="number" value={editProtein} onChange={e => setEditProtein(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Calories</label>
+                    <input type="number" value={editCalories} onChange={e => setEditCalories(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                </div>
+                <button
+                  onClick={saveEditMeal}
+                  disabled={!editTitle.trim()}
+                  className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
+                >
+                  Save Changes
+                </button>
               </div>
             </motion.div>
           </motion.div>
