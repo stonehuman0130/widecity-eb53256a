@@ -1209,13 +1209,6 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
         </button>
       ) : null}
 
-      {doneTasks.length > 0 && (
-        <div className="mt-3 space-y-2 opacity-60">
-          {doneTasks.map((task) => (
-            <TodoItem key={task.id} task={task} onToggle={onToggle} onCongrats={onCongrats} readOnly={readOnly} />
-          ))}
-        </div>
-      )}
     </section>
   );
 };
