@@ -658,6 +658,12 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                                 <div className="fixed inset-0 z-40" onClick={() => setMealMenuOpen(null)} />
                                 <div className="absolute right-0 top-8 z-50 bg-card rounded-xl border border-border shadow-lg py-1 min-w-[140px]">
                                   <button
+                                    onClick={() => openEditMeal(meal)}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+                                  >
+                                    <Pencil size={14} /> Edit
+                                  </button>
+                                  <button
                                     onClick={() => { deleteMeal(meal.id); setMealMenuOpen(null); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
                                   >
