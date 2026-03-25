@@ -184,6 +184,17 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [newUser, setNewUser] = useState<"me" | "partner" | "both">("me");
   const [newDesc, setNewDesc] = useState("");
 
+  // To Do mode state
+  const [newIsTodo, setNewIsTodo] = useState(false);
+  const [newTodoDueDate, setNewTodoDueDate] = useState<Date | undefined>(undefined);
+  const [newTodoPriorNotice, setNewTodoPriorNotice] = useState(0);
+  const [newTodoTag, setNewTodoTag] = useState<"Work" | "Personal" | "Household">("Personal");
+  const [newTodoShowCustom, setNewTodoShowCustom] = useState(false);
+  const [newTodoCustomNotice, setNewTodoCustomNotice] = useState("14");
+  const [newTodoDueDatePickerOpen, setNewTodoDueDatePickerOpen] = useState(false);
+
+  const TODO_NOTICE_OPTIONS = [-1, 0, 1, 2, 3, 7];
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
