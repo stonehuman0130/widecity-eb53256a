@@ -285,9 +285,45 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
       if (actionResults.length > 0) {
         const hasSuccess = actionResults.some((r: ActionResult) => r.success);
         if (hasSuccess) {
-          // Trigger a data refresh by reloading app context
           appContext.refreshData?.();
         }
+
+        // Check for successful log_meal actions and trigger shopping list flow
+        const mealActions = actions.filter((a: AppAction) => a.action_type === "log_meal");
+        const successfulMealResults = actionResults.filter((r: ActionResult) => r.action_type === "log_meal" && r.success);
+        if (successfulMealResults.length > 0 && mealActions.length > 0) {
+          // Group ingredients by week for the shopping list prompt
+          const weekMap = new Map<string, { ingredients: string[]; mealTitles: string[]; mealDate: string }>();
+          mealActions.forEach((a: AppAction) => {
+            const ingredients = Array.isArray(a.ingredients) ? a.ingredients : [];
+            if (ingredients.length === 0) return;
+            const mealDate = a.meal_date || new Date().toISOString().slice(0, 10);
+            const weekKey = getWeekMonday(mealDate);
+            const existing = weekMap.get(weekKey);
+            if (existing) {
+              existing.ingredients.push(...ingredients);
+              existing.mealTitles.push(a.title || "Meal");
+            } else {
+              weekMap.set(weekKey, { ingredients: [...ingredients], mealTitles: [a.title || "Meal"], mealDate });
+            }
+          });
+
+          // Deduplicate ingredients within each week and enqueue prompts
+          weekMap.forEach((val) => {
+            // Simple dedup: merge by lowercase name
+            const seen = new Map<string, string>();
+            val.ingredients.forEach(ing => {
+              const key = ing.toLowerCase().trim();
+              if (!seen.has(key)) seen.set(key, ing);
+            });
+            const dedupedIngredients = Array.from(seen.values());
+            if (dedupedIngredients.length > 0) {
+              const title = val.mealTitles.length === 1 ? val.mealTitles[0] : `${val.mealTitles.length} meals`;
+              enqueueShopPrompt({ ingredients: dedupedIngredients, mealTitle: title, mealDate: val.mealDate });
+            }
+          });
+        }
+      }
       }
 
       const aiMsg: AiMessage = {
