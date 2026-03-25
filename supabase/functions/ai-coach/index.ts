@@ -206,7 +206,8 @@ CONVERSATION PHASES:
                       "create_special_day", "delete_special_day",
                       "send_message",
                       "create_task", "delete_task",
-                      "log_meal", "delete_meal"
+                      "log_meal", "delete_meal",
+                      "create_shopping_list"
                     ]},
                     title: { type: "string" },
                     emoji: { type: "string" },
