@@ -744,7 +744,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 </button>
               </div>
               <p className="px-5 text-xs text-muted-foreground mb-3">Select the meals you want to add to your plan:</p>
-              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain space-y-3" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
+              <div className="px-5 pb-safe flex-1 overflow-y-auto overscroll-contain space-y-3" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
                 {aiResults.map((s, idx) => (
                   <div key={idx} className="bg-background rounded-xl p-4 border border-border">
                     <div className="flex items-start justify-between mb-2">
