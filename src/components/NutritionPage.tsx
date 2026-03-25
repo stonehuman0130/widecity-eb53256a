@@ -330,8 +330,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       // Prompt for shopping list if there are ingredients
       const ingredients = Array.isArray(suggestion.ingredients) ? suggestion.ingredients : [];
       if (ingredients.length > 0) {
-        setShopChecked(Object.fromEntries(ingredients.map((_: any, i: number) => [i, true])));
-        setShopPrompt({ ingredients, mealTitle: suggestion.title, mealDate: dateStr });
+        enqueueShopPrompt({ ingredients, mealTitle: suggestion.title, mealDate: dateStr });
       }
     }
   };
