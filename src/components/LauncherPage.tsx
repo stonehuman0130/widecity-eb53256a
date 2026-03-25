@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Mic, ChevronRight, Plus, Settings, Users, Loader2, X, Check } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { Group, useAuth } from "@/context/AuthContext";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,10 +24,11 @@ type InviteState =
   | { type: "joined"; groupName: string; groupId: string };
 
 const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherPageProps) => {
-  const { profile, groups, joinGroup, refreshGroups } = useAuth();
+  const { user, profile, groups, joinGroup, refreshGroups } = useAuth();
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
   const [inviteState, setInviteState] = useState<InviteState>({ type: "idle" });
+  const [fallbackGroups, setFallbackGroups] = useState<Group[]>([]);
 
   const { listening, start: startListening, isSupported: speechSupported } = useSpeechToText({
     onResult: (transcript) => setInput((prev) => (prev ? prev + " " + transcript : transcript)),
@@ -35,6 +36,49 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
 
   const now = new Date();
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
+  const visibleGroups = useMemo(() => (groups.length > 0 ? groups : fallbackGroups), [groups, fallbackGroups]);
+
+  useEffect(() => {
+    if (!user || groups.length > 0) {
+      setFallbackGroups([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadFallbackGroups = async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { data, error } = await supabase
+          .from("groups")
+          .select("id, name, type, emoji, invite_code, created_by");
+
+        if (!error && data) {
+          if (!cancelled) {
+            setFallbackGroups(
+              data.map((g: any) => ({
+                id: g.id,
+                name: g.name,
+                type: g.type,
+                emoji: g.emoji,
+                invite_code: g.invite_code,
+                created_by: g.created_by,
+                members: [],
+              }))
+            );
+          }
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+      }
+    };
+
+    void loadFallbackGroups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, groups.length]);
 
   const looksLikeInviteCode = (text: string): boolean => {
     const trimmed = text.trim();
@@ -59,7 +103,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
       }
 
       // Check if already a member
-      const alreadyMember = groups.some((g) => g.id === group.id);
+      const alreadyMember = visibleGroups.some((g) => g.id === group.id);
       if (alreadyMember) {
         setInviteState({ type: "already_member", groupName: group.name });
         return;
@@ -108,7 +152,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
     }
 
     // Just enter the first group for now — AI is accessed via the central AI button
-    onEnterGroup(groups.length > 0 ? groups[0].id : null);
+    onEnterGroup(visibleGroups.length > 0 ? visibleGroups[0].id : null);
   };
 
   return (
@@ -368,7 +412,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
         </div>
 
         <div className="space-y-2">
-          {groups.map((group, index) => {
+          {visibleGroups.map((group, index) => {
             const otherMembers = group.members.filter((m) => m.user_id !== profile?.id);
             const memberNames = otherMembers.map((m) => m.display_name || "Member").join(", ");
 
@@ -395,7 +439,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
             );
           })}
 
-          {groups.length === 0 && (
+          {visibleGroups.length === 0 && (
             <div className="text-center py-8">
               <p className="text-sm text-muted-foreground mb-3">No calendars yet</p>
               {onCreateGroup && (

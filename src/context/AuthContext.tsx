@@ -175,7 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const fetchGroups = useCallback(async () => {
-    if (!user) return;
+    if (!user || !session?.access_token) return;
 
     let memberships: { group_id: string }[] | null = null;
 
@@ -192,6 +192,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (attempt === 3 || !isRetriableError(error.message)) {
         console.error("Error fetching group memberships:", error);
+        const { data: directGroups, error: directGroupsError } = await supabase
+          .from("groups")
+          .select("*");
+
+        if (!directGroupsError && directGroups && directGroups.length > 0) {
+          const fallbackEnriched: Group[] = directGroups.map((g: any) => ({
+            id: g.id,
+            name: g.name,
+            type: g.type,
+            emoji: g.emoji,
+            invite_code: g.invite_code,
+            created_by: g.created_by,
+            members: [],
+          }));
+          setGroups(fallbackEnriched);
+          setActiveGroup((prev) => {
+            if (!prev) return fallbackEnriched[0] ?? null;
+            return fallbackEnriched.find((g) => g.id === prev.id) ?? fallbackEnriched[0] ?? null;
+          });
+          saveCachedGroups(user.id, fallbackEnriched);
+          return;
+        }
+
         restoreGroupsFromCache(user.id);
         return;
       }
@@ -322,7 +345,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else if (enrichedGroups.length > 0) {
       setActiveGroup(enrichedGroups[0]);
     }
-  }, [user, activeGroup]);
+  }, [user, session, activeGroup]);
 
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.id);
@@ -347,7 +370,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, 8000);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (session?.user) {
           setSession(session);
           setUser(session.user);
