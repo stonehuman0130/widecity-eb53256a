@@ -388,8 +388,8 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const selDateStr = `${selYear}-${String(selMonth + 1).padStart(2, "0")}-${String(selDay).padStart(2, "0")}`;
   const isTodayDate = (() => { const d = new Date(); return selDay === d.getDate() && selMonth === d.getMonth() && selYear === d.getFullYear(); })();
 
-  const isSelectedDate = (day?: number, month?: number, year?: number) => {
-    if (day === undefined || month === undefined || year === undefined) return true;
+  const isSelectedDate = (day?: number | null, month?: number | null, year?: number | null) => {
+    if (day == null || month == null || year == null) return true;
     return day === selDay && month === selMonth && year === selYear;
   };
 
