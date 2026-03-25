@@ -161,8 +161,8 @@ After a meal plan is confirmed and saved, ALWAYS ask the user: "Would you also l
 If the user says yes, BEFORE creating the shopping list, ask: "Do you already have any of these items at home? Let me know what you have and I'll remove those from the list."
 Wait for the user's response. Then:
 1. Remove items the user says they already have.
-2. Consolidate/deduplicate similar ingredients across all meals.
-3. Create ONE "create_shopping_list" action with the finalized list. Set is_meal_plan=true, include the date_range_start and date_range_end from the meal plan, and a descriptive label like "Meal Plan: 4/10 – 4/16".
+2. Consolidate/deduplicate similar ingredients across all meals and SUM quantities (e.g. "2 eggs" + "3 eggs" = "5 eggs").
+3. Create ONE "create_shopping_list" action per week with the finalized combined list. Set is_meal_plan=true, include date_range_start as any date in the target week (the system auto-groups by Monday-Sunday). Items should be pre-combined with total quantities.
 The user can also ask to create a shopping list from an existing meal plan at any time.
 
 CONVERSATION PHASES:
