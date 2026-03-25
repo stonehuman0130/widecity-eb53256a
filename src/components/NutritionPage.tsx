@@ -208,6 +208,8 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const totalCalories = useMemo(() => consumedMeals.reduce((s, m) => s + (m.calories || 0), 0), [consumedMeals]);
   const proteinPercent = goals.protein_goal > 0 ? Math.min((totalProtein / goals.protein_goal) * 100, 100) : 0;
 
+  const caloriePercent = goals.show_calories && goals.calorie_goal ? Math.min((totalCalories / goals.calorie_goal) * 100, 100) : 0;
+
   const viewTabs = useMemo(() => {
     const tabs: { id: string; label: string }[] = [{ id: "mine", label: "Mine" }];
     if (hasOther) {
@@ -489,14 +491,14 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             </div>
             <Progress value={proteinPercent} className="h-3" />
             {goals.show_calories && goals.calorie_goal && (
-              <div className="flex items-center justify-between mt-3">
-                <span className="text-xs text-muted-foreground">Calories</span>
-                <span className="text-xs font-semibold">{totalCalories} / {goals.calorie_goal} kcal</span>
+              <>
+              <div className="flex items-center justify-between mt-4 mb-2">
+                <span className="text-sm font-semibold">Calories</span>
+                <span className="text-sm font-bold text-primary">{totalCalories} / {goals.calorie_goal} kcal</span>
               </div>
+              <Progress value={caloriePercent} className="h-3" />
+              </>
             )}
-            <p className="text-[10px] text-muted-foreground mt-2">
-              {consumedMeals.length} consumed · {todayMeals.filter(m => !m.consumed).length} planned
-            </p>
           </div>
         </div>
       )}
@@ -691,16 +693,6 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
           />
         )}
       </div>
-
-      {/* Floating Add Button */}
-      {isViewingOwn && (
-        <button
-          onClick={() => setShowAddMeal({ mealType: "snack", date: dateStr })}
-          className="fixed bottom-20 right-5 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:opacity-90 transition-opacity"
-        >
-          <Plus size={24} />
-        </button>
-      )}
 
       {/* Hidden file input for camera */}
       <input
