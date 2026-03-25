@@ -882,6 +882,12 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   {"meal_date" in detailMeal && isViewingOwn && (
                     <>
                       <button
+                        onClick={() => openEditMeal(detailMeal as MealLog)}
+                        className="w-full py-2.5 rounded-xl bg-secondary text-foreground text-sm font-semibold hover:bg-secondary/80 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Pencil size={16} /> Edit Meal
+                      </button>
+                      <button
                         onClick={() => { toggleConsumed((detailMeal as MealLog).id, !(detailMeal as MealLog).consumed); setDetailMeal(null); }}
                         className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
                           (detailMeal as MealLog).consumed
