@@ -93,20 +93,20 @@ const TaskActionMenu = ({ taskId }: TaskActionMenuProps) => {
 
                 <Calendar
                   mode="single"
-                  selected={currentDueDate}
-                  onSelect={handleSetDueDate}
+                  selected={selectedDate}
+                  onSelect={(date) => setSelectedDate(date)}
                   className={cn("p-2 pointer-events-auto rounded-lg border border-border")}
                 />
 
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1.5">Show starting</p>
+                  <p className="text-xs font-semibold text-muted-foreground mb-1.5">Give notice</p>
                   <div className="flex flex-wrap gap-1.5">
                     {NOTICE_OPTIONS.map((n) => (
                       <button
                         key={n}
-                        onClick={() => setSelectedNotice(n)}
+                        onClick={() => { setSelectedNotice(n); setShowCustomInput(false); }}
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          selectedNotice === n
+                          !showCustomInput && selectedNotice === n
                             ? "bg-primary text-primary-foreground"
                             : "bg-secondary text-muted-foreground hover:text-foreground"
                         }`}
@@ -114,8 +114,39 @@ const TaskActionMenu = ({ taskId }: TaskActionMenuProps) => {
                         {n === 0 ? "Due day" : n === 1 ? "1 day before" : `${n} days before`}
                       </button>
                     ))}
+                    <button
+                      onClick={() => { setShowCustomInput(true); setCustomNotice(String(showCustomInput ? customNotice : "")); }}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        showCustomInput
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Custom
+                    </button>
                   </div>
+                  {showCustomInput && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={customNotice}
+                        onChange={(e) => setCustomNotice(e.target.value)}
+                        className="w-16 px-2 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground text-center"
+                        placeholder="0"
+                      />
+                      <span className="text-xs text-muted-foreground">days before</span>
+                    </div>
+                  )}
                 </div>
+
+                <button
+                  onClick={handleSaveDueDate}
+                  disabled={!selectedDate}
+                  className="w-full py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-lg transition-colors disabled:opacity-40"
+                >
+                  Save
+                </button>
 
                 {task?.dueDate && (
                   <button
