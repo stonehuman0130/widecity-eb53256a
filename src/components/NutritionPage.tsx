@@ -99,6 +99,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [aiEstimating, setAiEstimating] = useState(false);
   const [goalProtein, setGoalProtein] = useState("150");
   const [mealMenuOpen, setMealMenuOpen] = useState<string | null>(null);
+  const [editingMeal, setEditingMeal] = useState<MealLog | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editProtein, setEditProtein] = useState("");
+  const [editCalories, setEditCalories] = useState("");
+  const [editMealType, setEditMealType] = useState("lunch");
   const [goalCalories, setGoalCalories] = useState("");
   const [goalShowCal, setGoalShowCal] = useState(false);
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
