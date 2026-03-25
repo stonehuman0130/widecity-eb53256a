@@ -165,7 +165,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     toggleEventCompletion,
   } = useAppContext();
   const { activeGroup, groups } = useAuth();
-  const { showGoogleCalendar } = useGroupContext();
+  const { showGoogleCalendar, filters: calGroupFilters } = useGroupContext();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
