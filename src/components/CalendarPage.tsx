@@ -530,6 +530,28 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     setShowAddForm(false);
   };
 
+  // ── Add to-do handler ─────────────────────────────────
+
+  const handleAddTodo = () => {
+    if (!newTitle.trim()) return;
+    const dueDateStr = newTodoDueDate
+      ? `${newTodoDueDate.getFullYear()}-${String(newTodoDueDate.getMonth() + 1).padStart(2, "0")}-${String(newTodoDueDate.getDate()).padStart(2, "0")}`
+      : null;
+    const notice = newTodoShowCustom ? (parseInt(newTodoCustomNotice) || 0) : newTodoPriorNotice;
+
+    addTask({
+      title: newTitle.trim(),
+      time: "",
+      tag: newTodoTag,
+      assignee: newUser,
+      dueDate: dueDateStr,
+      priorNoticeDays: notice,
+    });
+
+    toast.success(`To-do added: ${newTitle.trim()}`);
+    setShowAddForm(false);
+  };
+
   // Scroll time grid to 8am
   useEffect(() => {
     if ((viewMode === "day" || viewMode === "3day") && timeGridRef.current) {
