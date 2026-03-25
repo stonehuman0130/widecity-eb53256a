@@ -140,8 +140,9 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
     return navPages;
   })();
 
-  const leftTabs = visualTabs.slice(0, Math.ceil(visualTabs.length / 2));
-  const rightTabs = visualTabs.slice(Math.ceil(visualTabs.length / 2));
+  const halfLen = Math.floor(visualTabs.length / 2);
+  const leftTabs = visualTabs.slice(0, halfLen);
+  const rightTabs = visualTabs.slice(halfLen);
   const isActive = (id: Tab) => activeTab === id;
 
   const renderTab = (tabId: Tab, i: number) => {
