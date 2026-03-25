@@ -172,7 +172,7 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
   return (
     <nav
       ref={navRef}
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card border-t border-border z-50 overflow-hidden"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card border-t border-border z-50"
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onPointerCancel={handlePointerCancel}
@@ -189,7 +189,7 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
       )}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {/* Left section: Home + left tabs */}
-        <div className="flex items-center min-w-0">
+        <div className="flex items-center min-w-0 overflow-hidden">
           <button
             onClick={() => { if (!editMode) onTabChange("home"); }}
             className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1.5 rounded-lg transition-colors ${
@@ -202,10 +202,10 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
           {leftTabs.map((tabId, i) => renderTab(tabId, i))}
         </div>
 
-        {/* Center: AI Button - always in exact center column */}
+        {/* Center: AI Button - elevated above nav bar */}
         <button
           onClick={() => { if (!editMode) onTabChange("ai"); }}
-          className={`flex flex-col items-center gap-0.5 -mt-4 transition-all px-2 shrink-0 ${editMode ? "pointer-events-none opacity-50" : ""}`}
+          className={`relative z-10 flex flex-col items-center gap-0.5 -mt-4 transition-all px-2 shrink-0 ${editMode ? "pointer-events-none opacity-50" : ""}`}
         >
           <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all ${
             aiActive
@@ -218,7 +218,7 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
         </button>
 
         {/* Right section: right tabs + More */}
-        <div className="flex items-center min-w-0">
+        <div className="flex items-center min-w-0 overflow-hidden">
           {rightTabs.map((tabId, rawI) => {
             const i = rawI + halfLen;
             return renderTab(tabId, i);
