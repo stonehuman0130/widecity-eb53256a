@@ -172,7 +172,7 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
   return (
     <nav
       ref={navRef}
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card border-t border-border z-50 overflow-hidden"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card border-t border-border z-50"
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onPointerCancel={handlePointerCancel}
