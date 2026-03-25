@@ -475,7 +475,13 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       const items = getItemsForDate(d, month, year);
       if (items.length > 0) {
         const groupIds = new Set<string>();
-        items.forEach((it) => groupIds.add(it.groupId || "__default"));
+        items.forEach((it) => {
+          if (it.isDueDateTask) {
+            groupIds.add("__todo");
+          } else {
+            groupIds.add(it.groupId || "__default");
+          }
+        });
         dots.set(d, groupIds);
       }
     }
