@@ -896,15 +896,25 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           )}
 
           {/* Assignee */}
-          <div className="flex gap-1.5">
-            {(["me", "partner", "both"] as const).map((u) => (
-              <button key={u} onClick={() => setNewUser(u)}
-                className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
-                  newUser === u ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                }`}>
-                {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+            {calGroupFilters.length <= 1 ? (
+              <button className="flex-1 py-1.5 text-[11px] font-medium rounded-lg border border-primary bg-primary/10 text-primary">
+                Mine
               </button>
-            ))}
+            ) : (
+              calGroupFilters.map((f) => {
+                const assigneeValue = f.id === "mine" ? "me" : f.id === "partner" ? "partner" : f.id === "household" ? "both" : f.id;
+                const label = f.id === "mine" ? "Mine" : f.id === "household" ? "All" : f.label;
+                return (
+                  <button key={f.id} onClick={() => setNewUser(assigneeValue)}
+                    className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all whitespace-nowrap px-2 ${
+                      newUser === assigneeValue ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                    }`}>
+                    {label}
+                  </button>
+                );
+              })
+            )}
           </div>
 
           <button onClick={newIsTodo ? handleAddTodo : handleAddEvent} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold">
