@@ -189,7 +189,7 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
       )}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {/* Left section: Home + left tabs */}
-        <div className="flex items-center min-w-0">
+        <div className="flex items-center min-w-0 overflow-hidden">
           <button
             onClick={() => { if (!editMode) onTabChange("home"); }}
             className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1.5 rounded-lg transition-colors ${
