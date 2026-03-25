@@ -133,7 +133,7 @@ ACTION TYPES:
 - "delete_task": { task_id }
 - "log_meal": { meal_type (breakfast/lunch/dinner/snack), title, protein (grams), calories, meal_date (YYYY-MM-DD), ingredients (array of strings, e.g. ["2 eggs", "1 cup spinach"]), prep_steps (array of strings, e.g. ["Scramble eggs", "Add spinach"]) }
 - "delete_meal": { meal_id }
-- "create_shopping_list": { label, date_range_start (YYYY-MM-DD), date_range_end (YYYY-MM-DD), is_meal_plan (boolean), items (array of strings - ingredient names) }
+- "create_shopping_list": { date_range_start (YYYY-MM-DD - any date in the target week; system auto-groups by Mon-Sun), is_meal_plan (boolean), items (array of strings - ingredient names with quantities combined, e.g. "5 eggs" not "2 eggs" + "3 eggs") }
 
 CRITICAL RULES:
 1. When the user clearly states what they want, EXECUTE IT with actions. Don't just suggest—DO IT.
@@ -161,8 +161,8 @@ After a meal plan is confirmed and saved, ALWAYS ask the user: "Would you also l
 If the user says yes, BEFORE creating the shopping list, ask: "Do you already have any of these items at home? Let me know what you have and I'll remove those from the list."
 Wait for the user's response. Then:
 1. Remove items the user says they already have.
-2. Consolidate/deduplicate similar ingredients across all meals.
-3. Create ONE "create_shopping_list" action with the finalized list. Set is_meal_plan=true, include the date_range_start and date_range_end from the meal plan, and a descriptive label like "Meal Plan: 4/10 – 4/16".
+2. Consolidate/deduplicate similar ingredients across all meals and SUM quantities (e.g. "2 eggs" + "3 eggs" = "5 eggs").
+3. Create ONE "create_shopping_list" action per week with the finalized combined list. Set is_meal_plan=true, include date_range_start as any date in the target week (the system auto-groups by Monday-Sunday). Items should be pre-combined with total quantities.
 The user can also ask to create a shopping list from an existing meal plan at any time.
 
 CONVERSATION PHASES:
@@ -710,36 +710,79 @@ async function executeAppActions(client: any, userId: string, groupId: string, a
           break;
         }
         case "create_shopping_list": {
-          const listLabel = action.label || action.title || "Shopping List";
-          const { data: listData, error: listError } = await client.from("shopping_lists").insert({
-            user_id: userId,
-            group_id: groupId,
-            label: listLabel,
-            date_range_start: action.date_range_start || null,
-            date_range_end: action.date_range_end || null,
-            is_meal_plan: action.is_meal_plan ?? true,
-          }).select().single();
+          // Compute Monday-Sunday week range from date_range_start
+          const getWeekMon = (ds: string) => {
+            const d = new Date(ds + "T00:00:00Z");
+            const day = d.getUTCDay();
+            const diff = day === 0 ? -6 : 1 - day;
+            d.setUTCDate(d.getUTCDate() + diff);
+            return d.toISOString().slice(0, 10);
+          };
+          const getWeekSun = (monStr: string) => {
+            const d = new Date(monStr + "T00:00:00Z");
+            d.setUTCDate(d.getUTCDate() + 6);
+            return d.toISOString().slice(0, 10);
+          };
 
-          if (listError || !listData) {
-            results.push({ action_type: "create_shopping_list", success: false, error: listError?.message });
-            break;
+          const rawStart = action.date_range_start || new Date().toISOString().slice(0, 10);
+          const weekStart = getWeekMon(rawStart);
+          const weekEnd = getWeekSun(weekStart);
+          const monD = new Date(weekStart + "T00:00:00Z");
+          const sunD = new Date(weekEnd + "T00:00:00Z");
+          const weekLabel = `Week of ${monD.getUTCMonth() + 1}/${monD.getUTCDate()} (Mon) – ${sunD.getUTCMonth() + 1}/${sunD.getUTCDate()} (Sun)`;
+
+          // Find existing weekly list
+          let listQuery = client.from("shopping_lists").select("*")
+            .eq("user_id", userId)
+            .eq("is_meal_plan", true)
+            .eq("date_range_start", weekStart)
+            .eq("date_range_end", weekEnd);
+          if (groupId) listQuery = listQuery.eq("group_id", groupId);
+
+          const { data: existingLists } = await listQuery;
+          let listId: string;
+
+          if (existingLists && existingLists.length > 0) {
+            listId = existingLists[0].id;
+          } else {
+            const { data: listData, error: listError } = await client.from("shopping_lists").insert({
+              user_id: userId,
+              group_id: groupId,
+              label: weekLabel,
+              date_range_start: weekStart,
+              date_range_end: weekEnd,
+              is_meal_plan: action.is_meal_plan ?? true,
+            }).select().single();
+
+            if (listError || !listData) {
+              results.push({ action_type: "create_shopping_list", success: false, error: listError?.message });
+              break;
+            }
+            listId = listData.id;
           }
 
           const shopItems = Array.isArray(action.shopping_items) ? action.shopping_items : (Array.isArray(action.items) ? action.items : []);
           if (shopItems.length > 0) {
-            const rows = shopItems.map((name: string) => ({
-              list_id: listData.id,
-              user_id: userId,
-              name: typeof name === "string" ? name : String(name),
-            }));
-            const { error: itemsError } = await client.from("shopping_list_items").insert(rows);
-            if (itemsError) {
-              results.push({ action_type: "create_shopping_list", success: false, error: itemsError.message });
-              break;
+            // Fetch existing items to avoid duplicates
+            const { data: existingItems } = await client.from("shopping_list_items").select("*").eq("list_id", listId);
+            const existingNames = new Set((existingItems || []).map((it: any) => (it.name as string).toLowerCase().trim()));
+            const newItems = shopItems.filter((name: string) => !existingNames.has((typeof name === "string" ? name : String(name)).toLowerCase().trim()));
+
+            if (newItems.length > 0) {
+              const rows = newItems.map((name: string) => ({
+                list_id: listId,
+                user_id: userId,
+                name: typeof name === "string" ? name : String(name),
+              }));
+              const { error: itemsError } = await client.from("shopping_list_items").insert(rows);
+              if (itemsError) {
+                results.push({ action_type: "create_shopping_list", success: false, error: itemsError.message });
+                break;
+              }
             }
           }
 
-          results.push({ action_type: "create_shopping_list", success: true, id: listData.id });
+          results.push({ action_type: "create_shopping_list", success: true, id: listId });
           break;
         }
         default:

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, ShoppingCart, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
-import { format, parseISO } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
@@ -71,7 +70,6 @@ const ShoppingListPage = () => {
     fetchData();
   }, [fetchData]);
 
-  // Ensure a "Manual Items" list exists
   const getOrCreateManualList = async (): Promise<string | null> => {
     if (!user) return null;
     const existing = lists.find((l) => !l.is_meal_plan);
@@ -149,13 +147,6 @@ const ShoppingListPage = () => {
     if (!text?.trim()) return;
     await addItem(listId, text);
     setNewItemText((prev) => ({ ...prev, [listId]: "" }));
-  };
-
-  const formatDateRange = (start: string | null, end: string | null) => {
-    if (!start) return "";
-    const s = parseISO(start);
-    const e = end ? parseISO(end) : s;
-    return `${format(s, "M/d (EEE)")} – ${format(e, "M/d (EEE)")}`;
   };
 
   // Separate meal plan lists from manual lists
@@ -262,11 +253,10 @@ const ShoppingListPage = () => {
               setNewItemText((prev) => ({ ...prev, [list.id]: t }))
             }
             onAddItem={() => handleInlineAdd(list.id)}
-            formatDateRange={formatDateRange}
           />
         ))}
 
-        {/* Meal plan lists */}
+        {/* Weekly meal plan lists */}
         {mealPlanLists.map((list) => (
           <ListSection
             key={list.id}
@@ -280,7 +270,6 @@ const ShoppingListPage = () => {
               setNewItemText((prev) => ({ ...prev, [list.id]: t }))
             }
             onAddItem={() => handleInlineAdd(list.id)}
-            formatDateRange={formatDateRange}
           />
         ))}
       </div>
@@ -297,7 +286,6 @@ interface ListSectionProps {
   newItemText: string;
   onNewItemTextChange: (text: string) => void;
   onAddItem: () => void;
-  formatDateRange: (start: string | null, end: string | null) => string;
 }
 
 const ListSection = ({
@@ -309,13 +297,9 @@ const ListSection = ({
   newItemText,
   onNewItemTextChange,
   onAddItem,
-  formatDateRange,
 }: ListSectionProps) => {
   const unchecked = items.filter((i) => !i.checked);
   const checked = items.filter((i) => i.checked);
-  const dateRange = list.is_meal_plan
-    ? formatDateRange(list.date_range_start, list.date_range_end)
-    : null;
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -323,11 +307,8 @@ const ListSection = ({
       <div className="flex items-center justify-between px-4 py-3 bg-secondary/30">
         <div>
           <p className="text-sm font-semibold text-foreground">
-            {list.is_meal_plan ? "🍽️ Meal Plan" : "📝"} {list.label}
+            {list.is_meal_plan ? "🍽️" : "📝"} {list.label}
           </p>
-          {dateRange && (
-            <p className="text-xs text-muted-foreground">{dateRange}</p>
-          )}
         </div>
         <div className="flex items-center gap-1">
           <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">

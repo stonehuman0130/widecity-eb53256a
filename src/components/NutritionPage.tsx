@@ -405,6 +405,22 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
+  // Helper: get Monday of the week for a given date string (YYYY-MM-DD)
+  const getWeekMonday = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    const day = d.getDay(); // 0=Sun, 1=Mon, ...
+    const diff = day === 0 ? -6 : 1 - day; // shift to Monday
+    const mon = new Date(d);
+    mon.setDate(mon.getDate() + diff);
+    return fmtDate(mon);
+  };
+
+  const getWeekSunday = (mondayStr: string) => {
+    const d = new Date(mondayStr + "T00:00:00");
+    d.setDate(d.getDate() + 6);
+    return fmtDate(d);
+  };
+
   const saveToShoppingList = async () => {
     if (!user || !shopPrompt) return;
     setShopSaving(true);
@@ -415,29 +431,57 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       setShopSaving(false);
       return;
     }
-    // Create shopping list
-    const listLabel = `🍽️ ${shopPrompt.mealTitle}`;
-    const { data: listData, error: listErr } = await supabase.from("shopping_lists").insert({
-      user_id: user.id,
-      group_id: groupId,
-      label: listLabel,
-      date_range_start: shopPrompt.mealDate,
-      date_range_end: shopPrompt.mealDate,
-      is_meal_plan: true,
-    }).select().single();
 
-    if (listErr || !listData) {
-      toast.error("Failed to create shopping list");
-      setShopSaving(false);
-      return;
+    // Find or create the weekly Mon-Sun shopping list card
+    const weekStart = getWeekMonday(shopPrompt.mealDate);
+    const weekEnd = getWeekSunday(weekStart);
+    const monDate = new Date(weekStart + "T00:00:00");
+    const sunDate = new Date(weekEnd + "T00:00:00");
+    const weekLabel = `Week of ${monDate.getMonth() + 1}/${monDate.getDate()} (Mon) – ${sunDate.getMonth() + 1}/${sunDate.getDate()} (Sun)`;
+
+    // Check if a weekly list already exists for this week
+    let listQuery = supabase.from("shopping_lists").select("*")
+      .eq("user_id", user.id)
+      .eq("is_meal_plan", true)
+      .eq("date_range_start", weekStart)
+      .eq("date_range_end", weekEnd);
+    if (groupId) listQuery = listQuery.eq("group_id", groupId);
+
+    const { data: existingLists } = await listQuery;
+    let listId: string;
+
+    if (existingLists && existingLists.length > 0) {
+      listId = existingLists[0].id;
+    } else {
+      const insertData: any = {
+        user_id: user.id,
+        group_id: groupId,
+        label: weekLabel,
+        date_range_start: weekStart,
+        date_range_end: weekEnd,
+        is_meal_plan: true,
+      };
+      const { data: listData, error: listErr } = await supabase.from("shopping_lists").insert(insertData).select().single();
+      if (listErr || !listData) {
+        toast.error("Failed to create shopping list");
+        setShopSaving(false);
+        return;
+      }
+      listId = (listData as any).id;
     }
-    const rows = selectedItems.map(name => ({
-      list_id: (listData as any).id,
-      user_id: user.id,
-      name,
-    }));
-    await supabase.from("shopping_list_items").insert(rows);
-    toast.success("Shopping list created!");
+
+    // Fetch existing items in this weekly list to avoid duplicates
+    const { data: existingItems } = await supabase.from("shopping_list_items").select("*").eq("list_id", listId);
+    const existingNames = new Set((existingItems || []).map((it: any) => (it.name as string).toLowerCase().trim()));
+
+    // Only add items not already in the list
+    const newItems = selectedItems.filter(name => !existingNames.has(name.toLowerCase().trim()));
+    if (newItems.length > 0) {
+      const rows = newItems.map(name => ({ list_id: listId, user_id: user.id, name }));
+      await supabase.from("shopping_list_items").insert(rows);
+    }
+
+    toast.success(existingLists && existingLists.length > 0 ? "Items added to weekly shopping list!" : "Weekly shopping list created!");
     dismissShopPrompt();
     setShopSaving(false);
   };
