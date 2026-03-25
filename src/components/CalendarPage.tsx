@@ -544,7 +544,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       title: newTitle.trim(),
       time: "",
       tag: newTodoTag,
-      assignee: newUser,
+      assignee: newUser as "me" | "partner" | "both",
       dueDate: dueDateStr,
       priorNoticeDays: notice,
     });
