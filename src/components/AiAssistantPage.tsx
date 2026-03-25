@@ -324,7 +324,6 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
           });
         }
       }
-      }
 
       const aiMsg: AiMessage = {
         id: crypto.randomUUID(),
