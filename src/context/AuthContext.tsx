@@ -182,8 +182,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (restoredSession?.access_token) {
         setSession(restoredSession);
       } else {
-        restoreGroupsFromCache(user.id);
-        return;
+        const { data: refreshedData } = await supabase.auth.refreshSession();
+        if (refreshedData?.session?.access_token) {
+          setSession(refreshedData.session);
+        } else {
+          restoreGroupsFromCache(user.id);
+          return;
+        }
       }
     }
 
@@ -261,8 +266,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      setGroups([]);
-      setActiveGroup(null);
+      // Never overwrite visible state with an empty result from a potentially transient auth/backend issue.
+      // If this user truly has no groups, create/join flow will still work and populate state.
       return;
     }
 
