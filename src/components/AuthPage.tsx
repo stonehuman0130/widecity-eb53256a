@@ -4,6 +4,33 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { Loader2, Mail, Lock, User, ArrowRight } from "lucide-react";
 
+const AUTH_TIMEOUT_MS = 15000;
+
+class AuthTimeoutError extends Error {
+  constructor(message = "Authentication request timed out") {
+    super(message);
+    this.name = "AuthTimeoutError";
+  }
+}
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs = AUTH_TIMEOUT_MS): Promise<T> => {
+  return await new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new AuthTimeoutError("Authentication is taking too long. Please try again in a moment."));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+};
+
 const AuthPage = () => {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -23,25 +50,31 @@ const AuthPage = () => {
           setLoading(false);
           return;
         }
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { display_name: displayName },
-            emailRedirectTo: window.location.origin,
-          },
-        });
+        const { error } = await withTimeout(
+          supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { display_name: displayName },
+              emailRedirectTo: window.location.origin,
+            },
+          })
+        );
         if (error) throw error;
         toast.success("Check your email!", {
           description: "We sent you a verification link to confirm your account.",
         });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await withTimeout(supabase.auth.signInWithPassword({ email, password }));
         if (error) throw error;
         toast.success("Welcome back!");
       }
     } catch (err: any) {
-      toast.error(err.message || "Authentication failed");
+      const errorMessage =
+        err instanceof AuthTimeoutError
+          ? err.message
+          : err?.message || "Authentication failed";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
