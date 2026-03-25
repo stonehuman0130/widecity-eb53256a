@@ -800,7 +800,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   <X size={16} />
                 </button>
               </div>
-              <div className="px-5 pb-safe flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
+              <div className="px-5 flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
                 <div className="flex gap-3 mb-4">
                   <div className="bg-primary/10 rounded-xl px-4 py-2 text-center flex-1">
                     <p className="text-lg font-bold text-primary">{detailMeal.protein}g</p>
