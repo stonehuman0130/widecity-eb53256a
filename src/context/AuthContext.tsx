@@ -200,9 +200,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (!memberships || memberships.length === 0) {
+      const { data: fallbackGroups, error: fallbackGroupsError } = await supabase
+        .from("groups")
+        .select("*");
+
+      if (!fallbackGroupsError && fallbackGroups && fallbackGroups.length > 0) {
+        const fallbackEnriched: Group[] = fallbackGroups.map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          type: g.type,
+          emoji: g.emoji,
+          invite_code: g.invite_code,
+          created_by: g.created_by,
+          members: [],
+        }));
+
+        setGroups(fallbackEnriched);
+        setActiveGroup((prev) => {
+          if (!prev) return fallbackEnriched[0] ?? null;
+          return fallbackEnriched.find((g) => g.id === prev.id) ?? fallbackEnriched[0] ?? null;
+        });
+        saveCachedGroups(user.id, fallbackEnriched);
+        return;
+      }
+
+      if (restoreGroupsFromCache(user.id)) {
+        return;
+      }
+
       setGroups([]);
       setActiveGroup(null);
-      saveCachedGroups(user.id, []);
       return;
     }
 
@@ -226,7 +253,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (membersError) {
       console.error("Error fetching group members:", membersError);
-      restoreGroupsFromCache(user.id);
+      const fallbackEnriched: Group[] = groupsData.map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        type: g.type,
+        emoji: g.emoji,
+        invite_code: g.invite_code,
+        created_by: g.created_by,
+        members: [],
+      }));
+      setGroups(fallbackEnriched);
+      setActiveGroup((prev) => {
+        if (!prev) return fallbackEnriched[0] ?? null;
+        return fallbackEnriched.find((g) => g.id === prev.id) ?? fallbackEnriched[0] ?? null;
+      });
+      saveCachedGroups(user.id, fallbackEnriched);
       return;
     }
 
