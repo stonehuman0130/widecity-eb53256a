@@ -378,20 +378,30 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                 {/* Assignee selector */}
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Assign to</p>
-                  <div className="flex gap-2">
-                    {(["me", "partner", "both"] as const).map((u) => (
-                      <button
-                        key={u}
-                        onClick={() => setCalUser(u)}
-                        className={`flex-1 py-2.5 text-xs font-semibold rounded-xl border transition-all ${
-                          calUser === u
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground"
-                        }`}
-                      >
-                        {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
+                  <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                    {modalGroupFilters.length <= 1 ? (
+                      <button className="flex-1 py-2.5 text-xs font-semibold rounded-xl border border-primary bg-primary/10 text-primary">
+                        Mine
                       </button>
-                    ))}
+                    ) : (
+                      modalGroupFilters.map((f) => {
+                        const assigneeValue = f.id === "mine" ? "me" : f.id === "partner" ? "partner" : f.id === "household" ? "both" : f.id;
+                        const label = f.id === "mine" ? "Mine" : f.id === "household" ? "All" : f.label;
+                        return (
+                          <button
+                            key={f.id}
+                            onClick={() => setCalUser(assigneeValue)}
+                            className={`flex-1 py-2.5 text-xs font-semibold rounded-xl border transition-all whitespace-nowrap px-2 ${
+                              calUser === assigneeValue
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border text-muted-foreground"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
