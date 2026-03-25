@@ -182,7 +182,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [newEndDate, setNewEndDate] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
   const [newAllDay, setNewAllDay] = useState(false);
-  const [newUser, setNewUser] = useState<"me" | "partner" | "both">("me");
+  const [newUser, setNewUser] = useState<string>("me");
   const [newDesc, setNewDesc] = useState("");
 
   // To Do mode state
