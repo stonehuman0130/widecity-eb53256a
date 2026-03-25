@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Mic, MicOff, Sparkles, Loader2, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { Send, Mic, MicOff, Sparkles, Loader2, ArrowLeft, CheckCircle2, XCircle, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useAppContext } from "@/context/AppContext";
