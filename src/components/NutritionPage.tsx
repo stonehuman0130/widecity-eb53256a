@@ -720,6 +720,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
             onClick={() => setShowAiResults(false)}
           >
             <motion.div
@@ -728,6 +729,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={e => e.stopPropagation()}
+              onTouchMove={e => e.stopPropagation()}
               className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[82svh] flex flex-col"
             >
               <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
