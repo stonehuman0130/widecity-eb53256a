@@ -108,10 +108,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user) return;
 
     // Get group IDs the user belongs to
-    const { data: memberships } = await supabase
+    const { data: memberships, error: memErr } = await supabase
       .from("group_members")
       .select("group_id")
       .eq("user_id", user.id);
+
+    console.log("[fetchGroups] memberships:", memberships, "error:", memErr);
 
     if (!memberships || memberships.length === 0) {
       setGroups([]);
