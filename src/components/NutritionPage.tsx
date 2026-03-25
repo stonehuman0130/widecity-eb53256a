@@ -1115,7 +1115,7 @@ function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogethe
                     <span className={`text-sm font-bold leading-tight ${isDateToday ? "text-primary" : "text-foreground"}`}>{dayNum}</span>
                     <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
                       {dMeals.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                      {consumedCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+                      {consumedCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />}
                     </div>
                     {totalProtein > 0 && (
                       <span className="text-[8px] font-bold text-primary mt-0.5">{totalProtein}g</span>
