@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Mic, MicOff, Sparkles, Loader2, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { Send, Mic, MicOff, Sparkles, Loader2, ArrowLeft, CheckCircle2, XCircle, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useAppContext } from "@/context/AppContext";
@@ -66,6 +66,117 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
+
+  // Shopping list ingredient review state
+  interface ShopItem { ingredients: string[]; mealTitle: string; mealDate: string }
+  const [shopPrompt, setShopPrompt] = useState<ShopItem | null>(null);
+  const [shopQueue, setShopQueue] = useState<ShopItem[]>([]);
+  const [shopChecked, setShopChecked] = useState<Record<number, boolean>>({});
+  const [shopSaving, setShopSaving] = useState(false);
+
+  const groupId = activeGroup?.id || groups[0]?.id || null;
+
+  const fmtDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const getWeekMonday = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const mon = new Date(d);
+    mon.setDate(mon.getDate() + diff);
+    return fmtDate(mon);
+  };
+
+  const getWeekSunday = (mondayStr: string) => {
+    const d = new Date(mondayStr + "T00:00:00");
+    d.setDate(d.getDate() + 6);
+    return fmtDate(d);
+  };
+
+  const dismissShopPrompt = () => {
+    setShopPrompt(null);
+    setShopQueue(prev => {
+      if (prev.length > 0) {
+        const [next, ...rest] = prev;
+        setTimeout(() => {
+          setShopChecked(Object.fromEntries(next.ingredients.map((_, i) => [i, true])));
+          setShopPrompt(next);
+        }, 200);
+        return rest;
+      }
+      return [];
+    });
+  };
+
+  const enqueueShopPrompt = (item: ShopItem) => {
+    if (shopPrompt) {
+      setShopQueue(prev => [...prev, item]);
+    } else {
+      setShopChecked(Object.fromEntries(item.ingredients.map((_, i) => [i, true])));
+      setShopPrompt(item);
+    }
+  };
+
+  const saveToShoppingList = async () => {
+    if (!user || !shopPrompt) return;
+    setShopSaving(true);
+    const selectedItems = shopPrompt.ingredients.filter((_, i) => shopChecked[i]);
+    if (selectedItems.length === 0) {
+      toast.info("No items selected");
+      dismissShopPrompt();
+      setShopSaving(false);
+      return;
+    }
+
+    const weekStart = getWeekMonday(shopPrompt.mealDate);
+    const weekEnd = getWeekSunday(weekStart);
+    const monDate = new Date(weekStart + "T00:00:00");
+    const sunDate = new Date(weekEnd + "T00:00:00");
+    const weekLabel = `Week of ${monDate.getMonth() + 1}/${monDate.getDate()} (Mon) – ${sunDate.getMonth() + 1}/${sunDate.getDate()} (Sun)`;
+
+    let listQuery = supabase.from("shopping_lists").select("*")
+      .eq("user_id", user.id)
+      .eq("is_meal_plan", true)
+      .eq("date_range_start", weekStart)
+      .eq("date_range_end", weekEnd);
+    if (groupId) listQuery = listQuery.eq("group_id", groupId);
+
+    const { data: existingLists } = await listQuery;
+    let listId: string;
+
+    if (existingLists && existingLists.length > 0) {
+      listId = existingLists[0].id;
+    } else {
+      const insertData: any = {
+        user_id: user.id,
+        group_id: groupId,
+        label: weekLabel,
+        date_range_start: weekStart,
+        date_range_end: weekEnd,
+        is_meal_plan: true,
+      };
+      const { data: listData, error: listErr } = await supabase.from("shopping_lists").insert(insertData).select().single();
+      if (listErr || !listData) {
+        toast.error("Failed to create shopping list");
+        setShopSaving(false);
+        return;
+      }
+      listId = (listData as any).id;
+    }
+
+    const { data: existingItems } = await supabase.from("shopping_list_items").select("*").eq("list_id", listId);
+    const existingNames = new Set((existingItems || []).map((it: any) => (it.name as string).toLowerCase().trim()));
+    const newItems = selectedItems.filter(name => !existingNames.has(name.toLowerCase().trim()));
+    if (newItems.length > 0) {
+      const rows = newItems.map(name => ({ list_id: listId, user_id: user.id, name }));
+      await supabase.from("shopping_list_items").insert(rows);
+    }
+
+    toast.success(existingLists && existingLists.length > 0 ? "Items added to weekly shopping list!" : "Weekly shopping list created!");
+    dismissShopPrompt();
+    setShopSaving(false);
+  };
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -174,8 +285,43 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
       if (actionResults.length > 0) {
         const hasSuccess = actionResults.some((r: ActionResult) => r.success);
         if (hasSuccess) {
-          // Trigger a data refresh by reloading app context
           appContext.refreshData?.();
+        }
+
+        // Check for successful log_meal actions and trigger shopping list flow
+        const mealActions = actions.filter((a: AppAction) => a.action_type === "log_meal");
+        const successfulMealResults = actionResults.filter((r: ActionResult) => r.action_type === "log_meal" && r.success);
+        if (successfulMealResults.length > 0 && mealActions.length > 0) {
+          // Group ingredients by week for the shopping list prompt
+          const weekMap = new Map<string, { ingredients: string[]; mealTitles: string[]; mealDate: string }>();
+          mealActions.forEach((a: AppAction) => {
+            const ingredients = Array.isArray(a.ingredients) ? a.ingredients : [];
+            if (ingredients.length === 0) return;
+            const mealDate = a.meal_date || new Date().toISOString().slice(0, 10);
+            const weekKey = getWeekMonday(mealDate);
+            const existing = weekMap.get(weekKey);
+            if (existing) {
+              existing.ingredients.push(...ingredients);
+              existing.mealTitles.push(a.title || "Meal");
+            } else {
+              weekMap.set(weekKey, { ingredients: [...ingredients], mealTitles: [a.title || "Meal"], mealDate });
+            }
+          });
+
+          // Deduplicate ingredients within each week and enqueue prompts
+          weekMap.forEach((val) => {
+            // Simple dedup: merge by lowercase name
+            const seen = new Map<string, string>();
+            val.ingredients.forEach(ing => {
+              const key = ing.toLowerCase().trim();
+              if (!seen.has(key)) seen.set(key, ing);
+            });
+            const dedupedIngredients = Array.from(seen.values());
+            if (dedupedIngredients.length > 0) {
+              const title = val.mealTitles.length === 1 ? val.mealTitles[0] : `${val.mealTitles.length} meals`;
+              enqueueShopPrompt({ ingredients: dedupedIngredients, mealTitle: title, mealDate: val.mealDate });
+            }
+          });
         }
       }
 
@@ -450,6 +596,67 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
           </button>
         </div>
       </div>
+
+      {/* Shopping list ingredient review popup */}
+      <AnimatePresence>
+        {shopPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/40 flex items-end justify-center"
+            onClick={() => dismissShopPrompt()}
+          >
+            <motion.div
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="w-full max-w-md bg-card rounded-t-2xl max-h-[75dvh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex-shrink-0 px-5 pt-5 pb-3">
+                <div className="w-10 h-1 bg-muted rounded-full mx-auto mb-4" />
+                <h3 className="text-base font-bold text-foreground">🛒 Add to Shopping List?</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ingredients from <span className="font-semibold text-foreground">{shopPrompt.mealTitle}</span> — uncheck items you already have at home.
+                </p>
+              </div>
+              <div className="flex-1 overflow-y-auto px-5 pb-3" style={{ WebkitOverflowScrolling: "touch" }}>
+                {shopPrompt.ingredients.map((ing, i) => (
+                  <label key={i} className="flex items-center gap-3 py-2 border-b border-border/30 last:border-0 cursor-pointer">
+                    <button
+                      onClick={() => setShopChecked(prev => ({ ...prev, [i]: !prev[i] }))}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                        shopChecked[i]
+                          ? "bg-primary border-primary"
+                          : "border-muted-foreground/30"
+                      }`}
+                    >
+                      {shopChecked[i] && <Check size={12} className="text-primary-foreground" />}
+                    </button>
+                    <span className={`text-sm ${shopChecked[i] ? "text-foreground" : "text-muted-foreground line-through"}`}>
+                      {ing}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex-shrink-0 px-5 pb-6 pt-3 flex gap-2">
+                <button
+                  onClick={() => dismissShopPrompt()}
+                  className="flex-1 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-semibold"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={saveToShoppingList}
+                  disabled={shopSaving}
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {shopSaving ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Add to Shopping List
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
