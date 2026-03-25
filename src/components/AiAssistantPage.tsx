@@ -52,6 +52,7 @@ const ACTION_LABELS: Record<string, string> = {
   delete_task: "Deleted task",
   log_meal: "Added meal",
   delete_meal: "Deleted meal",
+  create_shopping_list: "Created shopping list",
 };
 
 const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
