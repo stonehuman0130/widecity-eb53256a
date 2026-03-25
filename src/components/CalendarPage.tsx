@@ -1135,11 +1135,33 @@ const EventList = ({
   getColorClasses: (gid: string | null | undefined) => typeof GROUP_COLOR_CLASSES[0];
 }) => {
   const { activeGroup } = useAuth();
-  const allDayItems = items.filter((i) => i.allDay);
+  const todoItems = items.filter((i) => i.isDueDateTask);
+  const allDayItems = items.filter((i) => i.allDay && !i.isDueDateTask);
   const timedItems = items.filter((i) => !i.allDay);
 
   return (
     <div className="divide-y divide-border">
+      {todoItems.length > 0 && (
+        <div className="py-1">
+          {todoItems.map((item) => {
+            const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
+            return (
+              <div key={item.id} className="flex items-center gap-2.5 py-1.5 px-1">
+                <span className={`w-[3px] h-5 rounded-full ${TODO_COLOR_CLASSES.bg} flex-shrink-0`} />
+                <span className="text-[11px] text-violet-500 w-12 flex-shrink-0 font-medium">to-do</span>
+                <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
+                  {item.title}
+                </span>
+                {group && (
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{group.emoji} {group.name}</span>
+                )}
+                <UserBadge user={item.assignee} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {allDayItems.length > 0 && (
         <div className="py-1">
           {allDayItems.map((item) => {
