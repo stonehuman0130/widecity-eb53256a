@@ -1038,6 +1038,84 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         )}
       </AnimatePresence>
 
+      {/* ───── Edit Meal Modal ───── */}
+      <AnimatePresence>
+        {editingMeal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
+            onClick={() => setEditingMeal(null)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg"
+            >
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-border" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-1 pb-3">
+                <h3 className="text-lg font-bold flex items-center gap-2"><Pencil size={18} className="text-primary" /> Edit Meal</h3>
+                <button onClick={() => setEditingMeal(null)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 pb-6 space-y-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
+                {/* Meal type selector */}
+                <div className="flex gap-1.5">
+                  {MEAL_TYPES.map(mt => (
+                    <button
+                      key={mt.key}
+                      onClick={() => setEditMealType(mt.key)}
+                      className={`flex-1 py-2 rounded-lg text-[10px] font-semibold transition-colors ${
+                        editMealType === mt.key
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      {mt.icon} {mt.label}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Meal Name</label>
+                  <input
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background placeholder:text-muted-foreground"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Protein (g)</label>
+                    <input type="number" value={editProtein} onChange={e => setEditProtein(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Calories</label>
+                    <input type="number" value={editCalories} onChange={e => setEditCalories(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                </div>
+                <button
+                  onClick={saveEditMeal}
+                  disabled={!editTitle.trim()}
+                  className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ───── Goal Settings Modal ───── */}
       <AnimatePresence>
         {showGoalSettings && (
