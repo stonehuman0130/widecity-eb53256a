@@ -33,7 +33,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
   const [calEndTime, setCalEndTime] = useState("");
   const [calAllDay, setCalAllDay] = useState(false);
   const [calDesc, setCalDesc] = useState("");
-  const [calUser, setCalUser] = useState<"me" | "partner" | "both">("me");
+  const [calUser, setCalUser] = useState<string>("me");
   const [calTag, setCalTag] = useState<"Work" | "Personal" | "Household">("Personal");
 
   // To Do mode state
