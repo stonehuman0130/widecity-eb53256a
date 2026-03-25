@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Search,
-  Calendar as CalendarIcon, MoreVertical, Settings,
+  Calendar as CalendarIcon, MoreVertical, Settings, ListTodo,
 } from "lucide-react";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { useAuth, Group } from "@/context/AuthContext";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -159,7 +160,7 @@ interface CalItem {
 const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const {
     events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
-    tasks, filteredTasks, toggleTask, removeTask, updateTask,
+    tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
     googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
     toggleEventCompletion,
   } = useAppContext();
@@ -183,6 +184,17 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [newAllDay, setNewAllDay] = useState(false);
   const [newUser, setNewUser] = useState<"me" | "partner" | "both">("me");
   const [newDesc, setNewDesc] = useState("");
+
+  // To Do mode state
+  const [newIsTodo, setNewIsTodo] = useState(false);
+  const [newTodoDueDate, setNewTodoDueDate] = useState<Date | undefined>(undefined);
+  const [newTodoPriorNotice, setNewTodoPriorNotice] = useState(0);
+  const [newTodoTag, setNewTodoTag] = useState<"Work" | "Personal" | "Household">("Personal");
+  const [newTodoShowCustom, setNewTodoShowCustom] = useState(false);
+  const [newTodoCustomNotice, setNewTodoCustomNotice] = useState("14");
+  const [newTodoDueDatePickerOpen, setNewTodoDueDatePickerOpen] = useState(false);
+
+  const TODO_NOTICE_OPTIONS = [-1, 0, 1, 2, 3, 7];
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -462,8 +474,15 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     setNewEndTime("");
     setNewAllDay(false);
     setNewTitle("");
-    setNewUser("me");
+     setNewUser("me");
     setNewDesc("");
+    setNewIsTodo(false);
+    setNewTodoDueDate(undefined);
+    setNewTodoPriorNotice(0);
+    setNewTodoTag("Personal");
+    setNewTodoShowCustom(false);
+    setNewTodoCustomNotice("14");
+    setNewTodoDueDatePickerOpen(false);
     setShowAddForm(true);
   };
 
@@ -509,6 +528,28 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     });
 
     toast.success(`Scheduled: ${newTitle.trim()}`);
+    setShowAddForm(false);
+  };
+
+  // ── Add to-do handler ─────────────────────────────────
+
+  const handleAddTodo = () => {
+    if (!newTitle.trim()) return;
+    const dueDateStr = newTodoDueDate
+      ? `${newTodoDueDate.getFullYear()}-${String(newTodoDueDate.getMonth() + 1).padStart(2, "0")}-${String(newTodoDueDate.getDate()).padStart(2, "0")}`
+      : null;
+    const notice = newTodoShowCustom ? (parseInt(newTodoCustomNotice) || 0) : newTodoPriorNotice;
+
+    addTask({
+      title: newTitle.trim(),
+      time: "",
+      tag: newTodoTag,
+      assignee: newUser,
+      dueDate: dueDateStr,
+      priorNoticeDays: notice,
+    });
+
+    toast.success(`To-do added: ${newTitle.trim()}`);
     setShowAddForm(false);
   };
 
@@ -675,7 +716,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       {showAddForm && (
         <div className="mb-3 bg-card border border-border rounded-xl p-4 space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">New Event</h3>
+            <h3 className="text-sm font-semibold text-foreground">{newIsTodo ? "New To Do" : "New Event"}</h3>
             <button onClick={() => setShowAddForm(false)} className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
               <X size={14} />
             </button>
@@ -683,56 +724,176 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           <input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Event title..."
+            placeholder={newIsTodo ? "What do you need to do?" : "Event title..."}
             className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
             autoFocus
           />
 
-          {/* All-day toggle */}
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={newAllDay} onChange={(e) => setNewAllDay(e.target.checked)} className="rounded" />
-            <span className="text-muted-foreground">All-day</span>
-          </label>
-
-          {/* Start */}
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="text-[10px] uppercase font-semibold text-muted-foreground">Start</label>
-              <input type="date" value={newStartDate} onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
-            </div>
-            {!newAllDay && (
-              <div className="w-28">
-                <label className="text-[10px] uppercase font-semibold text-muted-foreground">Time</label>
-                <input type="time" value={newStartTime} onChange={(e) => handleStartTimeChange(e.target.value)}
-                  className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
-              </div>
-            )}
+          {/* Checkboxes row: All-day + To Do */}
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={newAllDay} onChange={(e) => { setNewAllDay(e.target.checked); if (e.target.checked) setNewIsTodo(false); }} className="rounded" disabled={newIsTodo} />
+              <span className={cn("text-muted-foreground", newIsTodo && "opacity-50")}>All-day</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={newIsTodo} onChange={(e) => { setNewIsTodo(e.target.checked); if (e.target.checked) setNewAllDay(false); }} className="rounded" />
+              <span className="text-muted-foreground flex items-center gap-1"><ListTodo size={13} /> To Do</span>
+            </label>
           </div>
 
-          {/* End */}
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="text-[10px] uppercase font-semibold text-muted-foreground">End</label>
-              <input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} min={newStartDate}
-                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
-            </div>
-            {!newAllDay && (
-              <div className="w-28">
-                <label className="text-[10px] uppercase font-semibold text-muted-foreground">Time</label>
-                <input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)}
-                  className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
+          {newIsTodo ? (
+            /* ── To Do mode fields ── */
+            <>
+              {/* Due date picker */}
+              <div>
+                <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Due date (optional)</p>
+                <Popover open={newTodoDueDatePickerOpen} onOpenChange={setNewTodoDueDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <button className="w-full bg-secondary rounded-lg px-3 py-2 text-sm text-left flex items-center gap-2">
+                      <CalendarIcon size={13} className="text-muted-foreground" />
+                      {newTodoDueDate
+                        ? newTodoDueDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
+                        : <span className="text-muted-foreground">No due date</span>
+                      }
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-[70]" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={newTodoDueDate}
+                      onSelect={(date) => { setNewTodoDueDate(date); setNewTodoDueDatePickerOpen(false); }}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {newTodoDueDate && (
+                  <button onClick={() => setNewTodoDueDate(undefined)} className="text-xs text-destructive mt-1 ml-1">
+                    Remove due date
+                  </button>
+                )}
               </div>
-            )}
-          </div>
 
-          <textarea
-            value={newDesc}
-            onChange={(e) => setNewDesc(e.target.value)}
-            placeholder="Notes (optional)..."
-            rows={2}
-            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground resize-none"
-          />
+              {/* Give notice selector */}
+              {newTodoDueDate && (
+                <div>
+                  <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Give notice</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TODO_NOTICE_OPTIONS.map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => { setNewTodoPriorNotice(n); setNewTodoShowCustom(false); }}
+                        className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-all ${
+                          !newTodoShowCustom && newTodoPriorNotice === n
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        {n === -1 ? "Starting today" : n === 0 ? "Due day only" : n === 1 ? "1 day before" : `${n} days before`}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setNewTodoShowCustom(true)}
+                      className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-all ${
+                        newTodoShowCustom
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      Custom
+                    </button>
+                  </div>
+                  {newTodoShowCustom && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="number"
+                        min={1}
+                        value={newTodoCustomNotice}
+                        onChange={(e) => setNewTodoCustomNotice(e.target.value)}
+                        className="w-16 bg-secondary rounded-lg px-2 py-1.5 text-sm outline-none text-center"
+                      />
+                      <span className="text-xs text-muted-foreground">days before</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Category */}
+              <div>
+                <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Category</p>
+                <div className="flex gap-1.5">
+                  {(["Work", "Personal", "Household"] as const).map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => setNewTodoTag(tag)}
+                      className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
+                        newTodoTag === tag
+                          ? tag === "Work"
+                            ? "border-blue-500 bg-blue-500/10 text-blue-500"
+                            : tag === "Household"
+                            ? "border-orange-500 bg-orange-500/10 text-orange-500"
+                            : "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <textarea
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                placeholder="Notes (optional)..."
+                rows={2}
+                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground resize-none"
+              />
+            </>
+          ) : (
+            /* ── Event mode fields ── */
+            <>
+              {/* Start */}
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] uppercase font-semibold text-muted-foreground">Start</label>
+                  <input type="date" value={newStartDate} onChange={(e) => handleStartDateChange(e.target.value)}
+                    className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
+                </div>
+                {!newAllDay && (
+                  <div className="w-28">
+                    <label className="text-[10px] uppercase font-semibold text-muted-foreground">Time</label>
+                    <input type="time" value={newStartTime} onChange={(e) => handleStartTimeChange(e.target.value)}
+                      className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
+                  </div>
+                )}
+              </div>
+
+              {/* End */}
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] uppercase font-semibold text-muted-foreground">End</label>
+                  <input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} min={newStartDate}
+                    className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
+                </div>
+                {!newAllDay && (
+                  <div className="w-28">
+                    <label className="text-[10px] uppercase font-semibold text-muted-foreground">Time</label>
+                    <input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)}
+                      className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
+                  </div>
+                )}
+              </div>
+
+              <textarea
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                placeholder="Notes (optional)..."
+                rows={2}
+                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground resize-none"
+              />
+            </>
+          )}
 
           {/* Assignee */}
           <div className="flex gap-1.5">
@@ -746,8 +907,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             ))}
           </div>
 
-          <button onClick={handleAddEvent} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold">
-            Add Event
+          <button onClick={newIsTodo ? handleAddTodo : handleAddEvent} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold">
+            {newIsTodo ? "Add To Do" : "Add Event"}
           </button>
         </div>
       )}
