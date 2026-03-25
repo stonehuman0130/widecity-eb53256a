@@ -999,10 +999,10 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                   {dots && !isSelected && (
                     <div className="flex gap-[2px] absolute bottom-0">
                       {Array.from(dots).slice(0, 3).map((gid, idx) => {
-                        const colorIdx = gid === "__default" ? 0 : getGroupColorIndex(gid, groups);
+                        const dotColor = gid === "__todo" ? TODO_COLOR : GROUP_COLORS[(gid === "__default" ? 0 : getGroupColorIndex(gid, groups)) % GROUP_COLORS.length];
                         return (
                           <span key={idx} className="w-[4px] h-[4px] rounded-full"
-                            style={{ backgroundColor: GROUP_COLORS[colorIdx % GROUP_COLORS.length] }} />
+                            style={{ backgroundColor: dotColor }} />
                         );
                       })}
                     </div>
