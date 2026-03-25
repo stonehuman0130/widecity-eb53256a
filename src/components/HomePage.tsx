@@ -750,50 +750,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         )}
       </AnimatePresence>
 
-      {/* AI-powered input bar */}
-      {!voiceMode && !clarification && (
-        <div className="flex items-center gap-2 bg-card rounded-xl p-2 pl-4 mb-6 shadow-card border border-border">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                if (e.shiftKey) {
-                  handleQuickAdd();
-                } else {
-                  handleAiSchedule();
-                }
-              }
-            }}
-            placeholder="Try: 'call at 2pm tomorrow & add stretch to mornings'"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
-          />
-          {speechSupported && (
-            <button
-              onClick={toggleVoiceMode}
-              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-purple-500 hover:from-purple-500/30 hover:to-pink-500/30"
-              title="Voice assistant"
-            >
-              <Mic size={16} />
-            </button>
-          )}
-          <button
-            onClick={() => handleAiSchedule()}
-            disabled={aiLoading || !input.trim()}
-            className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-primary-foreground disabled:opacity-50 flex-shrink-0"
-          >
-            {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-          </button>
-          <button
-            onClick={handleQuickAdd}
-            disabled={!input.trim()}
-            className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-50 flex-shrink-0"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-      )}
 
       {filter === "household" ? (
         <TeamDashboard
