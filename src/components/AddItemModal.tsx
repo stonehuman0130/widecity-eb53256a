@@ -269,7 +269,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                     {/* Prior notice selector - only show when due date is set */}
                     {todoDueDate && (
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Show starting</p>
+                        <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Give notice</p>
                         <div className="flex flex-wrap gap-1.5">
                           {NOTICE_OPTIONS.map((n) => (
                             <button
@@ -281,7 +281,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                                   : "border-border text-muted-foreground"
                               }`}
                             >
-                              {n === 0 ? "Due day only" : n === 1 ? "1 day before" : `${n} days before`}
+                              {n === -1 ? "Starting today" : n === 0 ? "Due day only" : n === 1 ? "1 day before" : `${n} days before`}
                             </button>
                           ))}
                         </div>
