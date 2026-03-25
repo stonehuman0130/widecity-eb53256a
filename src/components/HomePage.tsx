@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { speak, stopSpeaking } from "@/lib/speak";
 import { useGroupContext } from "@/hooks/useGroupContext";
+import { cn } from "@/lib/utils";
 
 type Filter = string; // "mine" | "partner" | "household" | "member:{userId}"
 
