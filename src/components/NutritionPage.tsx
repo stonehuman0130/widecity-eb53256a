@@ -109,10 +109,37 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Shopping list prompt after AI suggest add
+  // Shopping list prompt after AI suggest add (queue for multiple meals)
   const [shopPrompt, setShopPrompt] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string } | null>(null);
+  const [shopQueue, setShopQueue] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string }[]>([]);
   const [shopChecked, setShopChecked] = useState<Record<number, boolean>>({});
   const [shopSaving, setShopSaving] = useState(false);
+
+  // Process shop queue: when shopPrompt is dismissed and queue has items, show next
+  const dismissShopPrompt = () => {
+    setShopPrompt(null);
+    setShopQueue(prev => {
+      if (prev.length > 0) {
+        const [next, ...rest] = prev;
+        setTimeout(() => {
+          setShopChecked(Object.fromEntries(next.ingredients.map((_, i) => [i, true])));
+          setShopPrompt(next);
+        }, 200);
+        return rest;
+      }
+      return prev;
+    });
+  };
+
+  const enqueueShopPrompt = (item: { ingredients: string[]; mealTitle: string; mealDate: string }) => {
+    if (shopPrompt) {
+      // Already showing one, queue this
+      setShopQueue(prev => [...prev, item]);
+    } else {
+      setShopChecked(Object.fromEntries(item.ingredients.map((_, i) => [i, true])));
+      setShopPrompt(item);
+    }
+  };
 
   useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!editingMeal || !!shopPrompt);
 
