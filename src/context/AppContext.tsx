@@ -702,6 +702,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       scheduledDay: row.scheduled_day,
       scheduledMonth: row.scheduled_month,
       scheduledYear: row.scheduled_year,
+      dueDate: row.due_date ?? null,
+      priorNoticeDays: row.prior_notice_days ?? 0,
       hiddenFromPartner: row.hidden_from_partner || false,
       groupId: row.group_id || null,
       tag: row.tag as "Work" | "Personal" | "Household",
