@@ -13,6 +13,7 @@ import AiAssistantPage from "@/components/AiAssistantPage";
 import SobrietyPage from "@/components/SobrietyPage";
 import SpecialDaysPage from "@/components/SpecialDaysPage";
 import SettingsPage from "@/components/SettingsPage";
+import ShoppingListPage from "@/components/ShoppingListPage";
 import LauncherPage from "@/components/LauncherPage";
 import AuthPage from "@/components/AuthPage";
 import { AppProvider } from "@/context/AppContext";
@@ -112,6 +113,7 @@ const Index = () => {
     habits: <HabitsPage />,
     sobriety: <SobrietyPage />,
     specialdays: <SpecialDaysPage />,
+    shopping: <ShoppingListPage />,
     calendar: <CalendarPage />,
     chat: renderChatView(),
     ai: <AiAssistantPage />,

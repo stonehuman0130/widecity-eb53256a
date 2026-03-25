@@ -133,6 +133,7 @@ ACTION TYPES:
 - "delete_task": { task_id }
 - "log_meal": { meal_type (breakfast/lunch/dinner/snack), title, protein (grams), calories, meal_date (YYYY-MM-DD), ingredients (array of strings, e.g. ["2 eggs", "1 cup spinach"]), prep_steps (array of strings, e.g. ["Scramble eggs", "Add spinach"]) }
 - "delete_meal": { meal_id }
+- "create_shopping_list": { label, date_range_start (YYYY-MM-DD), date_range_end (YYYY-MM-DD), is_meal_plan (boolean), items (array of strings - ingredient names) }
 
 CRITICAL RULES:
 1. When the user clearly states what they want, EXECUTE IT with actions. Don't just suggest—DO IT.
@@ -154,6 +155,15 @@ You can create multi-day meal plans (up to 1 month / 31 days). When the user ask
 5. Only when the user confirms, include the "actions" array with one "log_meal" action per meal, each with the correct meal_date (YYYY-MM-DD), meal_type, title, protein, calories, ingredients, and prep_steps.
 6. For meal plans, set phase to "gathering" when presenting the plan, and "executing" when saving after confirmation.
 7. CRITICAL: Each log_meal action MUST include ALL of these fields: meal_type, title, protein, calories, meal_date, ingredients (array of ingredient strings with quantities), prep_steps (array of preparation instruction strings). This ensures AI-generated meals match the same quality as the Nutrition page's AI Suggest feature.
+
+SHOPPING LIST FROM MEAL PLANS:
+After a meal plan is confirmed and saved, ALWAYS ask the user: "Would you also like me to create a shopping list from these ingredients?"
+If the user says yes, BEFORE creating the shopping list, ask: "Do you already have any of these items at home? Let me know what you have and I'll remove those from the list."
+Wait for the user's response. Then:
+1. Remove items the user says they already have.
+2. Consolidate/deduplicate similar ingredients across all meals.
+3. Create ONE "create_shopping_list" action with the finalized list. Set is_meal_plan=true, include the date_range_start and date_range_end from the meal plan, and a descriptive label like "Meal Plan: 4/10 – 4/16".
+The user can also ask to create a shopping list from an existing meal plan at any time.
 
 CONVERSATION PHASES:
 - "idle": Ready to help
@@ -196,7 +206,8 @@ CONVERSATION PHASES:
                       "create_special_day", "delete_special_day",
                       "send_message",
                       "create_task", "delete_task",
-                      "log_meal", "delete_meal"
+                      "log_meal", "delete_meal",
+                      "create_shopping_list"
                     ]},
                     title: { type: "string" },
                     emoji: { type: "string" },
@@ -242,6 +253,10 @@ CONVERSATION PHASES:
                     scheduled_day: { type: "number" },
                     scheduled_month: { type: "number" },
                     scheduled_year: { type: "number" },
+                    is_meal_plan: { type: "boolean" },
+                    date_range_start: { type: "string" },
+                    date_range_end: { type: "string" },
+                    shopping_items: { type: "array", items: { type: "string" }, description: "Shopping list item names" },
                   },
                   required: ["action_type"],
                 },
@@ -692,6 +707,39 @@ async function executeAppActions(client: any, userId: string, groupId: string, a
         case "delete_meal": {
           const { error } = await client.from("meal_logs").delete().eq("id", action.meal_id).eq("user_id", userId);
           results.push({ action_type: "delete_meal", success: !error, error: error?.message });
+          break;
+        }
+        case "create_shopping_list": {
+          const listLabel = action.label || action.title || "Shopping List";
+          const { data: listData, error: listError } = await client.from("shopping_lists").insert({
+            user_id: userId,
+            group_id: groupId,
+            label: listLabel,
+            date_range_start: action.date_range_start || null,
+            date_range_end: action.date_range_end || null,
+            is_meal_plan: action.is_meal_plan ?? true,
+          }).select().single();
+
+          if (listError || !listData) {
+            results.push({ action_type: "create_shopping_list", success: false, error: listError?.message });
+            break;
+          }
+
+          const shopItems = Array.isArray(action.shopping_items) ? action.shopping_items : (Array.isArray(action.items) ? action.items : []);
+          if (shopItems.length > 0) {
+            const rows = shopItems.map((name: string) => ({
+              list_id: listData.id,
+              user_id: userId,
+              name: typeof name === "string" ? name : String(name),
+            }));
+            const { error: itemsError } = await client.from("shopping_list_items").insert(rows);
+            if (itemsError) {
+              results.push({ action_type: "create_shopping_list", success: false, error: itemsError.message });
+              break;
+            }
+          }
+
+          results.push({ action_type: "create_shopping_list", success: true, id: listData.id });
           break;
         }
         default:
