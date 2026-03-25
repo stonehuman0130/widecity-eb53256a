@@ -120,7 +120,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
       title: calTitle.trim(),
       time: "",
       tag: calTag,
-      assignee: calUser,
+      assignee: calUser as "me" | "partner" | "both",
       dueDate: dueDateStr,
       priorNoticeDays: todoPriorNotice,
     });
