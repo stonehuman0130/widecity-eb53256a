@@ -131,7 +131,7 @@ ACTION TYPES:
 - "send_message": { group_id, content }
 - "create_task": { title, tag, time, assignee, scheduled_day, scheduled_month, scheduled_year }
 - "delete_task": { task_id }
-- "log_meal": { meal_type (breakfast/lunch/dinner/snack), title, protein (grams), calories, meal_date (YYYY-MM-DD) }
+- "log_meal": { meal_type (breakfast/lunch/dinner/snack), title, protein (grams), calories, meal_date (YYYY-MM-DD), ingredients (array of strings, e.g. ["2 eggs", "1 cup spinach"]), prep_steps (array of strings, e.g. ["Scramble eggs", "Add spinach"]) }
 - "delete_meal": { meal_id }
 
 CRITICAL RULES:
