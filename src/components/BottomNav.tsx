@@ -202,10 +202,10 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
           {leftTabs.map((tabId, i) => renderTab(tabId, i))}
         </div>
 
-        {/* Center: AI Button - always in exact center column */}
+        {/* Center: AI Button - elevated above nav bar */}
         <button
           onClick={() => { if (!editMode) onTabChange("ai"); }}
-          className={`flex flex-col items-center gap-0.5 -mt-4 transition-all px-2 shrink-0 ${editMode ? "pointer-events-none opacity-50" : ""}`}
+          className={`relative z-10 flex flex-col items-center gap-0.5 -mt-4 transition-all px-2 shrink-0 ${editMode ? "pointer-events-none opacity-50" : ""}`}
         >
           <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all ${
             aiActive
