@@ -49,7 +49,7 @@ interface BottomNavProps {
   onReorder?: (newPages: Tab[]) => void;
 }
 
-const BottomNav = ({ activeTab, onTabChange, navPages }: BottomNavProps) => {
+const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavProps) => {
   const aiActive = activeTab === "ai";
   const [editMode, setEditMode] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
