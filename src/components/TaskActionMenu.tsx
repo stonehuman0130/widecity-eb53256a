@@ -9,7 +9,7 @@ interface TaskActionMenuProps {
   taskId: string;
 }
 
-const NOTICE_OPTIONS = [0, 1, 2, 3, 7];
+const NOTICE_OPTIONS = [-1, 0, 1, 2, 3, 7];
 
 const TaskActionMenu = ({ taskId }: TaskActionMenuProps) => {
   const { removeTask, updateTask, tasks } = useAppContext();
