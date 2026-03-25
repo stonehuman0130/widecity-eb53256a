@@ -67,6 +67,117 @@ const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
 
+  // Shopping list ingredient review state
+  interface ShopItem { ingredients: string[]; mealTitle: string; mealDate: string }
+  const [shopPrompt, setShopPrompt] = useState<ShopItem | null>(null);
+  const [shopQueue, setShopQueue] = useState<ShopItem[]>([]);
+  const [shopChecked, setShopChecked] = useState<Record<number, boolean>>({});
+  const [shopSaving, setShopSaving] = useState(false);
+
+  const groupId = activeGroup?.id || groups[0]?.id || null;
+
+  const fmtDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const getWeekMonday = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const mon = new Date(d);
+    mon.setDate(mon.getDate() + diff);
+    return fmtDate(mon);
+  };
+
+  const getWeekSunday = (mondayStr: string) => {
+    const d = new Date(mondayStr + "T00:00:00");
+    d.setDate(d.getDate() + 6);
+    return fmtDate(d);
+  };
+
+  const dismissShopPrompt = () => {
+    setShopPrompt(null);
+    setShopQueue(prev => {
+      if (prev.length > 0) {
+        const [next, ...rest] = prev;
+        setTimeout(() => {
+          setShopChecked(Object.fromEntries(next.ingredients.map((_, i) => [i, true])));
+          setShopPrompt(next);
+        }, 200);
+        return rest;
+      }
+      return [];
+    });
+  };
+
+  const enqueueShopPrompt = (item: ShopItem) => {
+    if (shopPrompt) {
+      setShopQueue(prev => [...prev, item]);
+    } else {
+      setShopChecked(Object.fromEntries(item.ingredients.map((_, i) => [i, true])));
+      setShopPrompt(item);
+    }
+  };
+
+  const saveToShoppingList = async () => {
+    if (!user || !shopPrompt) return;
+    setShopSaving(true);
+    const selectedItems = shopPrompt.ingredients.filter((_, i) => shopChecked[i]);
+    if (selectedItems.length === 0) {
+      toast.info("No items selected");
+      dismissShopPrompt();
+      setShopSaving(false);
+      return;
+    }
+
+    const weekStart = getWeekMonday(shopPrompt.mealDate);
+    const weekEnd = getWeekSunday(weekStart);
+    const monDate = new Date(weekStart + "T00:00:00");
+    const sunDate = new Date(weekEnd + "T00:00:00");
+    const weekLabel = `Week of ${monDate.getMonth() + 1}/${monDate.getDate()} (Mon) – ${sunDate.getMonth() + 1}/${sunDate.getDate()} (Sun)`;
+
+    let listQuery = supabase.from("shopping_lists").select("*")
+      .eq("user_id", user.id)
+      .eq("is_meal_plan", true)
+      .eq("date_range_start", weekStart)
+      .eq("date_range_end", weekEnd);
+    if (groupId) listQuery = listQuery.eq("group_id", groupId);
+
+    const { data: existingLists } = await listQuery;
+    let listId: string;
+
+    if (existingLists && existingLists.length > 0) {
+      listId = existingLists[0].id;
+    } else {
+      const insertData: any = {
+        user_id: user.id,
+        group_id: groupId,
+        label: weekLabel,
+        date_range_start: weekStart,
+        date_range_end: weekEnd,
+        is_meal_plan: true,
+      };
+      const { data: listData, error: listErr } = await supabase.from("shopping_lists").insert(insertData).select().single();
+      if (listErr || !listData) {
+        toast.error("Failed to create shopping list");
+        setShopSaving(false);
+        return;
+      }
+      listId = (listData as any).id;
+    }
+
+    const { data: existingItems } = await supabase.from("shopping_list_items").select("*").eq("list_id", listId);
+    const existingNames = new Set((existingItems || []).map((it: any) => (it.name as string).toLowerCase().trim()));
+    const newItems = selectedItems.filter(name => !existingNames.has(name.toLowerCase().trim()));
+    if (newItems.length > 0) {
+      const rows = newItems.map(name => ({ list_id: listId, user_id: user.id, name }));
+      await supabase.from("shopping_list_items").insert(rows);
+    }
+
+    toast.success(existingLists && existingLists.length > 0 ? "Items added to weekly shopping list!" : "Weekly shopping list created!");
+    dismissShopPrompt();
+    setShopSaving(false);
+  };
+
   const scrollToBottom = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   }, []);
