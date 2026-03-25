@@ -1207,18 +1207,32 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
                   ✕
                 </button>
               </div>
-              <div className="flex gap-1.5">
-                {(["me", "partner", "both"] as const).map((u) => (
-                  <button
-                    key={u}
-                    onClick={() => setNewAssignee(u)}
-                    className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
-                      newAssignee === u ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                    }`}
-                  >
-                    {u === "me" ? "Mine" : u === "partner" ? "Partner" : "Both"}
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+                {memberFilters.length <= 1 ? (
+                  /* No group or solo — just show Mine */
+                  <button className="flex-1 py-1.5 text-[11px] font-medium rounded-lg border border-primary bg-primary/10 text-primary">
+                    Mine
                   </button>
-                ))}
+                ) : (
+                  <>
+                    {memberFilters.map((f) => {
+                      // Map filter id → assignee value
+                      const assigneeValue = f.id === "mine" ? "me" : f.id === "partner" ? "partner" : f.id === "household" ? "both" : f.id;
+                      const label = f.id === "mine" ? "Mine" : f.id === "household" ? "All" : f.label;
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => setNewAssignee(assigneeValue)}
+                          className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all whitespace-nowrap px-2 ${
+                            newAssignee === assigneeValue ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
