@@ -524,6 +524,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     viewDate.setHours(0, 0, 0, 0);
     const due = new Date(t.dueDate + "T00:00:00");
     const notice = t.priorNoticeDays ?? 0;
+    if (notice === -1) return true; // "Starting today" = always visible
     const showFrom = new Date(due);
     showFrom.setDate(showFrom.getDate() - notice);
     return viewDate >= showFrom;
