@@ -1260,8 +1260,8 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         {shopPrompt && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/40 flex items-end justify-center"
-            onClick={() => setShopPrompt(null)}
+            className="fixed inset-0 z-[90] bg-black/40 flex items-end justify-center"
+            onClick={() => dismissShopPrompt()}
           >
             <motion.div
               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
