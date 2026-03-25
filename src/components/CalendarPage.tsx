@@ -153,7 +153,11 @@ interface CalItem {
   isEnd?: boolean;
   startDateTime?: Date | null;
   endDateTime?: Date | null;
+  isDueDateTask?: boolean;
 }
+
+const TODO_COLOR = "hsl(280 70% 55%)";
+const TODO_COLOR_CLASSES = { bg: "bg-violet-500", text: "text-violet-500", bgLight: "bg-violet-500/15", border: "border-violet-500/30" };
 
 // ── Main Component ──────────────────────────────────────────
 
@@ -313,6 +317,36 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         });
       });
 
+    // Add to-do tasks with due dates (only on the due date itself, not notice days)
+    const dateKey = dateToKey(d, m, y);
+    filteredTasks
+      .filter((t) => {
+        if (!t.dueDate) return false;
+        if (t.dueDate !== dateKey) return false;
+        // Avoid duplicates: skip if already added via scheduledDay
+        if (t.scheduledDay === d && t.scheduledMonth === m && t.scheduledYear === y) return false;
+        return true;
+      })
+      .forEach((t) => {
+        items.push({
+          id: `todo-${t.id}`,
+          title: t.title,
+          time: "All day",
+          allDay: true,
+          hour: null,
+          endHour: null,
+          assignee: t.assignee,
+          done: t.done,
+          tag: t.tag,
+          groupId: t.groupId,
+          type: "task",
+          raw: t,
+          startDateTime: new Date(y, m, d, 0, 0, 0, 0),
+          endDateTime: new Date(y, m, d, 23, 59, 59, 999),
+          isDueDateTask: true,
+        });
+      });
+
     if (showGoogleCalendar) {
       googleCalendarEvents.forEach((ge) => {
         const gcalStart = parseGoogleDateValue(ge.start);
@@ -410,6 +444,11 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     }
 
     items.sort((a, b) => {
+      // Due-date tasks first
+      if (a.isDueDateTask && !b.isDueDateTask) return -1;
+      if (!a.isDueDateTask && b.isDueDateTask) return 1;
+
+      // Then all-day
       if (a.allDay && !b.allDay) return -1;
       if (!a.allDay && b.allDay) return 1;
 
@@ -436,7 +475,13 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       const items = getItemsForDate(d, month, year);
       if (items.length > 0) {
         const groupIds = new Set<string>();
-        items.forEach((it) => groupIds.add(it.groupId || "__default"));
+        items.forEach((it) => {
+          if (it.isDueDateTask) {
+            groupIds.add("__todo");
+          } else {
+            groupIds.add(it.groupId || "__default");
+          }
+        });
         dots.set(d, groupIds);
       }
     }
@@ -585,15 +630,19 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     });
 
     tasks.forEach((t) => {
-      if (t.title.toLowerCase().includes(q) && t.scheduledDay) {
+      if (t.title.toLowerCase().includes(q) && (t.scheduledDay || t.dueDate)) {
+        const dateLabel = t.dueDate
+          ? (() => { const [yy, mm, dd] = t.dueDate.split("-").map(Number); return new Date(yy, mm - 1, dd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
+          : new Date(t.scheduledYear!, t.scheduledMonth!, t.scheduledDay!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
         results.push({
           item: {
             id: `tk-${t.id}`, title: t.title, time: t.time,
             allDay: !t.time, hour: timeToHour(t.time), endHour: null,
             assignee: t.assignee, done: t.done, tag: t.tag,
             groupId: t.groupId, type: "task", raw: t,
+            isDueDateTask: !!t.dueDate,
           },
-          dateLabel: new Date(t.scheduledYear!, t.scheduledMonth!, t.scheduledDay!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          dateLabel,
         });
       }
     });
@@ -954,10 +1003,10 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                   {dots && !isSelected && (
                     <div className="flex gap-[2px] absolute bottom-0">
                       {Array.from(dots).slice(0, 3).map((gid, idx) => {
-                        const colorIdx = gid === "__default" ? 0 : getGroupColorIndex(gid, groups);
+                        const dotColor = gid === "__todo" ? TODO_COLOR : GROUP_COLORS[(gid === "__default" ? 0 : getGroupColorIndex(gid, groups)) % GROUP_COLORS.length];
                         return (
                           <span key={idx} className="w-[4px] h-[4px] rounded-full"
-                            style={{ backgroundColor: GROUP_COLORS[colorIdx % GROUP_COLORS.length] }} />
+                            style={{ backgroundColor: dotColor }} />
                         );
                       })}
                     </div>
@@ -1056,7 +1105,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                     setShowSearch(false);
                     setSearchQuery("");
                   }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary text-left">
-                    <span className={`w-[3px] h-8 rounded-full ${colorClasses.bg} flex-shrink-0`} />
+                    <span className={`w-[3px] h-8 rounded-full flex-shrink-0 ${r.item.isDueDateTask ? TODO_COLOR_CLASSES.bg : colorClasses.bg}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{r.item.title}</p>
                       <p className="text-[11px] text-muted-foreground">
@@ -1090,11 +1139,33 @@ const EventList = ({
   getColorClasses: (gid: string | null | undefined) => typeof GROUP_COLOR_CLASSES[0];
 }) => {
   const { activeGroup } = useAuth();
-  const allDayItems = items.filter((i) => i.allDay);
+  const todoItems = items.filter((i) => i.isDueDateTask);
+  const allDayItems = items.filter((i) => i.allDay && !i.isDueDateTask);
   const timedItems = items.filter((i) => !i.allDay);
 
   return (
     <div className="divide-y divide-border">
+      {todoItems.length > 0 && (
+        <div className="py-1">
+          {todoItems.map((item) => {
+            const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
+            return (
+              <div key={item.id} className="flex items-center gap-2.5 py-1.5 px-1">
+                <span className={`w-[3px] h-5 rounded-full ${TODO_COLOR_CLASSES.bg} flex-shrink-0`} />
+                <span className="text-[11px] text-violet-500 w-12 flex-shrink-0 font-medium">to-do</span>
+                <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
+                  {item.title}
+                </span>
+                {group && (
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{group.emoji} {group.name}</span>
+                )}
+                <UserBadge user={item.assignee} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {allDayItems.length > 0 && (
         <div className="py-1">
           {allDayItems.map((item) => {
@@ -1211,13 +1282,30 @@ const TimeGridView = ({
         ))}
       </div>
 
+      {/* To-do tasks row (above all-day) */}
+      {columns.some((c) => c.items.some((it) => it.isDueDateTask)) && (
+        <div className="flex border-b border-border">
+          <div className="w-12 flex-shrink-0 text-[10px] text-violet-500 flex items-center justify-end pr-2 font-medium">to-do</div>
+          {columns.map((col, ci) => (
+            <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
+              {col.items.filter((it) => it.isDueDateTask).map((it) => (
+                <div key={it.id} className={`text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5 ${it.done ? "line-through opacity-40" : ""}`}
+                  style={{ backgroundColor: TODO_COLOR + "22", color: TODO_COLOR }}>
+                  {it.title}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* All-day row */}
-      {columns.some((c) => c.items.some((it) => it.allDay)) && (
+      {columns.some((c) => c.items.some((it) => it.allDay && !it.isDueDateTask)) && (
         <div className="flex border-b border-border">
           <div className="w-12 flex-shrink-0 text-[10px] text-muted-foreground flex items-center justify-end pr-2">all-day</div>
           {columns.map((col, ci) => (
             <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
-              {col.items.filter((it) => it.allDay).map((it) => {
+              {col.items.filter((it) => it.allDay && !it.isDueDateTask).map((it) => {
                 const colorIdx = getGroupColorIndex(it.groupId, groups);
                 return (
                   <div key={it.id} className="text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5"
