@@ -158,13 +158,13 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
         ref={(el) => { tabRefs.current[i] = el; }}
         onPointerDown={(e) => { e.preventDefault(); handlePointerDown(i); }}
         onPointerUp={() => handlePointerUp(tabId)}
-        className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors select-none touch-none ${
+        className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1.5 rounded-lg transition-colors select-none touch-none ${
           active ? "text-nav-active" : "text-nav-inactive"
         } ${editMode ? "animate-nav-wiggle" : ""} ${isDragging ? "opacity-60 scale-110" : ""}`}
         style={editMode ? { animationDelay: `${i * 0.05}s` } : undefined}
       >
-        <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-        <span className="text-[9px] font-medium">{meta.label}</span>
+        <Icon size={20} strokeWidth={active ? 2.5 : 1.8} className="shrink-0" />
+        <span className="text-[9px] font-medium truncate max-w-full">{meta.label}</span>
       </button>
     );
   };
