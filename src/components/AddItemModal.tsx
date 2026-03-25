@@ -103,7 +103,7 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
       endYear,
       endTime: calAllDay ? "" : (calEndTime || calStartTime || ""),
       allDay: calAllDay,
-      user: calUser,
+      user: calUser as "me" | "partner" | "both",
     });
 
     toast.success(`Scheduled: ${calTitle.trim()}`);
