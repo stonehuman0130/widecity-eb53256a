@@ -59,17 +59,20 @@ Deno.serve(async (req) => {
   const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+  const {
+    data: userData,
+    error: userError,
+  } = await supabaseAuth.auth.getUser(token);
 
-  if (claimsError || !claimsData?.claims?.sub) {
-    console.error("Auth error:", claimsError?.message);
+  if (userError || !userData?.user?.id) {
+    console.error("Auth error:", userError?.message);
     return new Response(JSON.stringify({ error: "Invalid token" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const userId = claimsData.claims.sub as string;
+  const userId = userData.user.id;
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // Parse request params
