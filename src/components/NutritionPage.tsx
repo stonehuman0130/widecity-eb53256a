@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Apple, Plus, Sparkles, RefreshCw, ChevronLeft, ChevronRight, Check, X, Loader2, Settings, Calendar, Target, Camera, ArrowLeftRight } from "lucide-react";
+import { Apple, Plus, Sparkles, RefreshCw, ChevronLeft, ChevronRight, Check, X, Loader2, Settings, Calendar, Target, Camera, ArrowLeftRight, MoreVertical, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -98,6 +98,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [manualFoodText, setManualFoodText] = useState("");
   const [aiEstimating, setAiEstimating] = useState(false);
   const [goalProtein, setGoalProtein] = useState("150");
+  const [mealMenuOpen, setMealMenuOpen] = useState<string | null>(null);
   const [goalCalories, setGoalCalories] = useState("");
   const [goalShowCal, setGoalShowCal] = useState(false);
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
@@ -571,7 +572,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               {todayMeals.length > 0 ? (
                 <div className="space-y-2">
                   {todayMeals.map(meal => (
-                    <div key={meal.id} className={`bg-card rounded-xl p-3 shadow-card border transition-colors ${
+                    <div key={meal.id} className={`relative bg-card rounded-xl p-3 shadow-card border transition-colors ${
                       meal.consumed ? "border-primary/30 bg-primary/5" : "border-border"
                     }`}>
                       <div className="flex items-center gap-3">
@@ -609,6 +610,30 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                             </div>
                           </div>
                         </button>
+                        {/* Three-dot menu */}
+                        {isViewingOwn && (
+                          <div className="relative flex-shrink-0">
+                            <button
+                              onClick={() => setMealMenuOpen(mealMenuOpen === meal.id ? null : meal.id)}
+                              className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-secondary transition-colors"
+                            >
+                              <MoreVertical size={14} className="text-muted-foreground" />
+                            </button>
+                            {mealMenuOpen === meal.id && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setMealMenuOpen(null)} />
+                                <div className="absolute right-0 top-8 z-50 bg-card rounded-xl border border-border shadow-lg py-1 min-w-[140px]">
+                                  <button
+                                    onClick={() => { deleteMeal(meal.id); setMealMenuOpen(null); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                                  >
+                                    <Trash2 size={14} /> Delete
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
