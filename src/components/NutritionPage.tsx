@@ -338,7 +338,34 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     await supabase.from("meal_logs").delete().eq("id", mealId);
     setMeals(prev => prev.filter(m => m.id !== mealId));
     setDetailMeal(null);
+    setEditingMeal(null);
     toast.success("Meal removed");
+  };
+
+  const openEditMeal = (meal: MealLog) => {
+    setEditingMeal(meal);
+    setEditTitle(meal.title);
+    setEditProtein(String(meal.protein));
+    setEditCalories(String(meal.calories || 0));
+    setEditMealType(meal.meal_type);
+    setDetailMeal(null);
+    setMealMenuOpen(null);
+  };
+
+  const saveEditMeal = async () => {
+    if (!editingMeal || !editTitle.trim()) return;
+    const updates = {
+      title: editTitle.trim(),
+      protein: parseInt(editProtein) || 0,
+      calories: parseInt(editCalories) || 0,
+      meal_type: editMealType,
+    };
+    const { error } = await supabase.from("meal_logs").update(updates).eq("id", editingMeal.id);
+    if (!error) {
+      setMeals(prev => prev.map(m => m.id === editingMeal.id ? { ...m, ...updates } : m));
+      setEditingMeal(null);
+      toast.success("Meal updated");
+    }
   };
 
   const saveGoals = async () => {
