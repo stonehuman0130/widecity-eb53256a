@@ -526,7 +526,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     const notice = t.priorNoticeDays ?? 0;
     const showFrom = new Date(due);
     showFrom.setDate(showFrom.getDate() - notice);
-    return today >= showFrom;
+    return viewDate >= showFrom;
   });
 
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
