@@ -680,7 +680,7 @@ async function executeAppActions(client: any, userId: string, groupId: string, a
             title: (action.title || "Meal").trim(),
             protein: action.protein || 0,
             calories: action.calories || 0,
-            is_ai_generated: false,
+            is_ai_generated: true,
           }).select().single();
           results.push({ action_type: "log_meal", success: !error, id: data?.id, error: error?.message });
           break;

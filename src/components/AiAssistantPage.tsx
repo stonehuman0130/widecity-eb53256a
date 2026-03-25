@@ -50,6 +50,8 @@ const ACTION_LABELS: Record<string, string> = {
   send_message: "Sent message",
   create_task: "Created task",
   delete_task: "Deleted task",
+  log_meal: "Added meal",
+  delete_meal: "Deleted meal",
 };
 
 const AiAssistantPage = ({ onBack }: { onBack?: () => void }) => {
