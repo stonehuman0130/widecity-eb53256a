@@ -312,7 +312,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(session.user);
           restoreGroupsFromCache(session.user.id);
           setTimeout(() => fetchProfile(session.user.id), 0);
-        } else if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+        } else if (event === "SIGNED_OUT") {
           setSession(null);
           setUser(null);
           setProfile(null);
