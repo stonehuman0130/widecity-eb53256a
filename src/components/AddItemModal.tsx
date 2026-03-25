@@ -3,6 +3,7 @@ import { X, CalendarDays, ListTodo } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useGroupContext } from "@/hooks/useGroupContext";
 import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
