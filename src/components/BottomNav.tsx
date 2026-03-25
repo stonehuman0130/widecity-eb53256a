@@ -93,7 +93,10 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
     clearLongPress();
 
     if (editMode && dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
-      // Reorder handled by parent via event - for now just visual
+      const next = [...navPages];
+      const [moved] = next.splice(dragIdx, 1);
+      next.splice(dragOverIdx, 0, moved);
+      onReorder?.(next);
     }
 
     setDragIdx(null);
