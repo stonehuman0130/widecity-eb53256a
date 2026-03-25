@@ -57,6 +57,8 @@ export interface Task {
   scheduledDay?: number;
   scheduledMonth?: number;
   scheduledYear?: number;
+  dueDate?: string | null;
+  priorNoticeDays?: number;
   hiddenFromPartner?: boolean;
   groupId?: string | null;
   ownerUserId?: string;
@@ -120,7 +122,7 @@ interface AppContextType {
   toggleTask: (id: string) => void;
   addTask: (task: Omit<Task, "id" | "done">) => void;
   removeTask: (id: string) => void;
-  updateTask: (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time">>) => void;
+  updateTask: (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time" | "dueDate" | "priorNoticeDays">>) => void;
   waterIntake: number;
   waterGoal: number;
   setWaterIntake: (amount: number) => void;
@@ -295,6 +297,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             scheduledDay: t.scheduled_day,
             scheduledMonth: t.scheduled_month,
             scheduledYear: t.scheduled_year,
+            dueDate: t.due_date ?? null,
+            priorNoticeDays: t.prior_notice_days ?? 0,
             hiddenFromPartner: t.hidden_from_partner || false,
             groupId: t.group_id || null,
           })));
@@ -698,6 +702,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       scheduledDay: row.scheduled_day,
       scheduledMonth: row.scheduled_month,
       scheduledYear: row.scheduled_year,
+      dueDate: row.due_date ?? null,
+      priorNoticeDays: row.prior_notice_days ?? 0,
       hiddenFromPartner: row.hidden_from_partner || false,
       groupId: row.group_id || null,
       tag: row.tag as "Work" | "Personal" | "Household",
@@ -1100,22 +1106,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const addTask = async (task: Omit<Task, "id" | "done">) => {
     if (!user) return;
     const groupId = activeGroup?.id ?? null;
+    const insertData: any = {
+      user_id: user.id,
+      title: task.title,
+      time: task.time,
+      tag: task.tag,
+      assignee: task.assignee,
+      done: false,
+      completed_at: null,
+      completed_by: null,
+      scheduled_day: task.scheduledDay,
+      scheduled_month: task.scheduledMonth,
+      scheduled_year: task.scheduledYear,
+      group_id: groupId,
+    };
+    if (task.dueDate !== undefined) insertData.due_date = task.dueDate;
+    if (task.priorNoticeDays !== undefined) insertData.prior_notice_days = task.priorNoticeDays;
+
     const { data, error } = await supabase
       .from("tasks")
-      .insert({
-        user_id: user.id,
-        title: task.title,
-        time: task.time,
-        tag: task.tag,
-        assignee: task.assignee,
-        done: false,
-        completed_at: null,
-        completed_by: null,
-        scheduled_day: task.scheduledDay,
-        scheduled_month: task.scheduledMonth,
-        scheduled_year: task.scheduledYear,
-        group_id: groupId,
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -1127,6 +1137,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         completedAt: null,
         completedBy: null,
         updatedAt: data.updated_at ?? null,
+        dueDate: (data as any).due_date ?? null,
+        priorNoticeDays: (data as any).prior_notice_days ?? 0,
         groupId,
       }]);
     }
@@ -1137,13 +1149,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("tasks").delete().eq("id", id);
   };
 
-  const updateTask = async (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time">>) => {
+  const updateTask = async (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time" | "dueDate" | "priorNoticeDays">>) => {
     setTasks((t) => t.map((item) => (item.id === id ? { ...item, ...updates } : item)));
     const dbUpdates: any = {};
     if (updates.scheduledDay !== undefined) dbUpdates.scheduled_day = updates.scheduledDay;
     if (updates.scheduledMonth !== undefined) dbUpdates.scheduled_month = updates.scheduledMonth;
     if (updates.scheduledYear !== undefined) dbUpdates.scheduled_year = updates.scheduledYear;
     if (updates.time !== undefined) dbUpdates.time = updates.time;
+    if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+    if (updates.priorNoticeDays !== undefined) dbUpdates.prior_notice_days = updates.priorNoticeDays;
     await supabase.from("tasks").update(dbUpdates).eq("id", id);
   };
 

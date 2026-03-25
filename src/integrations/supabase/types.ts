@@ -987,9 +987,11 @@ export type Database = {
           completed_by: string | null
           created_at: string
           done: boolean
+          due_date: string | null
           group_id: string | null
           hidden_from_partner: boolean
           id: string
+          prior_notice_days: number
           scheduled_day: number | null
           scheduled_month: number | null
           scheduled_year: number | null
@@ -1005,9 +1007,11 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           done?: boolean
+          due_date?: string | null
           group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
+          prior_notice_days?: number
           scheduled_day?: number | null
           scheduled_month?: number | null
           scheduled_year?: number | null
@@ -1023,9 +1027,11 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           done?: boolean
+          due_date?: string | null
           group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
+          prior_notice_days?: number
           scheduled_day?: number | null
           scheduled_month?: number | null
           scheduled_year?: number | null
@@ -1214,9 +1220,11 @@ export type Database = {
           completed_by: string | null
           created_at: string
           done: boolean
+          due_date: string | null
           group_id: string | null
           hidden_from_partner: boolean
           id: string
+          prior_notice_days: number
           scheduled_day: number | null
           scheduled_month: number | null
           scheduled_year: number | null

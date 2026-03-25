@@ -515,8 +515,19 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   // Scheduled tasks = tasks that have a date (whether timed or all-day)
   const scheduledTimedTasks = dayTasks.filter((t) => isTaskScheduled(t) && isTaskTimed(t));
   const scheduledAllDayTasks = dayTasks.filter((t) => isTaskScheduled(t) && !isTaskTimed(t));
-  // To Do tasks = tasks that are NOT scheduled to any date
-  const todoTasks = dayTasks.filter((t) => !isTaskScheduled(t));
+  // To Do tasks = tasks that are NOT scheduled to any date, filtered by due date visibility
+  const todoTasksRaw = dayTasks.filter((t) => !isTaskScheduled(t));
+  const todoTasks = todoTasksRaw.filter((t) => {
+    if (t.done) return false; // completed tasks hidden
+    if (!t.dueDate) return true; // no due date = always visible
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(t.dueDate + "T00:00:00");
+    const notice = t.priorNoticeDays ?? 0;
+    const showFrom = new Date(due);
+    showFrom.setDate(showFrom.getDate() - notice);
+    return today >= showFrom;
+  });
 
   const timedEvents = visibleEvents.filter((e) => hasSpecificTime(e.time));
   const allDayEvents = visibleEvents.filter((e) => !hasSpecificTime(e.time));
@@ -1225,11 +1236,24 @@ const TodoItem = ({ task, onToggle, onCongrats, readOnly }: {
     onToggle(task.id);
   };
 
+  // Determine overdue status
+  const isOverdue = (() => {
+    if (!task.dueDate || task.done) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(task.dueDate + "T00:00:00");
+    return today > due;
+  })();
+
+  const dueDateLabel = task.dueDate
+    ? new Date(task.dueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null;
+
   return (
     <motion.div
       layout
       className={`flex items-center gap-3 bg-card rounded-xl px-4 py-3 shadow-card border transition-all active:scale-[0.99] ${
-        task.done ? "border-habit-green/30" : "border-border"
+        task.done ? "border-habit-green/30" : isOverdue ? "border-destructive/40" : "border-border"
       }`}
     >
       <button
@@ -1241,9 +1265,25 @@ const TodoItem = ({ task, onToggle, onCongrats, readOnly }: {
       >
         {task.done && <Check size={12} className="text-primary-foreground" />}
       </button>
-      <span className={`flex-1 text-sm font-medium ${task.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
-        {task.title}
-      </span>
+      <div className="flex-1 min-w-0">
+        <span className={`text-sm font-medium ${task.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
+          {task.title}
+        </span>
+        {(dueDateLabel || isOverdue) && (
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {isOverdue && (
+              <span className="text-[10px] font-semibold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded">
+                Overdue
+              </span>
+            )}
+            {dueDateLabel && (
+              <span className="text-[10px] text-muted-foreground">
+                Due {dueDateLabel}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
       {!readOnly && <TaskActionMenu taskId={task.id} />}
     </motion.div>
   );
