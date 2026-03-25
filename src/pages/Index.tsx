@@ -113,6 +113,7 @@ const Index = () => {
     habits: <HabitsPage />,
     sobriety: <SobrietyPage />,
     specialdays: <SpecialDaysPage />,
+    shopping: <ShoppingListPage />,
     calendar: <CalendarPage />,
     chat: renderChatView(),
     ai: <AiAssistantPage />,
