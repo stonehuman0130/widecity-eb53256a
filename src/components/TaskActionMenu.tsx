@@ -20,20 +20,24 @@ const TaskActionMenu = ({ taskId }: TaskActionMenuProps) => {
   const currentDueDate = task?.dueDate ? new Date(task.dueDate + "T00:00:00") : undefined;
   const currentNotice = task?.priorNoticeDays ?? 0;
   const [selectedNotice, setSelectedNotice] = useState(currentNotice);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(currentDueDate);
+  const [customNotice, setCustomNotice] = useState("");
+  const [showCustomInput, setShowCustomInput] = useState(!NOTICE_OPTIONS.includes(currentNotice) && currentNotice > 0);
 
   const handleDelete = () => {
     removeTask(taskId);
     setOpen(false);
   };
 
-  const handleSetDueDate = (date: Date | undefined) => {
-    if (!date) return;
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
+  const handleSaveDueDate = () => {
+    if (!selectedDate) return;
+    const yyyy = selectedDate.getFullYear();
+    const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
+    const dd = String(selectedDate.getDate()).padStart(2, "0");
+    const notice = showCustomInput ? (parseInt(customNotice) || 0) : selectedNotice;
     updateTask(taskId, {
       dueDate: `${yyyy}-${mm}-${dd}`,
-      priorNoticeDays: selectedNotice,
+      priorNoticeDays: notice,
     });
     setOpen(false);
     setShowDueDatePicker(false);
