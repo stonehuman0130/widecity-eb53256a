@@ -153,7 +153,11 @@ interface CalItem {
   isEnd?: boolean;
   startDateTime?: Date | null;
   endDateTime?: Date | null;
+  isDueDateTask?: boolean;
 }
+
+const TODO_COLOR = "hsl(280 70% 55%)";
+const TODO_COLOR_CLASSES = { bg: "bg-violet-500", text: "text-violet-500", bgLight: "bg-violet-500/15", border: "border-violet-500/30" };
 
 // ── Main Component ──────────────────────────────────────────
 
