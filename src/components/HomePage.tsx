@@ -1124,6 +1124,7 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
 }) => {
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newAssignee, setNewAssignee] = useState<"me" | "partner" | "both">("me");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1136,9 +1137,10 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
       title: newTitle.trim(),
       time: "",
       tag: "Personal",
-      assignee: "me",
+      assignee: newAssignee,
     });
     setNewTitle("");
+    setNewAssignee("me");
     setAdding(false);
   };
 
