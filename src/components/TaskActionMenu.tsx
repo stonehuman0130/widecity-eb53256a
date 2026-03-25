@@ -111,7 +111,7 @@ const TaskActionMenu = ({ taskId }: TaskActionMenuProps) => {
                             : "bg-secondary text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        {n === 0 ? "Due day" : n === 1 ? "1 day before" : `${n} days before`}
+                        {n === -1 ? "Starting today" : n === 0 ? "Due day" : n === 1 ? "1 day before" : `${n} days before`}
                       </button>
                     ))}
                     <button
