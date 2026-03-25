@@ -630,15 +630,19 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     });
 
     tasks.forEach((t) => {
-      if (t.title.toLowerCase().includes(q) && t.scheduledDay) {
+      if (t.title.toLowerCase().includes(q) && (t.scheduledDay || t.dueDate)) {
+        const dateLabel = t.dueDate
+          ? (() => { const [yy, mm, dd] = t.dueDate.split("-").map(Number); return new Date(yy, mm - 1, dd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); })()
+          : new Date(t.scheduledYear!, t.scheduledMonth!, t.scheduledDay!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
         results.push({
           item: {
             id: `tk-${t.id}`, title: t.title, time: t.time,
             allDay: !t.time, hour: timeToHour(t.time), endHour: null,
             assignee: t.assignee, done: t.done, tag: t.tag,
             groupId: t.groupId, type: "task", raw: t,
+            isDueDateTask: !!t.dueDate,
           },
-          dateLabel: new Date(t.scheduledYear!, t.scheduledMonth!, t.scheduledDay!).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          dateLabel,
         });
       }
     });
