@@ -473,8 +473,15 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     setNewEndTime("");
     setNewAllDay(false);
     setNewTitle("");
-    setNewUser("me");
+     setNewUser("me");
     setNewDesc("");
+    setNewIsTodo(false);
+    setNewTodoDueDate(undefined);
+    setNewTodoPriorNotice(0);
+    setNewTodoTag("Personal");
+    setNewTodoShowCustom(false);
+    setNewTodoCustomNotice("14");
+    setNewTodoDueDatePickerOpen(false);
     setShowAddForm(true);
   };
 
