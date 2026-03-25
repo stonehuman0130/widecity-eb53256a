@@ -1297,7 +1297,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               </div>
               <div className="flex-shrink-0 px-5 pb-6 pt-3 flex gap-2">
                 <button
-                  onClick={() => setShopPrompt(null)}
+                  onClick={() => dismissShopPrompt()}
                   className="flex-1 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-semibold"
                 >
                   Skip
