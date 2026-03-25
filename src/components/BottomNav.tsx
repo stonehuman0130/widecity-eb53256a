@@ -140,8 +140,9 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
     return navPages;
   })();
 
-  const leftTabs = visualTabs.slice(0, Math.ceil(visualTabs.length / 2));
-  const rightTabs = visualTabs.slice(Math.ceil(visualTabs.length / 2));
+  const halfLen = Math.floor(visualTabs.length / 2);
+  const leftTabs = visualTabs.slice(0, halfLen);
+  const rightTabs = visualTabs.slice(halfLen);
   const isActive = (id: Tab) => activeTab === id;
 
   const renderTab = (tabId: Tab, i: number) => {
@@ -186,25 +187,25 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
           </button>
         </div>
       )}
-      <div className="flex items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] relative">
-        {/* Fixed: Home */}
-        <button
-          onClick={() => { if (!editMode) onTabChange("home"); }}
-          className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
-            isActive("home") ? "text-nav-active" : "text-nav-inactive"
-          }`}
-        >
-          <Home size={20} strokeWidth={isActive("home") ? 2.5 : 1.8} />
-          <span className="text-[9px] font-medium">Home</span>
-        </button>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        {/* Left section: Home + left tabs */}
+        <div className="flex items-center justify-evenly">
+          <button
+            onClick={() => { if (!editMode) onTabChange("home"); }}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
+              isActive("home") ? "text-nav-active" : "text-nav-inactive"
+            }`}
+          >
+            <Home size={20} strokeWidth={isActive("home") ? 2.5 : 1.8} />
+            <span className="text-[9px] font-medium">Home</span>
+          </button>
+          {leftTabs.map((tabId, i) => renderTab(tabId, i))}
+        </div>
 
-        {/* Left middle tabs */}
-        {leftTabs.map((tabId, i) => renderTab(tabId, i))}
-
-        {/* Center: AI Button */}
+        {/* Center: AI Button - always in exact center column */}
         <button
           onClick={() => { if (!editMode) onTabChange("ai"); }}
-          className={`flex flex-col items-center gap-0.5 -mt-4 transition-all ${editMode ? "pointer-events-none opacity-50" : ""}`}
+          className={`flex flex-col items-center gap-0.5 -mt-4 transition-all px-3 ${editMode ? "pointer-events-none opacity-50" : ""}`}
         >
           <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all ${
             aiActive
@@ -216,22 +217,22 @@ const BottomNav = ({ activeTab, onTabChange, navPages, onReorder }: BottomNavPro
           <span className={`text-[9px] font-semibold mt-0.5 ${aiActive ? "text-violet-500" : "text-muted-foreground"}`}>AI</span>
         </button>
 
-        {/* Right middle tabs */}
-        {rightTabs.map((tabId, rawI) => {
-          const i = rawI + Math.ceil(visualTabs.length / 2);
-          return renderTab(tabId, i);
-        })}
-
-        {/* Fixed: More */}
-        <button
-          onClick={() => { if (!editMode) onTabChange("more"); }}
-          className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
-            isActive("more") ? "text-nav-active" : "text-nav-inactive"
-          }`}
-        >
-          <MoreHorizontal size={20} strokeWidth={isActive("more") ? 2.5 : 1.8} />
-          <span className="text-[9px] font-medium">More</span>
-        </button>
+        {/* Right section: right tabs + More */}
+        <div className="flex items-center justify-evenly">
+          {rightTabs.map((tabId, rawI) => {
+            const i = rawI + halfLen;
+            return renderTab(tabId, i);
+          })}
+          <button
+            onClick={() => { if (!editMode) onTabChange("more"); }}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
+              isActive("more") ? "text-nav-active" : "text-nav-inactive"
+            }`}
+          >
+            <MoreHorizontal size={20} strokeWidth={isActive("more") ? 2.5 : 1.8} />
+            <span className="text-[9px] font-medium">More</span>
+          </button>
+        </div>
       </div>
     </nav>
   );
