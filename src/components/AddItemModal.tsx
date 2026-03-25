@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 type ModalStep = "choose" | "calendar" | "habit";
 
-const NOTICE_OPTIONS = [0, 1, 2, 3, 7];
+const NOTICE_OPTIONS = [-1, 0, 1, 2, 3, 7];
 
 interface AddItemModalProps {
   open: boolean;
