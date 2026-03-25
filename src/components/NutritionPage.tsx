@@ -868,8 +868,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                     <button
                       onClick={() => {
                         addAiMealAsPlanned(s);
-                        setAiResults(prev => prev.filter((_, i) => i !== idx));
-                        if (aiResults.length <= 1) setShowAiResults(false);
+                        setAiResults(prev => {
+                          const next = prev.filter((_, i) => i !== idx);
+                          if (next.length === 0) setShowAiResults(false);
+                          return next;
+                        });
                       }}
                       className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
                     >
