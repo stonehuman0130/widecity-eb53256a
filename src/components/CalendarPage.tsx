@@ -524,7 +524,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       endYear: endParts.year,
       endTime: newAllDay ? "" : (newEndTime || newStartTime || ""),
       allDay: newAllDay,
-      user: newUser,
+      user: newUser as "me" | "partner" | "both",
     });
 
     toast.success(`Scheduled: ${newTitle.trim()}`);
