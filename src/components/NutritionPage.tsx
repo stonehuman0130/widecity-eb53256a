@@ -720,6 +720,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
             onClick={() => setShowAiResults(false)}
           >
             <motion.div
@@ -728,6 +729,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={e => e.stopPropagation()}
+              onTouchMove={e => e.stopPropagation()}
               className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[82svh] flex flex-col"
             >
               <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
@@ -742,7 +744,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 </button>
               </div>
               <p className="px-5 text-xs text-muted-foreground mb-3">Select the meals you want to add to your plan:</p>
-              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain space-y-3" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
+              <div className="px-5 pb-safe flex-1 overflow-y-auto overscroll-contain space-y-3" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
                 {aiResults.map((s, idx) => (
                   <div key={idx} className="bg-background rounded-xl p-4 border border-border">
                     <div className="flex items-start justify-between mb-2">
@@ -786,6 +788,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
             onClick={() => setDetailMeal(null)}
           >
             <motion.div
@@ -794,6 +797,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={e => e.stopPropagation()}
+              onTouchMove={e => e.stopPropagation()}
               className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[82svh] flex flex-col"
             >
               <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
@@ -805,7 +809,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   <X size={16} />
                 </button>
               </div>
-              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
+              <div className="px-5 pb-safe flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
                 <div className="flex gap-3 mb-4">
                   <div className="bg-primary/10 rounded-xl px-4 py-2 text-center flex-1">
                     <p className="text-lg font-bold text-primary">{detailMeal.protein}g</p>
@@ -881,6 +885,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
             onClick={() => { setShowAddMeal(null); setManualTitle(""); setManualProtein(""); setManualCalories(""); setManualFoodText(""); }}
           >
             <motion.div
@@ -889,18 +894,19 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={e => e.stopPropagation()}
+              onTouchMove={e => e.stopPropagation()}
               className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[82svh] flex flex-col"
             >
               <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
                 <div className="w-10 h-1 rounded-full bg-border" />
               </div>
-              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
-                <div className="flex items-center justify-between mb-4 pt-2">
-                  <h3 className="text-lg font-bold">Add Meal</h3>
-                  <button onClick={() => { setShowAddMeal(null); setManualFoodText(""); }} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                    <X size={16} />
-                  </button>
-                </div>
+              <div className="flex items-center justify-between px-5 pt-1 pb-2 flex-shrink-0">
+                <h3 className="text-lg font-bold">Add Meal</h3>
+                <button onClick={() => { setShowAddMeal(null); setManualFoodText(""); }} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 pb-safe flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
 
                 {showAddMeal.date !== dateStr && (
                   <p className="text-xs text-muted-foreground mb-3">
@@ -1006,6 +1012,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
             onClick={() => setShowGoalSettings(false)}
           >
             <motion.div
@@ -1014,18 +1021,19 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               onClick={e => e.stopPropagation()}
+              onTouchMove={e => e.stopPropagation()}
               className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[82svh] flex flex-col"
             >
               <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
                 <div className="w-10 h-1 rounded-full bg-border" />
               </div>
-              <div className="px-5 pb-safe overflow-y-auto flex-1 overscroll-contain" style={{ WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
-                <div className="flex items-center justify-between mb-4 pt-2">
-                  <h3 className="text-lg font-bold">Nutrition Goals</h3>
-                  <button onClick={() => setShowGoalSettings(false)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                    <X size={16} />
-                  </button>
-                </div>
+              <div className="flex items-center justify-between px-5 pt-1 pb-2 flex-shrink-0">
+                <h3 className="text-lg font-bold">Nutrition Goals</h3>
+                <button onClick={() => setShowGoalSettings(false)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 pb-safe flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "env(safe-area-inset-bottom, 16px)" }}>
                 <div className="space-y-4 pb-4">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">Daily Protein Goal (g)</label>
