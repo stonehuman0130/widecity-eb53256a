@@ -109,7 +109,12 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!editingMeal);
+  // Shopping list prompt after AI suggest add
+  const [shopPrompt, setShopPrompt] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string } | null>(null);
+  const [shopChecked, setShopChecked] = useState<Record<number, boolean>>({});
+  const [shopSaving, setShopSaving] = useState(false);
+
+  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!editingMeal || !!shopPrompt);
 
   const groupId = activeGroup?.id || null;
   const dateStr = fmtDate(selectedDate);
