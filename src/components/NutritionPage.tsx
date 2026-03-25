@@ -379,6 +379,43 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
+  const saveToShoppingList = async () => {
+    if (!user || !shopPrompt) return;
+    setShopSaving(true);
+    const selectedItems = shopPrompt.ingredients.filter((_, i) => shopChecked[i]);
+    if (selectedItems.length === 0) {
+      toast.info("No items selected");
+      setShopPrompt(null);
+      setShopSaving(false);
+      return;
+    }
+    // Create shopping list
+    const listLabel = `🍽️ ${shopPrompt.mealTitle}`;
+    const { data: listData, error: listErr } = await supabase.from("shopping_lists").insert({
+      user_id: user.id,
+      group_id: groupId,
+      label: listLabel,
+      date_range_start: shopPrompt.mealDate,
+      date_range_end: shopPrompt.mealDate,
+      is_meal_plan: true,
+    }).select().single();
+
+    if (listErr || !listData) {
+      toast.error("Failed to create shopping list");
+      setShopSaving(false);
+      return;
+    }
+    const rows = selectedItems.map(name => ({
+      list_id: (listData as any).id,
+      user_id: user.id,
+      name,
+    }));
+    await supabase.from("shopping_list_items").insert(rows);
+    toast.success("Shopping list created!");
+    setShopPrompt(null);
+    setShopSaving(false);
+  };
+
   const saveGoals = async () => {
     if (!user) return;
     const payload = {
