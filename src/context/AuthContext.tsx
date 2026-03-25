@@ -109,6 +109,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const restoreGroupsFromCache = (userId: string) => {
+    const cachedGroups = loadCachedGroups(userId);
+    if (cachedGroups.length === 0) return false;
+
+    setGroups(cachedGroups);
+    setActiveGroup((prev) => {
+      if (prev) {
+        return cachedGroups.find((g) => g.id === prev.id) ?? cachedGroups[0] ?? null;
+      }
+      return cachedGroups[0] ?? null;
+    });
+    return true;
+  };
+
   const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
   const isRetriableError = (message?: string) => {
@@ -178,6 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (attempt === 3 || !isRetriableError(error.message)) {
         console.error("Error fetching group memberships:", error);
+        restoreGroupsFromCache(user.id);
         return;
       }
 
@@ -200,6 +215,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (groupsError || !groupsData) {
       console.error("Error fetching groups:", groupsError);
+      restoreGroupsFromCache(user.id);
       return;
     }
 
@@ -210,6 +226,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (membersError) {
       console.error("Error fetching group members:", membersError);
+      restoreGroupsFromCache(user.id);
       return;
     }
 
@@ -221,6 +238,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (profilesError) {
       console.error("Error fetching member profiles:", profilesError);
+      restoreGroupsFromCache(user.id);
       return;
     }
 
@@ -299,7 +317,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setPartner(null);
           setGroups([]);
           setActiveGroup(null);
-          clearAllGroupCaches();
         }
         setLoading(false);
       }
@@ -330,7 +347,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, fetchGroups]);
 
+  useEffect(() => {
+    if (!user || groups.length > 0) return;
+
+    const retryOnce = () => {
+      void fetchGroups();
+    };
+
+    const timeoutId = window.setTimeout(retryOnce, 5000);
+    const intervalId = window.setInterval(retryOnce, 15000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  }, [user, groups.length, fetchGroups]);
+
   const signOut = async () => {
+    const currentUserId = user?.id;
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -338,7 +372,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setPartner(null);
     setGroups([]);
     setActiveGroup(null);
-    clearAllGroupCaches();
+    if (currentUserId) {
+      try {
+        localStorage.removeItem(getGroupsCacheKey(currentUserId));
+      } catch {
+        // no-op
+      }
+    } else {
+      clearAllGroupCaches();
+    }
   };
 
   const connectPartner = async (code: string) => {
