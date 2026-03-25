@@ -236,6 +236,8 @@ CONVERSATION PHASES:
                     meal_date: { type: "string" },
                     protein: { type: "number" },
                     calories: { type: "number" },
+                    ingredients: { type: "array", items: { type: "string" }, description: "List of ingredients with quantities" },
+                    prep_steps: { type: "array", items: { type: "string" }, description: "Step-by-step preparation instructions" },
                     new_label: { type: "string" },
                     scheduled_day: { type: "number" },
                     scheduled_month: { type: "number" },
