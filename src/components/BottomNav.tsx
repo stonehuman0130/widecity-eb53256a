@@ -46,6 +46,7 @@ interface BottomNavProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   navPages: Tab[];
+  onReorder?: (newPages: Tab[]) => void;
 }
 
 const BottomNav = ({ activeTab, onTabChange, navPages }: BottomNavProps) => {
