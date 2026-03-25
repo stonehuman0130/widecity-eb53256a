@@ -1139,7 +1139,7 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
       title: newTitle.trim(),
       time: "",
       tag: "Personal",
-      assignee: newAssignee,
+      assignee: newAssignee as "me" | "partner" | "both",
     });
     setNewTitle("");
     setNewAssignee("me");
