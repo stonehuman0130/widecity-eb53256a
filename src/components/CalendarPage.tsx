@@ -159,7 +159,7 @@ interface CalItem {
 const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const {
     events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
-    tasks, filteredTasks, toggleTask, removeTask, updateTask,
+    tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
     googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
     toggleEventCompletion,
   } = useAppContext();
