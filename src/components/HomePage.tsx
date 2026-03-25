@@ -1127,23 +1127,37 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newAssignee, setNewAssignee] = useState("me");
+  const [newDueDate, setNewDueDate] = useState<Date | undefined>(undefined);
+  const [dueDatePickerOpen, setDueDatePickerOpen] = useState(false);
+  const [newPriorNotice, setNewPriorNotice] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (adding) inputRef.current?.focus();
   }, [adding]);
 
+  const resetForm = () => {
+    setNewTitle("");
+    setNewAssignee("me");
+    setNewDueDate(undefined);
+    setNewPriorNotice(0);
+    setAdding(false);
+  };
+
   const handleAdd = () => {
     if (!newTitle.trim()) return;
+    const dueDateStr = newDueDate
+      ? `${newDueDate.getFullYear()}-${String(newDueDate.getMonth() + 1).padStart(2, "0")}-${String(newDueDate.getDate()).padStart(2, "0")}`
+      : null;
     addTask({
       title: newTitle.trim(),
       time: "",
       tag: "Personal",
       assignee: newAssignee as "me" | "partner" | "both",
+      dueDate: dueDateStr,
+      priorNoticeDays: newPriorNotice,
     });
-    setNewTitle("");
-    setNewAssignee("me");
-    setAdding(false);
+    resetForm();
   };
 
   const pendingTasks = tasks.filter((t) => !t.done);
