@@ -709,6 +709,39 @@ async function executeAppActions(client: any, userId: string, groupId: string, a
           results.push({ action_type: "delete_meal", success: !error, error: error?.message });
           break;
         }
+        case "create_shopping_list": {
+          const listLabel = action.label || action.title || "Shopping List";
+          const { data: listData, error: listError } = await client.from("shopping_lists").insert({
+            user_id: userId,
+            group_id: groupId,
+            label: listLabel,
+            date_range_start: action.date_range_start || null,
+            date_range_end: action.date_range_end || null,
+            is_meal_plan: action.is_meal_plan ?? true,
+          }).select().single();
+
+          if (listError || !listData) {
+            results.push({ action_type: "create_shopping_list", success: false, error: listError?.message });
+            break;
+          }
+
+          const shopItems = Array.isArray(action.shopping_items) ? action.shopping_items : (Array.isArray(action.items) ? action.items : []);
+          if (shopItems.length > 0) {
+            const rows = shopItems.map((name: string) => ({
+              list_id: listData.id,
+              user_id: userId,
+              name: typeof name === "string" ? name : String(name),
+            }));
+            const { error: itemsError } = await client.from("shopping_list_items").insert(rows);
+            if (itemsError) {
+              results.push({ action_type: "create_shopping_list", success: false, error: itemsError.message });
+              break;
+            }
+          }
+
+          results.push({ action_type: "create_shopping_list", success: true, id: listData.id });
+          break;
+        }
         default:
           results.push({ action_type: action.action_type, success: false, error: "Unknown action type" });
       }
