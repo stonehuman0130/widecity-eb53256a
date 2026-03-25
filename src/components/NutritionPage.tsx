@@ -109,10 +109,37 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Shopping list prompt after AI suggest add
+  // Shopping list prompt after AI suggest add (queue for multiple meals)
   const [shopPrompt, setShopPrompt] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string } | null>(null);
+  const [shopQueue, setShopQueue] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string }[]>([]);
   const [shopChecked, setShopChecked] = useState<Record<number, boolean>>({});
   const [shopSaving, setShopSaving] = useState(false);
+
+  // Process shop queue: when shopPrompt is dismissed and queue has items, show next
+  const dismissShopPrompt = () => {
+    setShopPrompt(null);
+    setShopQueue(prev => {
+      if (prev.length > 0) {
+        const [next, ...rest] = prev;
+        setTimeout(() => {
+          setShopChecked(Object.fromEntries(next.ingredients.map((_, i) => [i, true])));
+          setShopPrompt(next);
+        }, 200);
+        return rest;
+      }
+      return prev;
+    });
+  };
+
+  const enqueueShopPrompt = (item: { ingredients: string[]; mealTitle: string; mealDate: string }) => {
+    if (shopPrompt) {
+      // Already showing one, queue this
+      setShopQueue(prev => [...prev, item]);
+    } else {
+      setShopChecked(Object.fromEntries(item.ingredients.map((_, i) => [i, true])));
+      setShopPrompt(item);
+    }
+  };
 
   useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!editingMeal || !!shopPrompt);
 
@@ -303,8 +330,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       // Prompt for shopping list if there are ingredients
       const ingredients = Array.isArray(suggestion.ingredients) ? suggestion.ingredients : [];
       if (ingredients.length > 0) {
-        setShopChecked(Object.fromEntries(ingredients.map((_: any, i: number) => [i, true])));
-        setShopPrompt({ ingredients, mealTitle: suggestion.title, mealDate: dateStr });
+        enqueueShopPrompt({ ingredients, mealTitle: suggestion.title, mealDate: dateStr });
       }
     }
   };
@@ -385,7 +411,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     const selectedItems = shopPrompt.ingredients.filter((_, i) => shopChecked[i]);
     if (selectedItems.length === 0) {
       toast.info("No items selected");
-      setShopPrompt(null);
+      dismissShopPrompt();
       setShopSaving(false);
       return;
     }
@@ -412,7 +438,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }));
     await supabase.from("shopping_list_items").insert(rows);
     toast.success("Shopping list created!");
-    setShopPrompt(null);
+    dismissShopPrompt();
     setShopSaving(false);
   };
 
@@ -842,8 +868,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                     <button
                       onClick={() => {
                         addAiMealAsPlanned(s);
-                        setAiResults(prev => prev.filter((_, i) => i !== idx));
-                        if (aiResults.length <= 1) setShowAiResults(false);
+                        setAiResults(prev => {
+                          const next = prev.filter((_, i) => i !== idx);
+                          if (next.length === 0) setShowAiResults(false);
+                          return next;
+                        });
                       }}
                       className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
                     >
@@ -1231,8 +1260,8 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         {shopPrompt && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/40 flex items-end justify-center"
-            onClick={() => setShopPrompt(null)}
+            className="fixed inset-0 z-[90] bg-black/40 flex items-end justify-center"
+            onClick={() => dismissShopPrompt()}
           >
             <motion.div
               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
@@ -1268,7 +1297,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               </div>
               <div className="flex-shrink-0 px-5 pb-6 pt-3 flex gap-2">
                 <button
-                  onClick={() => setShopPrompt(null)}
+                  onClick={() => dismissShopPrompt()}
                   className="flex-1 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-semibold"
                 >
                   Skip
