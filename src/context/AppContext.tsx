@@ -1106,22 +1106,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const addTask = async (task: Omit<Task, "id" | "done">) => {
     if (!user) return;
     const groupId = activeGroup?.id ?? null;
+    const insertData: any = {
+      user_id: user.id,
+      title: task.title,
+      time: task.time,
+      tag: task.tag,
+      assignee: task.assignee,
+      done: false,
+      completed_at: null,
+      completed_by: null,
+      scheduled_day: task.scheduledDay,
+      scheduled_month: task.scheduledMonth,
+      scheduled_year: task.scheduledYear,
+      group_id: groupId,
+    };
+    if (task.dueDate !== undefined) insertData.due_date = task.dueDate;
+    if (task.priorNoticeDays !== undefined) insertData.prior_notice_days = task.priorNoticeDays;
+
     const { data, error } = await supabase
       .from("tasks")
-      .insert({
-        user_id: user.id,
-        title: task.title,
-        time: task.time,
-        tag: task.tag,
-        assignee: task.assignee,
-        done: false,
-        completed_at: null,
-        completed_by: null,
-        scheduled_day: task.scheduledDay,
-        scheduled_month: task.scheduledMonth,
-        scheduled_year: task.scheduledYear,
-        group_id: groupId,
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -1133,6 +1137,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         completedAt: null,
         completedBy: null,
         updatedAt: data.updated_at ?? null,
+        dueDate: (data as any).due_date ?? null,
+        priorNoticeDays: (data as any).prior_notice_days ?? 0,
         groupId,
       }]);
     }
