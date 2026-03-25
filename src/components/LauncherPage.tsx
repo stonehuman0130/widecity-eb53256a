@@ -45,8 +45,13 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
     }
 
     let cancelled = false;
+    let inFlight = false;
+    let intervalId: number | undefined;
 
     const loadFallbackGroups = async () => {
+      if (inFlight) return;
+      inFlight = true;
+
       for (let attempt = 0; attempt < 3; attempt++) {
         const { data, error } = await supabase
           .from("groups")
@@ -66,17 +71,24 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
               }))
             );
           }
+          inFlight = false;
           return;
         }
 
         await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
       }
+
+      inFlight = false;
     };
 
     void loadFallbackGroups();
+    intervalId = window.setInterval(() => {
+      void loadFallbackGroups();
+    }, 10000);
 
     return () => {
       cancelled = true;
+      if (intervalId) window.clearInterval(intervalId);
     };
   }, [user, groups.length]);
 
