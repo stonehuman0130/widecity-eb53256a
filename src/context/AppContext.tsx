@@ -57,6 +57,8 @@ export interface Task {
   scheduledDay?: number;
   scheduledMonth?: number;
   scheduledYear?: number;
+  dueDate?: string | null;
+  priorNoticeDays?: number;
   hiddenFromPartner?: boolean;
   groupId?: string | null;
   ownerUserId?: string;
