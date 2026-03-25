@@ -133,7 +133,7 @@ ACTION TYPES:
 - "delete_task": { task_id }
 - "log_meal": { meal_type (breakfast/lunch/dinner/snack), title, protein (grams), calories, meal_date (YYYY-MM-DD), ingredients (array of strings, e.g. ["2 eggs", "1 cup spinach"]), prep_steps (array of strings, e.g. ["Scramble eggs", "Add spinach"]) }
 - "delete_meal": { meal_id }
-- "create_shopping_list": { label, date_range_start (YYYY-MM-DD), date_range_end (YYYY-MM-DD), is_meal_plan (boolean), items (array of strings - ingredient names) }
+- "create_shopping_list": { date_range_start (YYYY-MM-DD - any date in the target week; system auto-groups by Mon-Sun), is_meal_plan (boolean), items (array of strings - ingredient names with quantities combined, e.g. "5 eggs" not "2 eggs" + "3 eggs") }
 
 CRITICAL RULES:
 1. When the user clearly states what they want, EXECUTE IT with actions. Don't just suggest—DO IT.
