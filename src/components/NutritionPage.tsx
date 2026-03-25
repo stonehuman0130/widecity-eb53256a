@@ -438,7 +438,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }));
     await supabase.from("shopping_list_items").insert(rows);
     toast.success("Shopping list created!");
-    setShopPrompt(null);
+    dismissShopPrompt();
     setShopSaving(false);
   };
 
