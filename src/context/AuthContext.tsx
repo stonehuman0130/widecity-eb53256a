@@ -175,7 +175,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const fetchGroups = useCallback(async () => {
-    if (!user || !session?.access_token) return;
+    if (!user) return;
+
+    if (!session?.access_token) {
+      const { data: { session: restoredSession } } = await supabase.auth.getSession();
+      if (restoredSession?.access_token) {
+        setSession(restoredSession);
+      } else {
+        const { data: refreshedData } = await supabase.auth.refreshSession();
+        if (refreshedData?.session?.access_token) {
+          setSession(refreshedData.session);
+        } else {
+          restoreGroupsFromCache(user.id);
+          return;
+        }
+      }
+    }
 
     let memberships: { group_id: string }[] | null = null;
 
@@ -251,8 +266,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      setGroups([]);
-      setActiveGroup(null);
+      // Never overwrite visible state with an empty result from a potentially transient auth/backend issue.
+      // If this user truly has no groups, create/join flow will still work and populate state.
       return;
     }
 
@@ -345,7 +360,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else if (enrichedGroups.length > 0) {
       setActiveGroup(enrichedGroups[0]);
     }
-  }, [user, session, activeGroup]);
+  }, [user, session?.access_token, activeGroup]);
 
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.id);
