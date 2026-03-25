@@ -520,8 +520,8 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const todoTasks = todoTasksRaw.filter((t) => {
     if (t.done) return false; // completed tasks hidden
     if (!t.dueDate) return true; // no due date = always visible
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const viewDate = new Date(selectedDate);
+    viewDate.setHours(0, 0, 0, 0);
     const due = new Date(t.dueDate + "T00:00:00");
     const notice = t.priorNoticeDays ?? 0;
     const showFrom = new Date(due);
