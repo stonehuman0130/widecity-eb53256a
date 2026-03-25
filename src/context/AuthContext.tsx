@@ -175,7 +175,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const fetchGroups = useCallback(async () => {
-    if (!user || !session?.access_token) return;
+    if (!user) return;
+
+    if (!session?.access_token) {
+      const { data: { session: restoredSession } } = await supabase.auth.getSession();
+      if (restoredSession?.access_token) {
+        setSession(restoredSession);
+      } else {
+        restoreGroupsFromCache(user.id);
+        return;
+      }
+    }
 
     let memberships: { group_id: string }[] | null = null;
 
@@ -345,7 +355,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else if (enrichedGroups.length > 0) {
       setActiveGroup(enrichedGroups[0]);
     }
-  }, [user, session, activeGroup]);
+  }, [user, session?.access_token, activeGroup]);
 
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.id);
