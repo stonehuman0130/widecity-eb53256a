@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Home, CalendarDays, MessageCircle, MoreHorizontal, Dumbbell, Heart, Clock, Sparkles, Apple } from "lucide-react";
+import { Home, CalendarDays, MessageCircle, MoreHorizontal, Dumbbell, Heart, Clock, Sparkles, Apple, ShoppingCart } from "lucide-react";
 
-export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "nutrition" | "calendar" | "chat" | "ai" | "settings" | "more";
+export type Tab = "home" | "workout" | "habits" | "sobriety" | "specialdays" | "nutrition" | "calendar" | "chat" | "ai" | "settings" | "more" | "shopping";
 
 export const ALL_PAGE_META: Record<string, { label: string; icon: typeof Home; desc: string }> = {
   calendar: { label: "Calendar", icon: CalendarDays, desc: "View and manage your schedule" },
@@ -11,6 +11,7 @@ export const ALL_PAGE_META: Record<string, { label: string; icon: typeof Home; d
   nutrition: { label: "Nutrition", icon: Apple, desc: "Track protein, meals & AI suggestions" },
   sobriety: { label: "Sobriety", icon: Clock, desc: "Track sobriety milestones" },
   specialdays: { label: "Special Days", icon: Sparkles, desc: "Track anniversaries & milestones" },
+  shopping: { label: "Shopping", icon: ShoppingCart, desc: "Shopping lists from meal plans" },
 };
 
 export const CUSTOMIZABLE_PAGE_IDS = Object.keys(ALL_PAGE_META) as Tab[];
