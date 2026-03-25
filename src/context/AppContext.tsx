@@ -122,7 +122,7 @@ interface AppContextType {
   toggleTask: (id: string) => void;
   addTask: (task: Omit<Task, "id" | "done">) => void;
   removeTask: (id: string) => void;
-  updateTask: (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time">>) => void;
+  updateTask: (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time" | "dueDate" | "priorNoticeDays">>) => void;
   waterIntake: number;
   waterGoal: number;
   setWaterIntake: (amount: number) => void;
