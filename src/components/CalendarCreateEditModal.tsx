@@ -334,6 +334,41 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
     return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   };
 
+  // ── Timezone list ──
+  const allTimezones = useMemo(() => {
+    try {
+      return (Intl as any).supportedValuesOf("timeZone") as string[];
+    } catch {
+      return [
+        "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+        "America/Anchorage", "Pacific/Honolulu", "America/Toronto", "America/Vancouver",
+        "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Amsterdam",
+        "Europe/Rome", "Europe/Madrid", "Europe/Stockholm", "Europe/Helsinki",
+        "Asia/Tokyo", "Asia/Shanghai", "Asia/Kolkata", "Asia/Dubai",
+        "Asia/Singapore", "Asia/Seoul", "Asia/Hong_Kong",
+        "Australia/Sydney", "Australia/Melbourne", "Pacific/Auckland",
+        "Africa/Cairo", "Africa/Johannesburg", "America/Sao_Paulo", "America/Mexico_City",
+        "UTC",
+      ];
+    }
+  }, []);
+
+  const filteredTimezones = useMemo(() => {
+    if (!tzSearch.trim()) return allTimezones;
+    const q = tzSearch.toLowerCase();
+    return allTimezones.filter((tz) => tz.toLowerCase().includes(q));
+  }, [tzSearch, allTimezones]);
+
+  const tzDisplayLabel = (tz: string) => {
+    try {
+      const now = new Date();
+      const short = now.toLocaleString("en-US", { timeZone: tz, timeZoneName: "short" }).split(" ").pop();
+      return `${tz.replace(/_/g, " ")} (${short})`;
+    } catch {
+      return tz.replace(/_/g, " ");
+    }
+  };
+
   if (!open) return null;
 
   return (
