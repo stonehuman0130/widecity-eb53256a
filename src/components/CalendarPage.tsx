@@ -176,6 +176,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<CalItem | null>(null);
   const [editingItem, setEditingItem] = useState<{ id: string; type: "event" | "task"; raw: ScheduledEvent | Task; isDueDateTask?: boolean; done?: boolean } | null>(null);
+  const [showCalendarsManager, setShowCalendarsManager] = useState(false);
   const timeGridRef = useRef<HTMLDivElement>(null);
 
   const year = currentDate.getFullYear();
