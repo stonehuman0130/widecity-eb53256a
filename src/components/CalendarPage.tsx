@@ -1378,16 +1378,15 @@ const TimeGridView = ({
 
                   return (
                     <button key={item.id} onClick={() => onItemTap?.(item)}
-                      className="absolute rounded-md overflow-hidden cursor-pointer text-left hover:brightness-95 active:brightness-90 transition-all"
+                      className="absolute rounded-md overflow-hidden cursor-pointer text-left hover:brightness-110 active:brightness-90 transition-all shadow-sm"
                       style={{
                         top, height, width, left,
-                        backgroundColor: color + "30",
-                        borderLeft: `3px solid ${color}`,
+                        backgroundColor: color,
                       }}>
                       <div className="px-1.5 py-1 h-full flex flex-col justify-start">
-                        <p className="text-[11px] font-semibold leading-tight truncate" style={{ color }}>{item.title}</p>
+                        <p className="text-[11px] font-semibold leading-tight truncate text-white drop-shadow-sm">{item.title}</p>
                         {height > 30 && (
-                          <p className="text-[9px] mt-0.5 truncate" style={{ color: color + "cc" }}>
+                          <p className="text-[9px] mt-0.5 truncate text-white/80">
                             {item.type === "gcal" ? new Date(item.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : formatTime(item.time)}
                             {item.endTime ? ` – ${formatTime(item.endTime)}` : ""}
                           </p>
