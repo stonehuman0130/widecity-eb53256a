@@ -165,8 +165,8 @@ const TODO_COLOR_CLASSES = { bg: "bg-violet-500", text: "text-violet-500", bgLig
 
 const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const {
-    events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
-    tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
+    events, filteredEvents, removeEvent, rescheduleEvent,
+    tasks, filteredTasks, toggleTask, removeTask,
     googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
     toggleEventCompletion,
   } = useAppContext();
