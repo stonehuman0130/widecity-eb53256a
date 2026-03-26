@@ -122,11 +122,15 @@ export type Database = {
           group_id: string | null
           hidden_from_partner: boolean
           id: string
+          location: string | null
           month: number
+          notification_minutes: number | null
+          repeat_rule: Json | null
           time: string
           title: string
           updated_at: string
           user_id: string
+          visibility: string | null
           year: number
         }
         Insert: {
@@ -145,11 +149,15 @@ export type Database = {
           group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
+          location?: string | null
           month: number
+          notification_minutes?: number | null
+          repeat_rule?: Json | null
           time?: string
           title: string
           updated_at?: string
           user_id: string
+          visibility?: string | null
           year: number
         }
         Update: {
@@ -168,11 +176,15 @@ export type Database = {
           group_id?: string | null
           hidden_from_partner?: boolean
           id?: string
+          location?: string | null
           month?: number
+          notification_minutes?: number | null
+          repeat_rule?: Json | null
           time?: string
           title?: string
           updated_at?: string
           user_id?: string
+          visibility?: string | null
           year?: number
         }
         Relationships: [
@@ -986,6 +998,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string
+          description: string | null
           done: boolean
           due_date: string | null
           group_id: string | null
@@ -1000,12 +1013,14 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          visibility: string | null
         }
         Insert: {
           assignee?: string
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          description?: string | null
           done?: boolean
           due_date?: string | null
           group_id?: string | null
@@ -1020,12 +1035,14 @@ export type Database = {
           title: string
           updated_at?: string
           user_id: string
+          visibility?: string | null
         }
         Update: {
           assignee?: string
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          description?: string | null
           done?: boolean
           due_date?: string | null
           group_id?: string | null
@@ -1040,6 +1057,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          visibility?: string | null
         }
         Relationships: [
           {
@@ -1198,11 +1216,15 @@ export type Database = {
           group_id: string | null
           hidden_from_partner: boolean
           id: string
+          location: string | null
           month: number
+          notification_minutes: number | null
+          repeat_rule: Json | null
           time: string
           title: string
           updated_at: string
           user_id: string
+          visibility: string | null
           year: number
         }
         SetofOptions: {
@@ -1219,6 +1241,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string
+          description: string | null
           done: boolean
           due_date: string | null
           group_id: string | null
@@ -1233,6 +1256,7 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          visibility: string | null
         }
         SetofOptions: {
           from: "*"
