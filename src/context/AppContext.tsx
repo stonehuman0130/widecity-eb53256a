@@ -115,6 +115,7 @@ interface AppContextType {
   filteredEvents: ScheduledEvent[];
   addEvent: (event: Omit<ScheduledEvent, "id">) => void;
   removeEvent: (id: string) => void;
+  updateEvent: (id: string, updates: Partial<Pick<ScheduledEvent, "title" | "time" | "endTime" | "day" | "month" | "year" | "endDay" | "endMonth" | "endYear" | "allDay" | "description">>) => Promise<void>;
   rescheduleEvent: (id: string, day: number, month: number, year: number) => Promise<void>;
   toggleEventCompletion: (id: string) => Promise<void>;
   tasks: Task[];
