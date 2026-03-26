@@ -9,7 +9,7 @@ import UserBadge from "@/components/UserBadge";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { formatTime } from "@/lib/formatTime";
-import { toast } from "sonner";
+
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
