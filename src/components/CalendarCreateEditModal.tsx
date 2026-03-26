@@ -869,35 +869,6 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
                 </>
               )}
 
-              {/* Category */}
-              <div className="px-4 py-3">
-                <div className="flex items-center gap-3 mb-2">
-                  <Palette size={18} className="text-muted-foreground" />
-                  <span className="text-[14px] text-foreground font-medium">Category</span>
-                </div>
-                <div className="flex gap-2 ml-[30px]">
-                  {(["Work", "Personal", "Household"] as const).map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => setTodoTag(tag)}
-                      className={cn(
-                        "flex-1 py-2 text-[12px] font-semibold rounded-xl border transition-all",
-                        todoTag === tag
-                          ? tag === "Work"
-                            ? "border-blue-500 bg-blue-500/10 text-blue-500"
-                            : tag === "Household"
-                            ? "border-orange-500 bg-orange-500/10 text-orange-500"
-                            : "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground"
-                      )}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="h-px bg-border mx-4" />
 
               {/* Assignee */}
               <div className="px-4 py-3">

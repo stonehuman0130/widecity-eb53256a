@@ -351,30 +351,6 @@ const AddItemModal = ({ open, onClose }: AddItemModalProps) => {
                   </>
                 )}
 
-                {/* Category / Tag selector */}
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Category</p>
-                  <div className="flex gap-2">
-                    {(["Work", "Personal", "Household"] as const).map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => setCalTag(tag)}
-                        className={`flex-1 py-2.5 text-xs font-semibold rounded-xl border transition-all ${
-                          calTag === tag
-                            ? tag === "Work"
-                              ? "border-blue-500 bg-blue-500/10 text-blue-500"
-                              : tag === "Household"
-                              ? "border-orange-500 bg-orange-500/10 text-orange-500"
-                              : "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground"
-                        }`}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Assignee selector */}
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Assign to</p>

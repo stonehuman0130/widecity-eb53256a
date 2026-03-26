@@ -7,7 +7,6 @@ import { Calendar } from "@/components/ui/calendar";
 import GroupBadge from "@/components/GroupBadge";
 import ItemActionMenu from "@/components/ItemActionMenu";
 import GroupSelector from "@/components/GroupSelector";
-import TaskTag from "@/components/TaskTag";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
 import TeamDashboard from "@/components/TeamDashboard";
@@ -945,7 +944,6 @@ const TaskCard = ({ task, onToggle, onCongrats, readOnly }: { task: Task; onTogg
         {!readOnly && <TaskActionMenu taskId={task.id} />}
       </div>
       <div className="mt-2 ml-9 flex items-center gap-2">
-        <TaskTag tag={task.tag} />
         <GroupBadge groupId={task.groupId} />
       </div>
     </motion.div>
