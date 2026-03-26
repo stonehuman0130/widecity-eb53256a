@@ -67,6 +67,62 @@ export type Database = {
           },
         ]
       }
+      calendars: {
+        Row: {
+          color: string
+          created_at: string
+          group_id: string | null
+          id: string
+          is_default: boolean
+          is_visible: boolean
+          name: string
+          provider: string
+          provider_account_id: string | null
+          provider_calendar_id: string | null
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          is_default?: boolean
+          is_visible?: boolean
+          name: string
+          provider?: string
+          provider_account_id?: string | null
+          provider_calendar_id?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          is_default?: boolean
+          is_visible?: boolean
+          name?: string
+          provider?: string
+          provider_account_id?: string | null
+          provider_calendar_id?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendars_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_conversations: {
         Row: {
           context: Json
