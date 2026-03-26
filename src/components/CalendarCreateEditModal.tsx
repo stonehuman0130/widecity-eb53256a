@@ -497,6 +497,16 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
                 )}
               </div>
 
+              {/* Timezone */}
+              <button
+                onClick={() => { setTzSearch(""); setShowTzPicker(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors"
+              >
+                <Globe size={18} className="text-muted-foreground flex-shrink-0" />
+                <span className="text-[14px] text-foreground truncate">{tzDisplayLabel(timezone)}</span>
+                <ChevronDown size={16} className="text-muted-foreground ml-auto flex-shrink-0" />
+              </button>
+
               <div className="h-px bg-border mx-4" />
 
               {/* Assignee */}
