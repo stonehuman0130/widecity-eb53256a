@@ -16,6 +16,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import CalendarItemDetailModal from "@/components/CalendarItemDetailModal";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -177,6 +178,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [showSearch, setShowSearch] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedItem, setSelectedItem] = useState<CalItem | null>(null);
   const timeGridRef = useRef<HTMLDivElement>(null);
 
   // Add form state
@@ -1024,7 +1026,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             {selectedDayItems.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">No events</p>
             ) : (
-              <EventList items={selectedDayItems} groups={groups} getColorClasses={getColorClasses} />
+              <EventList items={selectedDayItems} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} />
             )}
           </div>
         </div>
@@ -1049,7 +1051,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                     </span>
                     {isTodayDay && <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">TODAY</span>}
                   </div>
-                  <EventList items={items} groups={groups} getColorClasses={getColorClasses} />
+                  <EventList items={items} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} />
                 </div>
               );
             })}
@@ -1059,12 +1061,12 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
       {/* ── DAY VIEW ────────────────────────────────────── */}
       {viewMode === "day" && (
-        <TimeGridView dates={[selectedDate]} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} />
+        <TimeGridView dates={[selectedDate]} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} onItemTap={setSelectedItem} />
       )}
 
       {/* ── 3-DAY VIEW ──────────────────────────────────── */}
       {viewMode === "3day" && (
-        <TimeGridView dates={threeDayDates} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} />
+        <TimeGridView dates={threeDayDates} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} onItemTap={setSelectedItem} />
       )}
 
       {/* ── Search Modal ────────────────────────────────── */}
@@ -1125,6 +1127,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           </div>
         </div>
       )}
+      {/* ── Item Detail Modal ───────────────────────────── */}
+      <CalendarItemDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
     </div>
   );
 };
@@ -1132,11 +1136,12 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 // ── Event List Component ──────────────────────────────────
 
 const EventList = ({
-  items, groups, getColorClasses,
+  items, groups, getColorClasses, onItemTap,
 }: {
   items: CalItem[];
   groups: Group[];
   getColorClasses: (gid: string | null | undefined) => typeof GROUP_COLOR_CLASSES[0];
+  onItemTap?: (item: CalItem) => void;
 }) => {
   const { activeGroup } = useAuth();
   const todoItems = items.filter((i) => i.isDueDateTask);
@@ -1150,7 +1155,8 @@ const EventList = ({
           {todoItems.map((item) => {
             const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
             return (
-              <div key={item.id} className="flex items-center gap-2.5 py-1.5 px-1">
+              <button key={item.id} onClick={() => onItemTap?.(item)}
+                className="w-full flex items-center gap-2.5 py-1.5 px-1 text-left hover:bg-secondary/50 rounded-lg transition-colors active:bg-secondary">
                 <span className={`w-[3px] h-5 rounded-full ${TODO_COLOR_CLASSES.bg} flex-shrink-0`} />
                 <span className="text-[11px] text-violet-500 w-12 flex-shrink-0 font-medium">to-do</span>
                 <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
@@ -1160,7 +1166,7 @@ const EventList = ({
                   <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{group.emoji} {group.name}</span>
                 )}
                 <UserBadge user={item.assignee} />
-              </div>
+              </button>
             );
           })}
         </div>
@@ -1172,7 +1178,8 @@ const EventList = ({
             const colors = getColorClasses(item.groupId);
             const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
             return (
-              <div key={item.id} className="flex items-center gap-2.5 py-1.5 px-1">
+              <button key={item.id} onClick={() => onItemTap?.(item)}
+                className="w-full flex items-center gap-2.5 py-1.5 px-1 text-left hover:bg-secondary/50 rounded-lg transition-colors active:bg-secondary">
                 <span className={`w-[3px] h-5 rounded-full ${colors.bg} flex-shrink-0`} />
                 <span className="text-[11px] text-muted-foreground w-12 flex-shrink-0">all-day</span>
                 <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
@@ -1185,7 +1192,7 @@ const EventList = ({
                   <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{group.emoji} {group.name}</span>
                 )}
                 <UserBadge user={item.assignee} />
-              </div>
+              </button>
             );
           })}
         </div>
@@ -1200,7 +1207,8 @@ const EventList = ({
         const displayEndTime = item.endTime ? formatTime(item.endTime) : null;
 
         return (
-          <div key={item.id} className="flex items-center gap-2.5 py-2 px-1">
+          <button key={item.id} onClick={() => onItemTap?.(item)}
+            className="w-full flex items-center gap-2.5 py-2 px-1 text-left hover:bg-secondary/50 rounded-lg transition-colors active:bg-secondary">
             <span className={`w-[3px] h-5 rounded-full ${colors.bg} flex-shrink-0`} />
             <span className="text-[11px] text-muted-foreground w-16 flex-shrink-0 tabular-nums">
               {displayTime}{displayEndTime && displayEndTime !== displayTime ? `–${displayEndTime}` : ""}
@@ -1212,7 +1220,7 @@ const EventList = ({
               <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{group.emoji} {group.name}</span>
             )}
             <UserBadge user={item.assignee} />
-          </div>
+          </button>
         );
       })}
     </div>
@@ -1222,12 +1230,13 @@ const EventList = ({
 // ── Time Grid View (Day / 3-Day) ──────────────────────────
 
 const TimeGridView = ({
-  dates, getItemsForDate, groups, timeGridRef,
+  dates, getItemsForDate, groups, timeGridRef, onItemTap,
 }: {
   dates: Date[];
   getItemsForDate: (d: number, m: number, y: number) => CalItem[];
   groups: Group[];
   timeGridRef: React.RefObject<HTMLDivElement | null>;
+  onItemTap?: (item: CalItem) => void;
 }) => {
   const columns = dates.map((d) => ({
     date: d,
@@ -1238,7 +1247,6 @@ const TimeGridView = ({
 
   const hourHeight = 60;
 
-  // Layout overlapping events side-by-side
   const layoutEvents = (items: CalItem[]) => {
     const timed = items.filter((it) => !it.allDay && it.hour != null);
     const sorted = [...timed].sort((a, b) => (a.hour ?? 0) - (b.hour ?? 0));
@@ -1247,21 +1255,15 @@ const TimeGridView = ({
     sorted.forEach((item) => {
       const startH = item.hour!;
       const endH = item.endHour ?? startH + 1;
-
-      // Find overlapping group
       const overlapping = positioned.filter((p) => {
         const pStart = p.item.hour!;
         const pEnd = p.item.endHour ?? pStart + 1;
         return startH < pEnd && endH > pStart;
       });
-
       const usedCols = new Set(overlapping.map((o) => o.col));
       let col = 0;
       while (usedCols.has(col)) col++;
-
       positioned.push({ item, col, totalCols: 1 });
-
-      // Update totalCols for all overlapping items
       const group = [...overlapping, { item, col, totalCols: 1 }];
       const maxCol = Math.max(...group.map((g) => g.col)) + 1;
       group.forEach((g) => { g.totalCols = maxCol; });
@@ -1273,6 +1275,7 @@ const TimeGridView = ({
 
   return (
     <div>
+      {/* Column headers */}
       <div className="flex border-b border-border mb-0">
         <div className="w-12 flex-shrink-0" />
         {columns.map((col, i) => (
@@ -1282,17 +1285,18 @@ const TimeGridView = ({
         ))}
       </div>
 
-      {/* To-do tasks row (above all-day) */}
+      {/* To-do tasks row */}
       {columns.some((c) => c.items.some((it) => it.isDueDateTask)) && (
         <div className="flex border-b border-border">
           <div className="w-12 flex-shrink-0 text-[10px] text-violet-500 flex items-center justify-end pr-2 font-medium">to-do</div>
           {columns.map((col, ci) => (
             <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
               {col.items.filter((it) => it.isDueDateTask).map((it) => (
-                <div key={it.id} className={`text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5 ${it.done ? "line-through opacity-40" : ""}`}
+                <button key={it.id} onClick={() => onItemTap?.(it)}
+                  className={`w-full text-left text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5 hover:opacity-80 active:opacity-60 transition-opacity ${it.done ? "line-through opacity-40" : ""}`}
                   style={{ backgroundColor: TODO_COLOR + "22", color: TODO_COLOR }}>
                   {it.title}
-                </div>
+                </button>
               ))}
             </div>
           ))}
@@ -1308,10 +1312,11 @@ const TimeGridView = ({
               {col.items.filter((it) => it.allDay && !it.isDueDateTask).map((it) => {
                 const colorIdx = getGroupColorIndex(it.groupId, groups);
                 return (
-                  <div key={it.id} className="text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5"
+                  <button key={it.id} onClick={() => onItemTap?.(it)}
+                    className="w-full text-left text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5 hover:opacity-80 active:opacity-60 transition-opacity"
                     style={{ backgroundColor: GROUP_COLORS[colorIdx] + "22", color: GROUP_COLORS[colorIdx] }}>
                     {it.title}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -1319,9 +1324,10 @@ const TimeGridView = ({
         </div>
       )}
 
-      {/* Time grid */}
+      {/* Time grid with 15-min increments */}
       <div ref={timeGridRef} className="overflow-y-auto relative" style={{ maxHeight: "calc(100vh - 280px)" }}>
         <div className="flex" style={{ height: 24 * hourHeight }}>
+          {/* Time labels */}
           <div className="w-12 flex-shrink-0 relative">
             {HOURS.map((h) => (
               <div key={h} className="absolute w-full text-right pr-2 text-[10px] text-muted-foreground" style={{ top: h * hourHeight - 6 }}>
@@ -1335,43 +1341,59 @@ const TimeGridView = ({
 
             return (
               <div key={ci} className="flex-1 relative border-l border-border">
+                {/* Hour lines (solid) + 15-min lines (dotted) */}
                 {HOURS.map((h) => (
-                  <div key={h} className="absolute w-full border-t border-border/50" style={{ top: h * hourHeight }} />
+                  <div key={h}>
+                    {/* Main hour line */}
+                    <div className="absolute w-full border-t border-border" style={{ top: h * hourHeight }} />
+                    {/* 15-min dotted lines */}
+                    <div className="absolute w-full border-t border-dotted border-border/30" style={{ top: h * hourHeight + hourHeight * 0.25 }} />
+                    <div className="absolute w-full border-t border-dotted border-border/30" style={{ top: h * hourHeight + hourHeight * 0.5 }} />
+                    <div className="absolute w-full border-t border-dotted border-border/30" style={{ top: h * hourHeight + hourHeight * 0.75 }} />
+                  </div>
                 ))}
 
+                {/* Current time indicator */}
                 {col.isToday && (() => {
                   const now = new Date();
                   const nowPos = (now.getHours() + now.getMinutes() / 60) * hourHeight;
                   return (
                     <div className="absolute w-full z-10" style={{ top: nowPos }}>
-                      <div className="w-2 h-2 rounded-full bg-destructive absolute -left-1 -top-1" />
-                      <div className="h-[1px] w-full bg-destructive" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-destructive absolute -left-[5px] -top-[4px]" />
+                      <div className="h-[2px] w-full bg-destructive" />
                     </div>
                   );
                 })()}
 
+                {/* Event blocks - full duration shaded */}
                 {positioned.map(({ item, col: colIdx, totalCols }) => {
                   const colorIdx = getGroupColorIndex(item.groupId, groups);
+                  const color = item.type === "task" ? TODO_COLOR : GROUP_COLORS[colorIdx];
                   const top = item.hour! * hourHeight;
                   const endH = item.endHour ?? item.hour! + 1;
                   const duration = Math.max(endH - item.hour!, 0.25);
-                  const height = Math.max(duration * hourHeight, 20);
+                  const height = Math.max(duration * hourHeight, 24);
                   const width = `calc(${100 / totalCols}% - 2px)`;
                   const left = `calc(${(colIdx / totalCols) * 100}% + 1px)`;
 
                   return (
-                    <div key={item.id} className="absolute rounded-md px-1.5 py-1 overflow-hidden cursor-pointer"
+                    <button key={item.id} onClick={() => onItemTap?.(item)}
+                      className="absolute rounded-md overflow-hidden cursor-pointer text-left hover:brightness-95 active:brightness-90 transition-all"
                       style={{
                         top, height, width, left,
-                        backgroundColor: GROUP_COLORS[colorIdx] + "22",
-                        borderLeft: `3px solid ${GROUP_COLORS[colorIdx]}`,
+                        backgroundColor: color + "30",
+                        borderLeft: `3px solid ${color}`,
                       }}>
-                      <p className="text-[10px] font-semibold truncate" style={{ color: GROUP_COLORS[colorIdx] }}>{item.title}</p>
-                      <p className="text-[9px] text-muted-foreground truncate">
-                        {item.type === "gcal" ? new Date(item.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : formatTime(item.time)}
-                        {item.endTime ? ` – ${formatTime(item.endTime)}` : ""}
-                      </p>
-                    </div>
+                      <div className="px-1.5 py-1 h-full flex flex-col justify-start">
+                        <p className="text-[11px] font-semibold leading-tight truncate" style={{ color }}>{item.title}</p>
+                        {height > 30 && (
+                          <p className="text-[9px] mt-0.5 truncate" style={{ color: color + "cc" }}>
+                            {item.type === "gcal" ? new Date(item.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : formatTime(item.time)}
+                            {item.endTime ? ` – ${formatTime(item.endTime)}` : ""}
+                          </p>
+                        )}
+                      </div>
+                    </button>
                   );
                 })}
               </div>
