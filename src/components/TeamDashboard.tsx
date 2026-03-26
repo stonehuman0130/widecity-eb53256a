@@ -4,7 +4,7 @@ import { Clock, Check, Users, GripVertical, ListTodo } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { formatTime } from "@/lib/formatTime";
-import TaskTag from "@/components/TaskTag";
+import {
 import {
   DashboardMember,
   buildColumnIndexMap,

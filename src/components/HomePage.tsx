@@ -7,7 +7,7 @@ import { Calendar } from "@/components/ui/calendar";
 import GroupBadge from "@/components/GroupBadge";
 import ItemActionMenu from "@/components/ItemActionMenu";
 import GroupSelector from "@/components/GroupSelector";
-import TaskTag from "@/components/TaskTag";
+import UserBadge from "@/components/UserBadge";
 import UserBadge from "@/components/UserBadge";
 import TaskActionMenu from "@/components/TaskActionMenu";
 import TeamDashboard from "@/components/TeamDashboard";
