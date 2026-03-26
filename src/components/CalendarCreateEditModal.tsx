@@ -337,7 +337,7 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] bg-background flex flex-col"
+        className="absolute inset-0 z-[60] bg-background flex flex-col"
       >
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
