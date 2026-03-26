@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   ChevronLeft, ChevronRight, Plus, X, Search,
-  Calendar as CalendarIcon, MoreVertical, Settings, ListTodo,
+  Calendar as CalendarIcon, Settings,
 } from "lucide-react";
 import { useAppContext, Task, ScheduledEvent, GoogleCalendarEvent } from "@/context/AppContext";
 import { useAuth, Group } from "@/context/AuthContext";
@@ -9,7 +9,7 @@ import UserBadge from "@/components/UserBadge";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { formatTime } from "@/lib/formatTime";
-import { toast } from "sonner";
+
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import CalendarItemDetailModal from "@/components/CalendarItemDetailModal";
+import CalendarCreateEditModal from "@/components/CalendarCreateEditModal";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -164,43 +165,23 @@ const TODO_COLOR_CLASSES = { bg: "bg-violet-500", text: "text-violet-500", bgLig
 
 const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const {
-    events, filteredEvents, addEvent, removeEvent, rescheduleEvent,
-    tasks, filteredTasks, toggleTask, addTask, removeTask, updateTask,
+    events, filteredEvents, removeEvent, rescheduleEvent,
+    tasks, filteredTasks, toggleTask, removeTask,
     googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
     toggleEventCompletion,
   } = useAppContext();
   const { activeGroup, groups } = useAuth();
-  const { showGoogleCalendar, filters: calGroupFilters } = useGroupContext();
+  const { showGoogleCalendar } = useGroupContext();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [showSearch, setShowSearch] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<CalItem | null>(null);
+  const [editingItem, setEditingItem] = useState<{ id: string; type: "event" | "task"; raw: ScheduledEvent | Task; isDueDateTask?: boolean; done?: boolean } | null>(null);
   const timeGridRef = useRef<HTMLDivElement>(null);
-
-  // Add form state
-  const [newTitle, setNewTitle] = useState("");
-  const [newStartDate, setNewStartDate] = useState("");
-  const [newStartTime, setNewStartTime] = useState("");
-  const [newEndDate, setNewEndDate] = useState("");
-  const [newEndTime, setNewEndTime] = useState("");
-  const [newAllDay, setNewAllDay] = useState(false);
-  const [newUser, setNewUser] = useState<string>("me");
-  const [newDesc, setNewDesc] = useState("");
-
-  // To Do mode state
-  const [newIsTodo, setNewIsTodo] = useState(false);
-  const [newTodoDueDate, setNewTodoDueDate] = useState<Date | undefined>(undefined);
-  const [newTodoPriorNotice, setNewTodoPriorNotice] = useState(0);
-  const [newTodoTag, setNewTodoTag] = useState<"Work" | "Personal" | "Household">("Personal");
-  const [newTodoShowCustom, setNewTodoShowCustom] = useState(false);
-  const [newTodoCustomNotice, setNewTodoCustomNotice] = useState("14");
-  const [newTodoDueDatePickerOpen, setNewTodoDueDatePickerOpen] = useState(false);
-
-  const TODO_NOTICE_OPTIONS = [-1, 0, 1, 2, 3, 7];
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -510,95 +491,21 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     if (Math.abs(diff) > 60) { diff > 0 ? prevMonth() : nextMonth(); }
   };
 
-  // ── Open add form with defaults ───────────────────────
+  const openAddForm = () => setShowCreateModal(true);
 
-  const openAddForm = () => {
-    const sd = selectedDate;
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    setNewStartDate(fmt(sd));
-    setNewEndDate(fmt(sd));
-    setNewStartTime("");
-    setNewEndTime("");
-    setNewAllDay(false);
-    setNewTitle("");
-     setNewUser("me");
-    setNewDesc("");
-    setNewIsTodo(false);
-    setNewTodoDueDate(undefined);
-    setNewTodoPriorNotice(0);
-    setNewTodoTag("Personal");
-    setNewTodoShowCustom(false);
-    setNewTodoCustomNotice("14");
-    setNewTodoDueDatePickerOpen(false);
-    setShowAddForm(true);
-  };
-
-  // Auto-adjust end when start changes
-  const handleStartDateChange = (v: string) => {
-    setNewStartDate(v);
-    if (!newEndDate || v > newEndDate) setNewEndDate(v);
-  };
-  const handleStartTimeChange = (v: string) => {
-    setNewStartTime(v);
-    if (v && !newEndTime) {
-      // default 1 hour later
-      const [h, m] = v.split(":").map(Number);
-      const eh = Math.min(h + 1, 23);
-      setNewEndTime(`${String(eh).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    } else if (v && newEndTime && newStartDate === newEndDate && v >= newEndTime) {
-      const [h, m] = v.split(":").map(Number);
-      const eh = Math.min(h + 1, 23);
-      setNewEndTime(`${String(eh).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    }
-  };
-
-  // ── Add event handler ─────────────────────────────────
-
-  const handleAddEvent = () => {
-    if (!newTitle.trim()) return;
-    const startParts = newStartDate ? keyToDate(newStartDate) : { day: selDay, month: selMonth, year: selYear };
-    const endParts = newEndDate ? keyToDate(newEndDate) : startParts;
-
-    addEvent({
-      title: newTitle.trim(),
-      time: newAllDay ? "All day" : (newStartTime || "All day"),
-      description: newDesc,
-      day: startParts.day,
-      month: startParts.month,
-      year: startParts.year,
-      endDay: endParts.day,
-      endMonth: endParts.month,
-      endYear: endParts.year,
-      endTime: newAllDay ? "" : (newEndTime || newStartTime || ""),
-      allDay: newAllDay,
-      user: newUser as "me" | "partner" | "both",
+  const handleEditFromDetail = (item: CalItem) => {
+    setSelectedItem(null);
+    if (item.type === "gcal") return;
+    setEditingItem({
+      id: item.id,
+      type: item.type,
+      raw: item.raw as ScheduledEvent | Task,
+      isDueDateTask: item.isDueDateTask,
+      done: item.done,
     });
-
-    toast.success(`Scheduled: ${newTitle.trim()}`);
-    setShowAddForm(false);
   };
 
-  // ── Add to-do handler ─────────────────────────────────
-
-  const handleAddTodo = () => {
-    if (!newTitle.trim()) return;
-    const dueDateStr = newTodoDueDate
-      ? `${newTodoDueDate.getFullYear()}-${String(newTodoDueDate.getMonth() + 1).padStart(2, "0")}-${String(newTodoDueDate.getDate()).padStart(2, "0")}`
-      : null;
-    const notice = newTodoShowCustom ? (parseInt(newTodoCustomNotice) || 0) : newTodoPriorNotice;
-
-    addTask({
-      title: newTitle.trim(),
-      time: "",
-      tag: newTodoTag,
-      assignee: newUser as "me" | "partner" | "both",
-      dueDate: dueDateStr,
-      priorNoticeDays: notice,
-    });
-
-    toast.success(`To-do added: ${newTitle.trim()}`);
-    setShowAddForm(false);
-  };
+  // (Add form state and handlers moved to CalendarCreateEditModal)
 
   // Scroll time grid to 8am
   useEffect(() => {
@@ -763,216 +670,17 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         <GroupSelector />
       </div>
 
-      {/* ── ADD EVENT FORM (Slide-down) ─────────────────── */}
-      {showAddForm && (
-        <div className="mb-3 bg-card border border-border rounded-xl p-4 space-y-3 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">{newIsTodo ? "New To Do" : "New Event"}</h3>
-            <button onClick={() => setShowAddForm(false)} className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
-              <X size={14} />
-            </button>
-          </div>
-          <input
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder={newIsTodo ? "What do you need to do?" : "Event title..."}
-            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
-            autoFocus
-          />
-
-          {/* Checkboxes row: All-day + To Do */}
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={newAllDay} onChange={(e) => { setNewAllDay(e.target.checked); if (e.target.checked) setNewIsTodo(false); }} className="rounded" disabled={newIsTodo} />
-              <span className={cn("text-muted-foreground", newIsTodo && "opacity-50")}>All-day</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={newIsTodo} onChange={(e) => { setNewIsTodo(e.target.checked); if (e.target.checked) setNewAllDay(false); }} className="rounded" />
-              <span className="text-muted-foreground flex items-center gap-1"><ListTodo size={13} /> To Do</span>
-            </label>
-          </div>
-
-          {newIsTodo ? (
-            /* ── To Do mode fields ── */
-            <>
-              {/* Due date picker */}
-              <div>
-                <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Due date (optional)</p>
-                <Popover open={newTodoDueDatePickerOpen} onOpenChange={setNewTodoDueDatePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <button className="w-full bg-secondary rounded-lg px-3 py-2 text-sm text-left flex items-center gap-2">
-                      <CalendarIcon size={13} className="text-muted-foreground" />
-                      {newTodoDueDate
-                        ? newTodoDueDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
-                        : <span className="text-muted-foreground">No due date</span>
-                      }
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 z-[70]" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={newTodoDueDate}
-                      onSelect={(date) => { setNewTodoDueDate(date); setNewTodoDueDatePickerOpen(false); }}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-                {newTodoDueDate && (
-                  <button onClick={() => setNewTodoDueDate(undefined)} className="text-xs text-destructive mt-1 ml-1">
-                    Remove due date
-                  </button>
-                )}
-              </div>
-
-              {/* Give notice selector */}
-              {newTodoDueDate && (
-                <div>
-                  <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Give notice</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {TODO_NOTICE_OPTIONS.map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => { setNewTodoPriorNotice(n); setNewTodoShowCustom(false); }}
-                        className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-all ${
-                          !newTodoShowCustom && newTodoPriorNotice === n
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground"
-                        }`}
-                      >
-                        {n === -1 ? "Starting today" : n === 0 ? "Due day only" : n === 1 ? "1 day before" : `${n} days before`}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => setNewTodoShowCustom(true)}
-                      className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-all ${
-                        newTodoShowCustom
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground"
-                      }`}
-                    >
-                      Custom
-                    </button>
-                  </div>
-                  {newTodoShowCustom && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <input
-                        type="number"
-                        min={1}
-                        value={newTodoCustomNotice}
-                        onChange={(e) => setNewTodoCustomNotice(e.target.value)}
-                        className="w-16 bg-secondary rounded-lg px-2 py-1.5 text-sm outline-none text-center"
-                      />
-                      <span className="text-xs text-muted-foreground">days before</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Category */}
-              <div>
-                <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">Category</p>
-                <div className="flex gap-1.5">
-                  {(["Work", "Personal", "Household"] as const).map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => setNewTodoTag(tag)}
-                      className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all ${
-                        newTodoTag === tag
-                          ? tag === "Work"
-                            ? "border-blue-500 bg-blue-500/10 text-blue-500"
-                            : tag === "Household"
-                            ? "border-orange-500 bg-orange-500/10 text-orange-500"
-                            : "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground"
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <textarea
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-                placeholder="Notes (optional)..."
-                rows={2}
-                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground resize-none"
-              />
-            </>
-          ) : (
-            /* ── Event mode fields ── */
-            <>
-              {/* Start */}
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-[10px] uppercase font-semibold text-muted-foreground">Start</label>
-                  <input type="date" value={newStartDate} onChange={(e) => handleStartDateChange(e.target.value)}
-                    className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
-                </div>
-                {!newAllDay && (
-                  <div className="w-28">
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground">Time</label>
-                    <input type="time" value={newStartTime} onChange={(e) => handleStartTimeChange(e.target.value)}
-                      className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
-                  </div>
-                )}
-              </div>
-
-              {/* End */}
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-[10px] uppercase font-semibold text-muted-foreground">End</label>
-                  <input type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} min={newStartDate}
-                    className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
-                </div>
-                {!newAllDay && (
-                  <div className="w-28">
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground">Time</label>
-                    <input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)}
-                      className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none text-foreground" />
-                  </div>
-                )}
-              </div>
-
-              <textarea
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-                placeholder="Notes (optional)..."
-                rows={2}
-                className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground resize-none"
-              />
-            </>
-          )}
-
-          {/* Assignee */}
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-            {calGroupFilters.length <= 1 ? (
-              <button className="flex-1 py-1.5 text-[11px] font-medium rounded-lg border border-primary bg-primary/10 text-primary">
-                Mine
-              </button>
-            ) : (
-              calGroupFilters.map((f) => {
-                const assigneeValue = f.id === "mine" ? "me" : f.id === "partner" ? "partner" : f.id === "household" ? "both" : f.id;
-                const label = f.id === "mine" ? "Mine" : f.id === "household" ? "All" : f.label;
-                return (
-                  <button key={f.id} onClick={() => setNewUser(assigneeValue)}
-                    className={`flex-1 py-1.5 text-[11px] font-medium rounded-lg border transition-all whitespace-nowrap px-2 ${
-                      newUser === assigneeValue ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                    }`}>
-                    {label}
-                  </button>
-                );
-              })
-            )}
-          </div>
-
-          <button onClick={newIsTodo ? handleAddTodo : handleAddEvent} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold">
-            {newIsTodo ? "Add To Do" : "Add Event"}
-          </button>
-        </div>
-      )}
+      {/* ── Create/Edit Modal ──────────────────────────── */}
+      <CalendarCreateEditModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        defaultDate={selectedDate}
+      />
+      <CalendarCreateEditModal
+        open={!!editingItem}
+        onClose={() => setEditingItem(null)}
+        editItem={editingItem}
+      />
 
       {/* ── MONTH VIEW ──────────────────────────────────── */}
       {viewMode === "month" && (
@@ -1128,7 +836,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         </div>
       )}
       {/* ── Item Detail Modal ───────────────────────────── */}
-      <CalendarItemDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+      <CalendarItemDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} onEdit={handleEditFromDetail} />
     </div>
   );
 };
