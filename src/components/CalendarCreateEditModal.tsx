@@ -128,6 +128,11 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
   const [todoPriorNotice, setTodoPriorNotice] = useState(0);
   const [todoTag, setTodoTag] = useState<"Work" | "Personal" | "Household">("Personal");
 
+  // Timezone
+  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [showTzPicker, setShowTzPicker] = useState(false);
+  const [tzSearch, setTzSearch] = useState("");
+
   // UI state
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [showCustomRepeat, setShowCustomRepeat] = useState(false);
