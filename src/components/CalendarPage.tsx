@@ -491,27 +491,18 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     if (Math.abs(diff) > 60) { diff > 0 ? prevMonth() : nextMonth(); }
   };
 
-  // ── Open add form with defaults ───────────────────────
+  const openAddForm = () => setShowCreateModal(true);
 
-  const openAddForm = () => {
-    const sd = selectedDate;
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    setNewStartDate(fmt(sd));
-    setNewEndDate(fmt(sd));
-    setNewStartTime("");
-    setNewEndTime("");
-    setNewAllDay(false);
-    setNewTitle("");
-     setNewUser("me");
-    setNewDesc("");
-    setNewIsTodo(false);
-    setNewTodoDueDate(undefined);
-    setNewTodoPriorNotice(0);
-    setNewTodoTag("Personal");
-    setNewTodoShowCustom(false);
-    setNewTodoCustomNotice("14");
-    setNewTodoDueDatePickerOpen(false);
-    setShowAddForm(true);
+  const handleEditFromDetail = (item: CalItem) => {
+    setSelectedItem(null);
+    if (item.type === "gcal") return;
+    setEditingItem({
+      id: item.id,
+      type: item.type,
+      raw: item.raw as ScheduledEvent | Task,
+      isDueDateTask: item.isDueDateTask,
+      done: item.done,
+    });
   };
 
   // Auto-adjust end when start changes
