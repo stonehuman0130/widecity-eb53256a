@@ -1205,9 +1205,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("tasks").delete().eq("id", id);
   };
 
-  const updateTask = async (id: string, updates: Partial<Pick<Task, "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time" | "dueDate" | "priorNoticeDays">>) => {
+  const updateTask = async (id: string, updates: Partial<Pick<Task, "title" | "tag" | "scheduledDay" | "scheduledMonth" | "scheduledYear" | "time" | "dueDate" | "priorNoticeDays">>) => {
     setTasks((t) => t.map((item) => (item.id === id ? { ...item, ...updates } : item)));
     const dbUpdates: any = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.tag !== undefined) dbUpdates.tag = updates.tag;
     if (updates.scheduledDay !== undefined) dbUpdates.scheduled_day = updates.scheduledDay;
     if (updates.scheduledMonth !== undefined) dbUpdates.scheduled_month = updates.scheduledMonth;
     if (updates.scheduledYear !== undefined) dbUpdates.scheduled_year = updates.scheduledYear;
