@@ -1127,6 +1127,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           </div>
         </div>
       )}
+      {/* ── Item Detail Modal ───────────────────────────── */}
+      <CalendarItemDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
     </div>
   );
 };
