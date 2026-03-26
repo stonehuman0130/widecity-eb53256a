@@ -505,72 +505,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     });
   };
 
-  // Auto-adjust end when start changes
-  const handleStartDateChange = (v: string) => {
-    setNewStartDate(v);
-    if (!newEndDate || v > newEndDate) setNewEndDate(v);
-  };
-  const handleStartTimeChange = (v: string) => {
-    setNewStartTime(v);
-    if (v && !newEndTime) {
-      // default 1 hour later
-      const [h, m] = v.split(":").map(Number);
-      const eh = Math.min(h + 1, 23);
-      setNewEndTime(`${String(eh).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    } else if (v && newEndTime && newStartDate === newEndDate && v >= newEndTime) {
-      const [h, m] = v.split(":").map(Number);
-      const eh = Math.min(h + 1, 23);
-      setNewEndTime(`${String(eh).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    }
-  };
-
-  // ── Add event handler ─────────────────────────────────
-
-  const handleAddEvent = () => {
-    if (!newTitle.trim()) return;
-    const startParts = newStartDate ? keyToDate(newStartDate) : { day: selDay, month: selMonth, year: selYear };
-    const endParts = newEndDate ? keyToDate(newEndDate) : startParts;
-
-    addEvent({
-      title: newTitle.trim(),
-      time: newAllDay ? "All day" : (newStartTime || "All day"),
-      description: newDesc,
-      day: startParts.day,
-      month: startParts.month,
-      year: startParts.year,
-      endDay: endParts.day,
-      endMonth: endParts.month,
-      endYear: endParts.year,
-      endTime: newAllDay ? "" : (newEndTime || newStartTime || ""),
-      allDay: newAllDay,
-      user: newUser as "me" | "partner" | "both",
-    });
-
-    toast.success(`Scheduled: ${newTitle.trim()}`);
-    setShowAddForm(false);
-  };
-
-  // ── Add to-do handler ─────────────────────────────────
-
-  const handleAddTodo = () => {
-    if (!newTitle.trim()) return;
-    const dueDateStr = newTodoDueDate
-      ? `${newTodoDueDate.getFullYear()}-${String(newTodoDueDate.getMonth() + 1).padStart(2, "0")}-${String(newTodoDueDate.getDate()).padStart(2, "0")}`
-      : null;
-    const notice = newTodoShowCustom ? (parseInt(newTodoCustomNotice) || 0) : newTodoPriorNotice;
-
-    addTask({
-      title: newTitle.trim(),
-      time: "",
-      tag: newTodoTag,
-      assignee: newUser as "me" | "partner" | "both",
-      dueDate: dueDateStr,
-      priorNoticeDays: notice,
-    });
-
-    toast.success(`To-do added: ${newTitle.trim()}`);
-    setShowAddForm(false);
-  };
+  // (Add form state and handlers moved to CalendarCreateEditModal)
 
   // Scroll time grid to 8am
   useEffect(() => {
