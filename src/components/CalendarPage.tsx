@@ -1051,7 +1051,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                     </span>
                     {isTodayDay && <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">TODAY</span>}
                   </div>
-                  <EventList items={items} groups={groups} getColorClasses={getColorClasses} />
+                  <EventList items={items} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} />
                 </div>
               );
             })}
