@@ -265,54 +265,83 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const calRes = await fetch(
-          `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-            new URLSearchParams({
-              timeMin,
-              timeMax,
-              singleEvents: "true",
-              orderBy: "startTime",
-              maxResults: "250",
-            }),
-          {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }
-        );
+        // Get visible Google calendars for this user from DB
+        const { data: visibleCalendars } = await supabase
+          .from("calendars")
+          .select("provider_calendar_id, color")
+          .eq("user_id", tokenRow.user_id)
+          .eq("provider", "google")
+          .eq("is_visible", true);
 
-        if (!calRes.ok) {
-          console.error("Google Calendar API error for group", tokenRow.group_id, ":", await calRes.text());
-          continue;
+        // If no calendars in DB yet, default to primary only
+        const calendarIds = visibleCalendars && visibleCalendars.length > 0
+          ? visibleCalendars.map((c: any) => c.provider_calendar_id).filter(Boolean)
+          : ["primary"];
+
+        const calendarColorMap = new Map<string, string>();
+        if (visibleCalendars) {
+          visibleCalendars.forEach((c: any) => {
+            if (c.provider_calendar_id) calendarColorMap.set(c.provider_calendar_id, c.color);
+          });
         }
 
-        const calData = await calRes.json();
+        for (const calendarId of calendarIds) {
+          try {
+            const calRes = await fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?` +
+                new URLSearchParams({
+                  timeMin,
+                  timeMax,
+                  singleEvents: "true",
+                  orderBy: "startTime",
+                  maxResults: "250",
+                }),
+              {
+                headers: { Authorization: `Bearer ${accessToken}` },
+              }
+            );
 
-        for (const item of (calData.items || [])) {
-          if (seenEventIds.has(item.id)) continue;
-          seenEventIds.add(item.id);
+            if (!calRes.ok) {
+              console.error("Google Calendar API error for calendar", calendarId, "group", tokenRow.group_id, ":", await calRes.text());
+              continue;
+            }
 
-          if (hiddenEventIds.has(item.id)) continue;
+            const calData = await calRes.json();
+            const calColor = calendarColorMap.get(calendarId) || null;
 
-          if (!isOwnToken) {
-            const { data: ownerHidden } = await supabase
-              .from("hidden_gcal_events")
-              .select("id")
-              .eq("user_id", tokenRow.user_id)
-              .eq("gcal_event_id", item.id)
-              .maybeSingle();
-            if (ownerHidden) continue;
+            for (const item of (calData.items || [])) {
+              if (seenEventIds.has(item.id)) continue;
+              seenEventIds.add(item.id);
+
+              if (hiddenEventIds.has(item.id)) continue;
+
+              if (!isOwnToken) {
+                const { data: ownerHidden } = await supabase
+                  .from("hidden_gcal_events")
+                  .select("id")
+                  .eq("user_id", tokenRow.user_id)
+                  .eq("gcal_event_id", item.id)
+                  .maybeSingle();
+                if (ownerHidden) continue;
+              }
+
+              allEvents.push({
+                id: item.id,
+                title: item.summary || "(No title)",
+                description: item.description || null,
+                start: item.start?.dateTime || item.start?.date,
+                end: item.end?.dateTime || item.end?.date,
+                allDay: !item.start?.dateTime,
+                location: item.location || null,
+                htmlLink: item.htmlLink,
+                ownerUserId: tokenRow.user_id,
+                calendarId: calendarId,
+                calendarColor: calColor,
+              });
+            }
+          } catch (calErr) {
+            console.error("Error fetching calendar", calendarId, ":", calErr);
           }
-
-          allEvents.push({
-            id: item.id,
-            title: item.summary || "(No title)",
-            description: item.description || null,
-            start: item.start?.dateTime || item.start?.date,
-            end: item.end?.dateTime || item.end?.date,
-            allDay: !item.start?.dateTime,
-            location: item.location || null,
-            htmlLink: item.htmlLink,
-            ownerUserId: tokenRow.user_id,
-          });
         }
       } catch (err) {
         console.error("Sync error for group", tokenRow.group_id, ":", err);
