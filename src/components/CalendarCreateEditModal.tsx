@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   X, Clock, MapPin, Bell, Repeat, Eye, AlignLeft, ChevronDown, ChevronUp,
-  CalendarDays, ListTodo, Globe, Palette, Trash2, Check,
+  CalendarDays, ListTodo, Globe, Palette, Trash2, Check, Search,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext, ScheduledEvent, Task } from "@/context/AppContext";
@@ -127,6 +127,11 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
   const [todoDueDate, setTodoDueDate] = useState<Date | undefined>(undefined);
   const [todoPriorNotice, setTodoPriorNotice] = useState(0);
   const [todoTag, setTodoTag] = useState<"Work" | "Personal" | "Household">("Personal");
+
+  // Timezone
+  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [showTzPicker, setShowTzPicker] = useState(false);
+  const [tzSearch, setTzSearch] = useState("");
 
   // UI state
   const [showMoreOptions, setShowMoreOptions] = useState(false);
@@ -329,6 +334,41 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
     return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   };
 
+  // ── Timezone list ──
+  const allTimezones = useMemo(() => {
+    try {
+      return (Intl as any).supportedValuesOf("timeZone") as string[];
+    } catch {
+      return [
+        "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+        "America/Anchorage", "Pacific/Honolulu", "America/Toronto", "America/Vancouver",
+        "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Amsterdam",
+        "Europe/Rome", "Europe/Madrid", "Europe/Stockholm", "Europe/Helsinki",
+        "Asia/Tokyo", "Asia/Shanghai", "Asia/Kolkata", "Asia/Dubai",
+        "Asia/Singapore", "Asia/Seoul", "Asia/Hong_Kong",
+        "Australia/Sydney", "Australia/Melbourne", "Pacific/Auckland",
+        "Africa/Cairo", "Africa/Johannesburg", "America/Sao_Paulo", "America/Mexico_City",
+        "UTC",
+      ];
+    }
+  }, []);
+
+  const filteredTimezones = useMemo(() => {
+    if (!tzSearch.trim()) return allTimezones;
+    const q = tzSearch.toLowerCase();
+    return allTimezones.filter((tz) => tz.toLowerCase().includes(q));
+  }, [tzSearch, allTimezones]);
+
+  const tzDisplayLabel = (tz: string) => {
+    try {
+      const now = new Date();
+      const short = now.toLocaleString("en-US", { timeZone: tz, timeZoneName: "short" }).split(" ").pop();
+      return `${tz.replace(/_/g, " ")} (${short})`;
+    } catch {
+      return tz.replace(/_/g, " ");
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -456,6 +496,16 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
                   </div>
                 )}
               </div>
+
+              {/* Timezone */}
+              <button
+                onClick={() => { setTzSearch(""); setShowTzPicker(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors"
+              >
+                <Globe size={18} className="text-muted-foreground flex-shrink-0" />
+                <span className="text-[14px] text-foreground truncate">{tzDisplayLabel(timezone)}</span>
+                <ChevronDown size={16} className="text-muted-foreground ml-auto flex-shrink-0" />
+              </button>
 
               <div className="h-px bg-border mx-4" />
 
@@ -747,15 +797,6 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
                     </div>
                   </div>
 
-                  <div className="h-px bg-border mx-4" />
-
-                  {/* Timezone info */}
-                  <div className="flex items-center gap-3 px-4 py-3.5">
-                    <Globe size={18} className="text-muted-foreground flex-shrink-0" />
-                    <span className="text-[15px] text-muted-foreground">
-                      {Intl.DateTimeFormat().resolvedOptions().timeZone}
-                    </span>
-                  </div>
                 </div>
               )}
             </div>
@@ -973,6 +1014,64 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
           )}
         </div>
       </motion.div>
+
+      {/* ── Timezone Picker Sheet ── */}
+      <AnimatePresence>
+        {showTzPicker && (
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 300 }}
+            className="absolute inset-0 z-[70] bg-background flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+              <button onClick={() => setShowTzPicker(false)} className="text-sm font-medium text-primary">
+                Cancel
+              </button>
+              <h2 className="text-[15px] font-semibold text-foreground">Time Zone</h2>
+              <div className="w-12" />
+            </div>
+
+            <div className="px-4 py-2 border-b border-border flex-shrink-0">
+              <div className="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2">
+                <Search size={16} className="text-muted-foreground flex-shrink-0" />
+                <input
+                  value={tzSearch}
+                  onChange={(e) => setTzSearch(e.target.value)}
+                  placeholder="Search time zones..."
+                  className="flex-1 text-[14px] bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60"
+                  autoFocus
+                />
+                {tzSearch && (
+                  <button onClick={() => setTzSearch("")} className="text-muted-foreground">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {filteredTimezones.map((tz) => (
+                <button
+                  key={tz}
+                  onClick={() => { setTimezone(tz); setShowTzPicker(false); }}
+                  className={cn(
+                    "w-full flex items-center justify-between px-4 py-3 text-left hover:bg-secondary/50 transition-colors border-b border-border/50",
+                    timezone === tz && "bg-primary/5"
+                  )}
+                >
+                  <span className="text-[14px] text-foreground truncate">{tzDisplayLabel(tz)}</span>
+                  {timezone === tz && <Check size={18} className="text-primary flex-shrink-0" />}
+                </button>
+              ))}
+              {filteredTimezones.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-8">No time zones found</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 };
