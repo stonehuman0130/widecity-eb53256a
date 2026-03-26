@@ -1,0 +1,980 @@
+import { useState, useEffect } from "react";
+import {
+  X, Clock, MapPin, Bell, Repeat, Eye, AlignLeft, ChevronDown, ChevronUp,
+  CalendarDays, ListTodo, Globe, Palette, Trash2, Check,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAppContext, ScheduledEvent, Task } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
+import { useGroupContext } from "@/hooks/useGroupContext";
+import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { formatTime } from "@/lib/formatTime";
+
+// ── Types ──
+
+type ItemMode = "event" | "todo";
+
+interface RepeatRule {
+  frequency: "none" | "daily" | "weekly" | "monthly" | "yearly" | "custom";
+  interval?: number;
+  unit?: "day" | "week" | "month" | "year";
+  weekdays?: number[]; // 0=Sun, 1=Mon, ...
+  endType?: "never" | "date" | "count";
+  endDate?: string;
+  endCount?: number;
+}
+
+const REPEAT_PRESETS: { label: string; value: RepeatRule["frequency"] }[] = [
+  { label: "Does not repeat", value: "none" },
+  { label: "Every day", value: "daily" },
+  { label: "Every week", value: "weekly" },
+  { label: "Every month", value: "monthly" },
+  { label: "Every year", value: "yearly" },
+  { label: "Custom...", value: "custom" },
+];
+
+const NOTIFICATION_OPTIONS = [
+  { label: "None", value: -1 },
+  { label: "At time of event", value: 0 },
+  { label: "5 minutes before", value: 5 },
+  { label: "10 minutes before", value: 10 },
+  { label: "30 minutes before", value: 30 },
+  { label: "1 hour before", value: 60 },
+  { label: "1 day before", value: 1440 },
+];
+
+const NOTICE_OPTIONS = [-1, 0, 1, 2, 3, 7];
+
+const CALENDAR_COLORS = [
+  { name: "Blue", value: "hsl(210 100% 50%)" },
+  { name: "Red", value: "hsl(0 75% 55%)" },
+  { name: "Green", value: "hsl(150 60% 42%)" },
+  { name: "Purple", value: "hsl(270 60% 55%)" },
+  { name: "Orange", value: "hsl(35 100% 52%)" },
+  { name: "Teal", value: "hsl(190 80% 42%)" },
+  { name: "Pink", value: "hsl(340 80% 55%)" },
+  { name: "Yellow", value: "hsl(50 90% 48%)" },
+];
+
+const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  // For editing existing items
+  editItem?: {
+    id: string;
+    type: "event" | "task";
+    raw: ScheduledEvent | Task;
+    isDueDateTask?: boolean;
+    done?: boolean;
+  } | null;
+  // Default date for new items
+  defaultDate?: Date;
+}
+
+function parseTimeForInput(time: string): string {
+  if (!time || time === "All day") return "";
+  const match12 = time.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (match12) {
+    let h = parseInt(match12[1], 10);
+    const m = match12[2];
+    const p = match12[3].toUpperCase();
+    if (p === "AM" && h === 12) h = 0;
+    if (p === "PM" && h < 12) h += 12;
+    return `${String(h).padStart(2, "0")}:${m}`;
+  }
+  const match24 = time.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (match24) return `${String(parseInt(match24[1])).padStart(2, "0")}:${match24[2]}`;
+  return "";
+}
+
+function fmtDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props) => {
+  const { addEvent, updateEvent, removeEvent, addTask, updateTask, removeTask,
+    toggleTask, toggleEventCompletion } = useAppContext();
+  const { activeGroup } = useAuth();
+  const { filters: groupFilters } = useGroupContext();
+
+  const isEditing = !!editItem;
+
+  // ── Core state ──
+  const [mode, setMode] = useState<ItemMode>("event");
+  const [title, setTitle] = useState("");
+  const [allDay, setAllDay] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [description, setDescription] = useState("");
+  const [assignee, setAssignee] = useState("me");
+
+  // Event-specific
+  const [location, setLocation] = useState("");
+  const [repeatRule, setRepeatRule] = useState<RepeatRule>({ frequency: "none" });
+  const [notificationMinutes, setNotificationMinutes] = useState(-1);
+  const [visibility, setVisibility] = useState<"group" | "private">("group");
+  const [calendarColor, setCalendarColor] = useState(CALENDAR_COLORS[0].value);
+
+  // To-do specific
+  const [todoDueDate, setTodoDueDate] = useState<Date | undefined>(undefined);
+  const [todoPriorNotice, setTodoPriorNotice] = useState(0);
+  const [todoTag, setTodoTag] = useState<"Work" | "Personal" | "Household">("Personal");
+
+  // UI state
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [showCustomRepeat, setShowCustomRepeat] = useState(false);
+  const [customInterval, setCustomInterval] = useState(1);
+  const [customUnit, setCustomUnit] = useState<"day" | "week" | "month" | "year">("week");
+  const [customWeekdays, setCustomWeekdays] = useState<number[]>([]);
+  const [customEndType, setCustomEndType] = useState<"never" | "date" | "count">("never");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [customEndCount, setCustomEndCount] = useState(10);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [dueDatePickerOpen, setDueDatePickerOpen] = useState(false);
+
+  // ── Initialize state on open ──
+  useEffect(() => {
+    if (!open) return;
+    setConfirmDelete(false);
+    setShowMoreOptions(false);
+    setShowCustomRepeat(false);
+
+    if (editItem) {
+      if (editItem.type === "event") {
+        const ev = editItem.raw as ScheduledEvent;
+        setMode("event");
+        setTitle(ev.title);
+        const isAllDay = ev.allDay ?? (!ev.time || ev.time === "All day");
+        setAllDay(isAllDay);
+        setStartDate(`${ev.year}-${String(ev.month + 1).padStart(2, "0")}-${String(ev.day).padStart(2, "0")}`);
+        const ed = ev.endDay ?? ev.day;
+        const em = ev.endMonth ?? ev.month;
+        const ey = ev.endYear ?? ev.year;
+        setEndDate(`${ey}-${String(em + 1).padStart(2, "0")}-${String(ed).padStart(2, "0")}`);
+        setStartTime(parseTimeForInput(ev.time));
+        setEndTime(parseTimeForInput(ev.endTime || ""));
+        setDescription(ev.description || "");
+        setLocation((ev as any).location || "");
+        setNotificationMinutes((ev as any).notificationMinutes ?? -1);
+        setVisibility((ev as any).visibility || "group");
+        setRepeatRule((ev as any).repeatRule || { frequency: "none" });
+        setAssignee(ev.user || "me");
+      } else {
+        const tk = editItem.raw as Task;
+        setMode("todo");
+        setTitle(tk.title);
+        setTodoTag(tk.tag || "Personal");
+        setTodoPriorNotice(tk.priorNoticeDays ?? 0);
+        setDescription((tk as any).description || "");
+        setVisibility((tk as any).visibility || "group");
+        setAssignee(tk.assignee || "me");
+        if (tk.dueDate) {
+          const [y, m, d] = tk.dueDate.split("-").map(Number);
+          setTodoDueDate(new Date(y, m - 1, d));
+        } else {
+          setTodoDueDate(undefined);
+        }
+      }
+    } else {
+      // New item defaults
+      setMode("event");
+      setTitle("");
+      setAllDay(false);
+      const dd = defaultDate || new Date();
+      const dateStr = fmtDate(dd);
+      setStartDate(dateStr);
+      setEndDate(dateStr);
+      setStartTime("");
+      setEndTime("");
+      setDescription("");
+      setLocation("");
+      setRepeatRule({ frequency: "none" });
+      setNotificationMinutes(-1);
+      setVisibility("group");
+      setCalendarColor(CALENDAR_COLORS[0].value);
+      setAssignee("me");
+      setTodoDueDate(dd);
+      setTodoPriorNotice(0);
+      setTodoTag("Personal");
+    }
+  }, [open, editItem, defaultDate]);
+
+  const handleClose = () => {
+    onClose();
+  };
+
+  // ── Auto-adjust end time ──
+  const handleStartTimeChange = (v: string) => {
+    setStartTime(v);
+    if (v && !endTime) {
+      const [h, m] = v.split(":").map(Number);
+      setEndTime(`${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    } else if (v && endTime && startDate === endDate && v >= endTime) {
+      const [h, m] = v.split(":").map(Number);
+      setEndTime(`${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    }
+  };
+
+  const handleStartDateChange = (v: string) => {
+    setStartDate(v);
+    if (!endDate || v > endDate) setEndDate(v);
+  };
+
+  // ── Save handlers ──
+  const handleSaveEvent = () => {
+    if (!title.trim()) return;
+    const [sy, sm, sd] = startDate.split("-").map(Number);
+    const [ey, em, ed] = endDate.split("-").map(Number);
+
+    const eventData = {
+      title: title.trim(),
+      day: sd, month: sm - 1, year: sy,
+      endDay: ed, endMonth: em - 1, endYear: ey,
+      time: allDay ? "All day" : (startTime || "All day"),
+      endTime: allDay ? "" : (endTime || startTime || ""),
+      allDay,
+      description,
+      user: assignee as "me" | "partner" | "both",
+    };
+
+    if (isEditing && editItem?.type === "event") {
+      const realId = editItem.id.replace(/^(ev-|tk-|gcal-)/, "");
+      updateEvent(realId, eventData);
+      toast.success("Event updated");
+    } else {
+      addEvent(eventData);
+      toast.success(`Scheduled: ${title.trim()}`);
+    }
+    handleClose();
+  };
+
+  const handleSaveTodo = () => {
+    if (!title.trim()) return;
+    const dueDateStr = todoDueDate ? fmtDate(todoDueDate) : null;
+
+    if (isEditing && editItem?.type === "task") {
+      const realId = editItem.id.replace(/^(ev-|tk-|todo-|gcal-)/, "");
+      updateTask(realId, {
+        title: title.trim(),
+        tag: todoTag,
+        dueDate: dueDateStr,
+        priorNoticeDays: todoPriorNotice,
+      });
+      toast.success("To-do updated");
+    } else {
+      addTask({
+        title: title.trim(),
+        time: "",
+        tag: todoTag,
+        assignee: assignee as "me" | "partner" | "both",
+        dueDate: dueDateStr,
+        priorNoticeDays: todoPriorNotice,
+      });
+      toast.success(`To-do added: ${title.trim()}`);
+    }
+    handleClose();
+  };
+
+  const handleDelete = () => {
+    if (!editItem) return;
+    const realId = editItem.id.replace(/^(ev-|tk-|todo-|gcal-)/, "");
+    if (editItem.type === "event") {
+      removeEvent(realId);
+      toast.success("Event deleted");
+    } else {
+      removeTask(realId);
+      toast.success("Task deleted");
+    }
+    handleClose();
+  };
+
+  const handleToggleDone = () => {
+    if (!editItem) return;
+    const realId = editItem.id.replace(/^(ev-|tk-|todo-|gcal-)/, "");
+    if (editItem.type === "event") toggleEventCompletion(realId);
+    else toggleTask(realId);
+    handleClose();
+  };
+
+  // ── Repeat display ──
+  const repeatLabel = () => {
+    if (repeatRule.frequency === "none") return "Does not repeat";
+    if (repeatRule.frequency === "daily") return "Every day";
+    if (repeatRule.frequency === "weekly") return "Every week";
+    if (repeatRule.frequency === "monthly") return "Every month";
+    if (repeatRule.frequency === "yearly") return "Every year";
+    if (repeatRule.frequency === "custom") {
+      return `Every ${customInterval} ${customUnit}${customInterval > 1 ? "s" : ""}`;
+    }
+    return "Does not repeat";
+  };
+
+  const notificationLabel = () => {
+    const opt = NOTIFICATION_OPTIONS.find((o) => o.value === notificationMinutes);
+    return opt?.label || "None";
+  };
+
+  // ── Date display helpers ──
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return "Not set";
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  };
+
+  if (!open) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] bg-background flex flex-col"
+      >
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+          <button onClick={handleClose} className="text-sm font-medium text-primary">
+            Cancel
+          </button>
+          <h2 className="text-[15px] font-semibold text-foreground">
+            {isEditing ? (mode === "event" ? "Edit Event" : "Edit To-Do") : "New"}
+          </h2>
+          <button
+            onClick={mode === "todo" ? handleSaveTodo : handleSaveEvent}
+            className="text-sm font-semibold text-primary"
+          >
+            Save
+          </button>
+        </div>
+
+        {/* ── Scrollable body ── */}
+        <div className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom,0px)]">
+          {/* Title input */}
+          <div className="px-4 pt-4 pb-2">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Add title"
+              className="w-full text-xl font-light text-foreground bg-transparent outline-none placeholder:text-muted-foreground/50"
+              autoFocus
+            />
+          </div>
+
+          {/* Event / To-Do toggle */}
+          <div className="px-4 pb-3">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMode("event")}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-[13px] font-medium border transition-all",
+                  mode === "event"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                Event
+              </button>
+              <button
+                onClick={() => setMode("todo")}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-[13px] font-medium border transition-all",
+                  mode === "todo"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground"
+                )}
+              >
+                Task
+              </button>
+            </div>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          {mode === "event" ? (
+            /* ════════ EVENT MODE ════════ */
+            <div>
+              {/* All-day toggle */}
+              <div className="flex items-center justify-between px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <Clock size={20} className="text-muted-foreground" />
+                  <span className="text-[15px] text-foreground">All-day</span>
+                </div>
+                <Switch checked={allDay} onCheckedChange={setAllDay} />
+              </div>
+
+              {/* Start date/time */}
+              <div className="px-4 py-2 flex items-center gap-3">
+                <div className="w-5" />
+                <div className="flex-1">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                    className="w-full bg-transparent text-[15px] text-foreground outline-none"
+                  />
+                </div>
+                {!allDay && (
+                  <div className="w-24">
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => handleStartTimeChange(e.target.value)}
+                      className="w-full bg-transparent text-[15px] text-foreground outline-none text-right"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* End date/time */}
+              <div className="px-4 py-2 flex items-center gap-3">
+                <div className="w-5" />
+                <div className="flex-1">
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={startDate}
+                    className="w-full bg-transparent text-[15px] text-foreground outline-none"
+                  />
+                </div>
+                {!allDay && (
+                  <div className="w-24">
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full bg-transparent text-[15px] text-foreground outline-none text-right"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="h-px bg-border mx-4" />
+
+              {/* Assignee */}
+              <div className="px-4 py-3">
+                <p className="text-[11px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Assign to</p>
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                  {groupFilters.length <= 1 ? (
+                    <button className="px-3 py-1.5 text-[13px] font-medium rounded-full border border-primary bg-primary/10 text-primary">
+                      Mine
+                    </button>
+                  ) : (
+                    groupFilters.map((f) => {
+                      const val = f.id === "mine" ? "me" : f.id === "partner" ? "partner" : f.id === "household" ? "both" : f.id;
+                      const label = f.id === "mine" ? "Mine" : f.id === "household" ? "All" : f.label;
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => setAssignee(val)}
+                          className={cn(
+                            "px-3 py-1.5 text-[13px] font-medium rounded-full border transition-all whitespace-nowrap",
+                            assignee === val
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-border" />
+
+              {/* More options toggle */}
+              <button
+                onClick={() => setShowMoreOptions(!showMoreOptions)}
+                className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-secondary/50 transition-colors"
+              >
+                <span className="text-[15px] text-foreground">More options</span>
+                {showMoreOptions ? <ChevronUp size={18} className="text-muted-foreground" /> : <ChevronDown size={18} className="text-muted-foreground" />}
+              </button>
+
+              {showMoreOptions && (
+                <div>
+                  {/* Repeat */}
+                  <div className="px-4 py-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Repeat size={18} className="text-muted-foreground" />
+                      <span className="text-[14px] text-foreground font-medium">Repeat</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 ml-[30px]">
+                      {REPEAT_PRESETS.map((p) => (
+                        <button
+                          key={p.value}
+                          onClick={() => {
+                            if (p.value === "custom") {
+                              setShowCustomRepeat(true);
+                              setRepeatRule({ frequency: "custom" });
+                            } else {
+                              setRepeatRule({ frequency: p.value });
+                              setShowCustomRepeat(false);
+                            }
+                          }}
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-all",
+                            repeatRule.frequency === p.value
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground"
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Custom recurrence */}
+                    {showCustomRepeat && (
+                      <div className="ml-[30px] mt-3 p-3 bg-secondary rounded-xl space-y-3">
+                        <p className="text-[12px] font-semibold text-foreground">Custom recurrence</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] text-muted-foreground">Every</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={99}
+                            value={customInterval}
+                            onChange={(e) => setCustomInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                            className="w-14 bg-card rounded-lg px-2 py-1.5 text-[13px] text-center outline-none text-foreground border border-border"
+                          />
+                          <div className="flex gap-1">
+                            {(["day", "week", "month", "year"] as const).map((u) => (
+                              <button
+                                key={u}
+                                onClick={() => setCustomUnit(u)}
+                                className={cn(
+                                  "px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all",
+                                  customUnit === u
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-muted-foreground"
+                                )}
+                              >
+                                {u}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {customUnit === "week" && (
+                          <div>
+                            <p className="text-[11px] text-muted-foreground mb-1.5">On days</p>
+                            <div className="flex gap-1">
+                              {WEEKDAY_LABELS.map((label, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => {
+                                    setCustomWeekdays((prev) =>
+                                      prev.includes(i) ? prev.filter((d) => d !== i) : [...prev, i]
+                                    );
+                                  }}
+                                  className={cn(
+                                    "w-8 h-8 rounded-full text-[12px] font-medium flex items-center justify-center transition-all",
+                                    customWeekdays.includes(i)
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-card text-muted-foreground border border-border"
+                                  )}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="text-[11px] text-muted-foreground mb-1.5">Ends</p>
+                          <div className="flex gap-1.5">
+                            {(["never", "date", "count"] as const).map((et) => (
+                              <button
+                                key={et}
+                                onClick={() => setCustomEndType(et)}
+                                className={cn(
+                                  "px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-all",
+                                  customEndType === et
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border text-muted-foreground"
+                                )}
+                              >
+                                {et === "never" ? "Never" : et === "date" ? "On date" : "After"}
+                              </button>
+                            ))}
+                          </div>
+                          {customEndType === "date" && (
+                            <input
+                              type="date"
+                              value={customEndDate}
+                              onChange={(e) => setCustomEndDate(e.target.value)}
+                              className="mt-2 bg-card rounded-lg px-3 py-2 text-[13px] outline-none text-foreground border border-border"
+                            />
+                          )}
+                          {customEndType === "count" && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <input
+                                type="number"
+                                min={1}
+                                value={customEndCount}
+                                onChange={(e) => setCustomEndCount(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-16 bg-card rounded-lg px-2 py-1.5 text-[13px] text-center outline-none text-foreground border border-border"
+                              />
+                              <span className="text-[12px] text-muted-foreground">occurrences</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="h-px bg-border mx-4" />
+
+                  {/* Location */}
+                  <div className="flex items-center gap-3 px-4 py-3.5">
+                    <MapPin size={18} className="text-muted-foreground flex-shrink-0" />
+                    <input
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Add location"
+                      className="flex-1 text-[15px] bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60"
+                    />
+                  </div>
+
+                  <div className="h-px bg-border mx-4" />
+
+                  {/* Notification */}
+                  <div className="px-4 py-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Bell size={18} className="text-muted-foreground" />
+                      <span className="text-[14px] text-foreground font-medium">Notification</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 ml-[30px]">
+                      {NOTIFICATION_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setNotificationMinutes(opt.value)}
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-all",
+                            notificationMinutes === opt.value
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground"
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-border mx-4" />
+
+                  {/* Calendar color */}
+                  <div className="px-4 py-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Palette size={18} className="text-muted-foreground" />
+                      <span className="text-[14px] text-foreground font-medium">Color</span>
+                    </div>
+                    <div className="flex gap-2 ml-[30px] flex-wrap">
+                      {CALENDAR_COLORS.map((c) => (
+                        <button
+                          key={c.value}
+                          onClick={() => setCalendarColor(c.value)}
+                          className={cn(
+                            "w-7 h-7 rounded-full flex items-center justify-center transition-all",
+                            calendarColor === c.value ? "ring-2 ring-offset-2 ring-offset-background" : ""
+                          )}
+                          style={{ backgroundColor: c.value, ...(calendarColor === c.value ? { ringColor: c.value } : {}) }}
+                        >
+                          {calendarColor === c.value && <Check size={14} className="text-white drop-shadow-sm" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-border mx-4" />
+
+                  {/* Description */}
+                  <div className="flex items-start gap-3 px-4 py-3.5">
+                    <AlignLeft size={18} className="text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Add description"
+                      rows={3}
+                      className="flex-1 text-[15px] bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 resize-none"
+                    />
+                  </div>
+
+                  <div className="h-px bg-border mx-4" />
+
+                  {/* Visibility */}
+                  <div className="px-4 py-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Eye size={18} className="text-muted-foreground" />
+                      <span className="text-[14px] text-foreground font-medium">Visibility</span>
+                    </div>
+                    <div className="flex gap-2 ml-[30px]">
+                      <button
+                        onClick={() => setVisibility("group")}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all",
+                          visibility === "group"
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground"
+                        )}
+                      >
+                        Share with group
+                      </button>
+                      <button
+                        onClick={() => setVisibility("private")}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all",
+                          visibility === "private"
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground"
+                        )}
+                      >
+                        Private
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-border mx-4" />
+
+                  {/* Timezone info */}
+                  <div className="flex items-center gap-3 px-4 py-3.5">
+                    <Globe size={18} className="text-muted-foreground flex-shrink-0" />
+                    <span className="text-[15px] text-muted-foreground">
+                      {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ════════ TO-DO MODE ════════ */
+            <div>
+              {/* Due date */}
+              <div className="px-4 py-3.5">
+                <div className="flex items-center gap-3 mb-2">
+                  <CalendarDays size={18} className="text-muted-foreground" />
+                  <span className="text-[14px] text-foreground font-medium">Due date</span>
+                </div>
+                <div className="ml-[30px]">
+                  <Popover open={dueDatePickerOpen} onOpenChange={setDueDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button className="w-full bg-secondary rounded-xl px-4 py-2.5 text-[14px] text-left flex items-center gap-2">
+                        <CalendarDays size={15} className="text-muted-foreground" />
+                        {todoDueDate
+                          ? todoDueDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
+                          : <span className="text-muted-foreground">No due date</span>
+                        }
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[70]" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={todoDueDate}
+                        onSelect={(date) => { setTodoDueDate(date); setDueDatePickerOpen(false); }}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {todoDueDate && (
+                    <button onClick={() => setTodoDueDate(undefined)} className="text-xs text-destructive mt-1">
+                      Remove due date
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-border mx-4" />
+
+              {/* Prior notice */}
+              {todoDueDate && (
+                <>
+                  <div className="px-4 py-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Bell size={18} className="text-muted-foreground" />
+                      <span className="text-[14px] text-foreground font-medium">Give notice</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 ml-[30px]">
+                      {NOTICE_OPTIONS.map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => setTodoPriorNotice(n)}
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-all",
+                            todoPriorNotice === n
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground"
+                          )}
+                        >
+                          {n === -1 ? "Starting today" : n === 0 ? "Due day only" : n === 1 ? "1 day before" : `${n} days before`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-px bg-border mx-4" />
+                </>
+              )}
+
+              {/* Category */}
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <Palette size={18} className="text-muted-foreground" />
+                  <span className="text-[14px] text-foreground font-medium">Category</span>
+                </div>
+                <div className="flex gap-2 ml-[30px]">
+                  {(["Work", "Personal", "Household"] as const).map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => setTodoTag(tag)}
+                      className={cn(
+                        "flex-1 py-2 text-[12px] font-semibold rounded-xl border transition-all",
+                        todoTag === tag
+                          ? tag === "Work"
+                            ? "border-blue-500 bg-blue-500/10 text-blue-500"
+                            : tag === "Household"
+                            ? "border-orange-500 bg-orange-500/10 text-orange-500"
+                            : "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground"
+                      )}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-px bg-border mx-4" />
+
+              {/* Assignee */}
+              <div className="px-4 py-3">
+                <p className="text-[11px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Assign to</p>
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                  {groupFilters.length <= 1 ? (
+                    <button className="px-3 py-1.5 text-[13px] font-medium rounded-full border border-primary bg-primary/10 text-primary">
+                      Mine
+                    </button>
+                  ) : (
+                    groupFilters.map((f) => {
+                      const val = f.id === "mine" ? "me" : f.id === "partner" ? "partner" : f.id === "household" ? "both" : f.id;
+                      const label = f.id === "mine" ? "Mine" : f.id === "household" ? "All" : f.label;
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => setAssignee(val)}
+                          className={cn(
+                            "px-3 py-1.5 text-[13px] font-medium rounded-full border transition-all whitespace-nowrap",
+                            assignee === val
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-border mx-4" />
+
+              {/* Description */}
+              <div className="flex items-start gap-3 px-4 py-3.5">
+                <AlignLeft size={18} className="text-muted-foreground mt-0.5 flex-shrink-0" />
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Add notes"
+                  rows={3}
+                  className="flex-1 text-[15px] bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60 resize-none"
+                />
+              </div>
+
+              <div className="h-px bg-border mx-4" />
+
+              {/* Visibility */}
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <Eye size={18} className="text-muted-foreground" />
+                  <span className="text-[14px] text-foreground font-medium">Visibility</span>
+                </div>
+                <div className="flex gap-2 ml-[30px]">
+                  <button
+                    onClick={() => setVisibility("group")}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all",
+                      visibility === "group"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground"
+                    )}
+                  >
+                    Share with group
+                  </button>
+                  <button
+                    onClick={() => setVisibility("private")}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all",
+                      visibility === "private"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground"
+                    )}
+                  >
+                    Private
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Edit mode: Done + Delete buttons ── */}
+          {isEditing && (
+            <div className="px-4 py-4 space-y-2">
+              <div className="h-px bg-border mb-2" />
+              <button
+                onClick={handleToggleDone}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl bg-secondary hover:bg-secondary/80 transition-colors text-left"
+              >
+                <Check size={16} className="text-muted-foreground" />
+                {editItem?.done ? "Mark as not done" : "Mark as done"}
+              </button>
+
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl hover:bg-destructive/10 text-destructive transition-colors text-left"
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2.5 text-sm font-medium bg-secondary rounded-xl">
+                    Cancel
+                  </button>
+                  <button onClick={handleDelete} className="flex-1 py-2.5 text-sm font-semibold bg-destructive text-destructive-foreground rounded-xl">
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+export default CalendarCreateEditModal;
