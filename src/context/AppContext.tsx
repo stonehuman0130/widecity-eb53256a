@@ -450,32 +450,65 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
+    let cancelled = false;
+
+    const getValidAccessToken = async () => {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+
+      if (currentSession?.access_token) {
+        return currentSession.access_token;
+      }
+
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.warn("Unable to refresh auth session before Google Calendar sync:", refreshError.message);
+      }
+
+      return refreshed?.session?.access_token ?? null;
+    };
+
     const loadGcalEvents = async () => {
       try {
-        const { data: session } = await supabase.auth.getSession();
-        if (!session?.session?.access_token) return;
+        let accessToken = await getValidAccessToken();
+        if (!accessToken) return;
 
         const now = new Date();
         const timeMin = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
         const timeMax = new Date(now.getFullYear(), now.getMonth() + 3, 0).toISOString();
 
-        let url: string;
-        if (activeGroup) {
-          url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}&groupShared=true`;
-        } else {
-          url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&allGroups=true`;
+        const buildSyncUrl = () =>
+          activeGroup
+            ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&groupId=${encodeURIComponent(activeGroup.id)}&groupShared=true`
+            : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-sync?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&allGroups=true`;
+
+        const requestSync = (token: string) =>
+          fetch(buildSyncUrl(), {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          });
+
+        let res = await requestSync(accessToken);
+
+        if (res.status === 401) {
+          const { data: refreshed } = await supabase.auth.refreshSession();
+          const refreshedToken = refreshed?.session?.access_token ?? null;
+
+          if (refreshedToken) {
+            accessToken = refreshedToken;
+            res = await requestSync(accessToken);
+          }
         }
 
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${session.session.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-        });
-
         if (!res.ok) {
-          console.error("Failed to fetch Google Calendar events:", res.status);
-          setGoogleCalendarEvents([]);
+          const errorBody = await res.text().catch(() => "");
+          console.warn("Google Calendar sync failed", {
+            status: res.status,
+            body: errorBody.slice(0, 200),
+          });
           return;
         }
 
@@ -502,14 +535,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           };
         });
 
+        if (cancelled) return;
         setGoogleCalendarEvents(enriched);
       } catch (err) {
         console.error("Error loading Google Calendar events:", err);
-        setGoogleCalendarEvents([]);
       }
     };
-    loadGcalEvents();
-  }, [user, activeGroup]);
+
+    void loadGcalEvents();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, activeGroup?.id]);
 
   // Load "other member" data for the active context (group member if selected, otherwise linked partner)
   useEffect(() => {
