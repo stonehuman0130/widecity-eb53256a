@@ -1061,7 +1061,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
       {/* ── DAY VIEW ────────────────────────────────────── */}
       {viewMode === "day" && (
-        <TimeGridView dates={[selectedDate]} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} />
+        <TimeGridView dates={[selectedDate]} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} onItemTap={setSelectedItem} />
       )}
 
       {/* ── 3-DAY VIEW ──────────────────────────────────── */}
