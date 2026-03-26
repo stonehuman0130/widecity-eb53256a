@@ -797,15 +797,6 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
                     </div>
                   </div>
 
-                  <div className="h-px bg-border mx-4" />
-
-                  {/* Timezone info */}
-                  <div className="flex items-center gap-3 px-4 py-3.5">
-                    <Globe size={18} className="text-muted-foreground flex-shrink-0" />
-                    <span className="text-[15px] text-muted-foreground">
-                      {Intl.DateTimeFormat().resolvedOptions().timeZone}
-                    </span>
-                  </div>
                 </div>
               )}
             </div>
