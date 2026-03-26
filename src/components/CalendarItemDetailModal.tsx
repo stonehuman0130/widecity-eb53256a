@@ -21,9 +21,8 @@ interface CalItemInfo {
 interface Props {
   item: CalItemInfo | null;
   onClose: () => void;
+  onEdit?: (item: CalItemInfo) => void;
 }
-
-const NOTICE_OPTIONS = [-1, 0, 1, 2, 3, 7];
 
 const CalendarItemDetailModal = ({ item, onClose }: Props) => {
   const { removeEvent, updateEvent, removeTask, updateTask, toggleTask, toggleEventCompletion, toggleGcalCompletion, hideGcalEvent } = useAppContext();
