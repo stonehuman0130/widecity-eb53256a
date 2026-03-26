@@ -178,6 +178,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [showSearch, setShowSearch] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedItem, setSelectedItem] = useState<CalItem | null>(null);
   const timeGridRef = useRef<HTMLDivElement>(null);
 
   // Add form state
