@@ -19,6 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import CalendarItemDetailModal from "@/components/CalendarItemDetailModal";
 import CalendarCreateEditModal from "@/components/CalendarCreateEditModal";
+import CalendarsManager from "@/components/CalendarsManager";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -175,6 +176,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<CalItem | null>(null);
   const [editingItem, setEditingItem] = useState<{ id: string; type: "event" | "task"; raw: ScheduledEvent | Task; isDueDateTask?: boolean; done?: boolean } | null>(null);
+  const [showCalendarsManager, setShowCalendarsManager] = useState(false);
   const timeGridRef = useRef<HTMLDivElement>(null);
 
   const year = currentDate.getFullYear();
@@ -1033,6 +1035,18 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       )}
       {/* ── Item Detail Modal ───────────────────────────── */}
       <CalendarItemDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} onEdit={handleEditFromDetail} />
+
+      {/* ── Floating Calendars Button ───────────────────── */}
+      <button
+        onClick={() => setShowCalendarsManager(true)}
+        className="fixed bottom-20 right-4 z-30 w-11 h-11 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-secondary transition-colors active:scale-95"
+        style={{ maxWidth: "calc(min(100vw, 448px) - 16px)", right: "max(16px, calc((100vw - 448px) / 2 + 16px))" }}
+      >
+        <CalendarIcon size={18} className="text-foreground" />
+      </button>
+
+      {/* ── Calendars Manager ───────────────────────────── */}
+      <CalendarsManager open={showCalendarsManager} onClose={() => setShowCalendarsManager(false)} />
     </div>
   );
 };
