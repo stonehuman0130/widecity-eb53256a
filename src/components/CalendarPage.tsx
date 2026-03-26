@@ -177,31 +177,11 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [showSearch, setShowSearch] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<CalItem | null>(null);
+  const [editingItem, setEditingItem] = useState<{ id: string; type: "event" | "task"; raw: ScheduledEvent | Task; isDueDateTask?: boolean; done?: boolean } | null>(null);
   const timeGridRef = useRef<HTMLDivElement>(null);
-
-  // Add form state
-  const [newTitle, setNewTitle] = useState("");
-  const [newStartDate, setNewStartDate] = useState("");
-  const [newStartTime, setNewStartTime] = useState("");
-  const [newEndDate, setNewEndDate] = useState("");
-  const [newEndTime, setNewEndTime] = useState("");
-  const [newAllDay, setNewAllDay] = useState(false);
-  const [newUser, setNewUser] = useState<string>("me");
-  const [newDesc, setNewDesc] = useState("");
-
-  // To Do mode state
-  const [newIsTodo, setNewIsTodo] = useState(false);
-  const [newTodoDueDate, setNewTodoDueDate] = useState<Date | undefined>(undefined);
-  const [newTodoPriorNotice, setNewTodoPriorNotice] = useState(0);
-  const [newTodoTag, setNewTodoTag] = useState<"Work" | "Personal" | "Household">("Personal");
-  const [newTodoShowCustom, setNewTodoShowCustom] = useState(false);
-  const [newTodoCustomNotice, setNewTodoCustomNotice] = useState("14");
-  const [newTodoDueDatePickerOpen, setNewTodoDueDatePickerOpen] = useState(false);
-
-  const TODO_NOTICE_OPTIONS = [-1, 0, 1, 2, 3, 7];
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
