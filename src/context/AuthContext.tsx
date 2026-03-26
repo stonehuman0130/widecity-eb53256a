@@ -360,7 +360,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else if (enrichedGroups.length > 0) {
       setActiveGroup(enrichedGroups[0]);
     }
-  }, [user, session?.access_token, activeGroup]);
+  }, [user, session?.access_token]);
 
   const refreshProfile = async () => {
     if (user) await fetchProfile(user.id);
