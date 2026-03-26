@@ -94,6 +94,8 @@ export interface GoogleCalendarEvent {
   done?: boolean;
   completedAt?: string | null;
   completedBy?: string | null;
+  calendarId?: string;
+  calendarColor?: string | null;
 }
 
 interface AppContextType {

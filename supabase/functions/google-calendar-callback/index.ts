@@ -103,6 +103,79 @@ Deno.serve(async (req) => {
       return new Response("Failed to store tokens", { status: 500, headers: corsHeaders });
     }
 
+    // Auto-populate the user's Google calendars into the calendars table
+    try {
+      // Fetch Google user email
+      let accountEmail = state.user_id;
+      try {
+        const profileRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: { Authorization: `Bearer ${access_token}` },
+        });
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          accountEmail = profile.email || accountEmail;
+        }
+      } catch { /* non-critical */ }
+
+      // Fetch calendar list
+      const calRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+
+      if (calRes.ok) {
+        const calData = await calRes.json();
+        const items = calData.items || [];
+
+        for (let idx = 0; idx < items.length; idx++) {
+          const item = items[idx];
+          const calName = item.summaryOverride || item.summary || item.id;
+          const bgColor = item.backgroundColor || "#4285f4";
+          // Convert hex to hsl
+          const h = bgColor.replace("#", "");
+          const r = parseInt(h.substring(0, 2), 16) / 255;
+          const g2 = parseInt(h.substring(2, 4), 16) / 255;
+          const b = parseInt(h.substring(4, 6), 16) / 255;
+          const max = Math.max(r, g2, b), min = Math.min(r, g2, b);
+          let hue = 0, sat = 0;
+          const lit = (max + min) / 2;
+          if (max !== min) {
+            const d = max - min;
+            sat = lit > 0.5 ? d / (2 - max - min) : d / (max + min);
+            if (max === r) hue = ((g2 - b) / d + (g2 < b ? 6 : 0)) / 6;
+            else if (max === g2) hue = ((b - r) / d + 2) / 6;
+            else hue = ((r - g2) / d + 4) / 6;
+          }
+          const hslColor = `hsl(${Math.round(hue * 360)} ${Math.round(sat * 100)}% ${Math.round(lit * 100)}%)`;
+
+          const { data: existing } = await supabase
+            .from("calendars")
+            .select("id")
+            .eq("user_id", state.user_id)
+            .eq("provider", "google")
+            .eq("provider_calendar_id", item.id)
+            .maybeSingle();
+
+          if (!existing) {
+            await supabase.from("calendars").insert({
+              user_id: state.user_id,
+              group_id: state.group_id,
+              name: calName,
+              color: hslColor,
+              provider: "google",
+              provider_calendar_id: item.id,
+              provider_account_id: accountEmail,
+              is_visible: item.primary === true,
+              is_default: false,
+              sort_order: item.primary ? 0 : idx + 1,
+            });
+          }
+        }
+      }
+    } catch (calListErr) {
+      console.error("Failed to auto-populate Google calendars:", calListErr);
+      // Non-critical - continue with redirect
+    }
+
     const appUrl = req.headers.get("origin") || "https://widecity.lovable.app";
     return new Response(null, {
       status: 302,

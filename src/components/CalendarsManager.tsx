@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Plus, Check, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { X, Plus, Check, ChevronDown, ChevronUp, Info, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Switch } from "@/components/ui/switch";
 
 // ── Types ──
 
@@ -26,6 +25,7 @@ interface ProviderGroup {
   provider: string;
   label: string;
   icon: string;
+  accountLabel?: string;
   calendars: CalendarEntry[];
 }
 
@@ -57,9 +57,10 @@ interface Props {
 }
 
 const CalendarsManager = ({ open, onClose }: Props) => {
-  const { user } = useAuth();
+  const { user, groups } = useAuth();
   const [calendars, setCalendars] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   // New calendar form
@@ -99,9 +100,66 @@ const CalendarsManager = ({ open, onClose }: Props) => {
     setLoading(false);
   }, [user]);
 
+  // Sync Google calendars from connected accounts
+  const syncGoogleCalendars = useCallback(async () => {
+    if (!user || !groups || groups.length === 0) return;
+    setSyncing(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setSyncing(false);
+        return;
+      }
+
+      // Check which groups have Google Calendar connected
+      const { data: tokens } = await supabase
+        .from("google_calendar_tokens")
+        .select("group_id")
+        .eq("user_id", user.id);
+
+      if (!tokens || tokens.length === 0) {
+        setSyncing(false);
+        return;
+      }
+
+      // Fetch calendars for each connected group
+      for (const tokenRow of tokens) {
+        if (!tokenRow.group_id) continue;
+        try {
+          const res = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar-list?groupId=${encodeURIComponent(tokenRow.group_id)}`,
+            {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+            }
+          );
+          if (!res.ok) {
+            console.warn("Failed to fetch Google calendars for group", tokenRow.group_id);
+          }
+        } catch (err) {
+          console.error("Error syncing Google calendars:", err);
+        }
+      }
+
+      // Refresh the calendar list
+      await fetchCalendars();
+    } catch (err) {
+      console.error("Error in syncGoogleCalendars:", err);
+    }
+
+    setSyncing(false);
+  }, [user, groups, fetchCalendars]);
+
   useEffect(() => {
-    if (open) fetchCalendars();
-  }, [open, fetchCalendars]);
+    if (open) {
+      fetchCalendars().then(() => {
+        syncGoogleCalendars();
+      });
+    }
+  }, [open, fetchCalendars, syncGoogleCalendars]);
 
   // Ensure at least a default calendar exists
   useEffect(() => {
@@ -158,7 +216,6 @@ const CalendarsManager = ({ open, onClose }: Props) => {
   };
 
   const startEdit = (cal: CalendarEntry) => {
-    if (cal.provider !== "local") return; // Only local calendars are editable
     setEditingId(cal.id);
     setEditName(cal.name);
     setEditColor(cal.color);
@@ -195,32 +252,44 @@ const CalendarsManager = ({ open, onClose }: Props) => {
     });
   };
 
-  // Group calendars by provider
+  // Group calendars by provider + account
   const providerGroups: ProviderGroup[] = (() => {
     const grouped = new Map<string, CalendarEntry[]>();
     calendars.forEach((c) => {
-      const arr = grouped.get(c.provider) || [];
+      // For synced providers, group by provider+account
+      const key = c.providerAccountId ? `${c.provider}::${c.providerAccountId}` : c.provider;
+      const arr = grouped.get(key) || [];
       arr.push(c);
-      grouped.set(c.provider, arr);
+      grouped.set(key, arr);
     });
 
-    // Ensure "local" is always shown first, then known providers, then unknown
     const order = ["local", "google", "apple", "outlook"];
     const result: ProviderGroup[] = [];
-    order.forEach((p) => {
-      const cals = grouped.get(p);
-      if (cals && cals.length > 0) {
-        const meta = PROVIDER_META[p] || { label: p, icon: "📅" };
-        result.push({ provider: p, label: meta.label, icon: meta.icon, calendars: cals });
-        grouped.delete(p);
-      }
+
+    // Sort by provider order
+    const sortedKeys = [...grouped.keys()].sort((a, b) => {
+      const pA = a.split("::")[0];
+      const pB = b.split("::")[0];
+      const iA = order.indexOf(pA);
+      const iB = order.indexOf(pB);
+      return (iA === -1 ? 99 : iA) - (iB === -1 ? 99 : iB);
     });
-    // Any remaining providers
-    grouped.forEach((cals, p) => {
-      if (cals.length > 0) {
-        result.push({ provider: p, label: p, icon: "📅", calendars: cals });
-      }
-    });
+
+    for (const key of sortedKeys) {
+      const cals = grouped.get(key)!;
+      const provider = key.split("::")[0];
+      const accountId = key.includes("::") ? key.split("::")[1] : null;
+      const meta = PROVIDER_META[provider] || { label: provider, icon: "📅" };
+
+      result.push({
+        provider: key,
+        label: accountId ? `${meta.label}` : meta.label,
+        icon: meta.icon,
+        accountLabel: accountId || undefined,
+        calendars: cals,
+      });
+    }
+
     return result;
   })();
 
@@ -241,12 +310,21 @@ const CalendarsManager = ({ open, onClose }: Props) => {
             <X size={20} className="text-muted-foreground" />
           </button>
           <h2 className="text-[16px] font-semibold text-foreground">Calendars</h2>
-          <button
-            onClick={() => { setShowNewForm(true); setNewName(""); setNewColor(CALENDAR_COLORS[0].value); }}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
-          >
-            <Plus size={20} className="text-primary" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={syncGoogleCalendars}
+              disabled={syncing}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
+            >
+              <RefreshCw size={18} className={cn("text-muted-foreground", syncing && "animate-spin")} />
+            </button>
+            <button
+              onClick={() => { setShowNewForm(true); setNewName(""); setNewColor(CALENDAR_COLORS[0].value); }}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
+            >
+              <Plus size={20} className="text-primary" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -257,6 +335,13 @@ const CalendarsManager = ({ open, onClose }: Props) => {
             </div>
           ) : (
             <div className="space-y-4 mt-3">
+              {syncing && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-secondary/50 rounded-lg">
+                  <RefreshCw size={14} className="text-muted-foreground animate-spin" />
+                  <span className="text-[12px] text-muted-foreground">Syncing connected calendars…</span>
+                </div>
+              )}
+
               {providerGroups.map((group) => {
                 const isCollapsed = collapsedGroups.has(group.provider);
                 return (
@@ -266,11 +351,18 @@ const CalendarsManager = ({ open, onClose }: Props) => {
                       onClick={() => toggleGroup(group.provider)}
                       className="flex items-center justify-between w-full py-2 group"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span className="text-base">{group.icon}</span>
-                        <span className="text-[14px] font-semibold text-muted-foreground uppercase tracking-wider">
-                          {group.label}
-                        </span>
+                        <div className="flex flex-col items-start min-w-0">
+                          <span className="text-[14px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            {group.label}
+                          </span>
+                          {group.accountLabel && (
+                            <span className="text-[11px] text-muted-foreground/70 truncate max-w-[200px]">
+                              {group.accountLabel}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {isCollapsed ? (
                         <ChevronDown size={16} className="text-muted-foreground" />
@@ -296,7 +388,7 @@ const CalendarsManager = ({ open, onClose }: Props) => {
                                 <button
                                   onClick={() => toggleVisibility(cal.id, !cal.isVisible)}
                                   className="relative w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-                                  style={{ backgroundColor: cal.color }}
+                                  style={{ backgroundColor: cal.isVisible ? cal.color : "transparent", border: cal.isVisible ? "none" : `2px solid ${cal.color}` }}
                                 >
                                   {cal.isVisible && (
                                     <Check size={14} className="text-white drop-shadow-sm" strokeWidth={3} />
@@ -319,12 +411,7 @@ const CalendarsManager = ({ open, onClose }: Props) => {
                                       {cal.name}
                                     </p>
                                   )}
-                                  {cal.providerAccountId && (
-                                    <p className="text-[11px] text-muted-foreground truncate">
-                                      {cal.providerAccountId}
-                                    </p>
-                                  )}
-                                  {cal.groupId && (
+                                  {cal.groupId && cal.provider === "local" && (
                                     <p className="text-[11px] text-muted-foreground">
                                       Shared with group
                                     </p>
@@ -332,14 +419,12 @@ const CalendarsManager = ({ open, onClose }: Props) => {
                                 </div>
 
                                 {/* Info / edit button */}
-                                {cal.provider === "local" && (
-                                  <button
-                                    onClick={() => startEdit(cal)}
-                                    className="w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                                  >
-                                    <Info size={16} />
-                                  </button>
-                                )}
+                                <button
+                                  onClick={() => startEdit(cal)}
+                                  className="w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                                >
+                                  <Info size={16} />
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -362,14 +447,6 @@ const CalendarsManager = ({ open, onClose }: Props) => {
                   </button>
                 </div>
               )}
-
-              {/* Sync hint */}
-              <div className="mt-4 px-1">
-                <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
-                  Google Calendar, Apple iCloud, and Outlook sync coming soon.
-                  <br />Connected calendars will appear here automatically.
-                </p>
-              </div>
             </div>
           )}
         </div>
@@ -473,25 +550,35 @@ const CalendarsManager = ({ open, onClose }: Props) => {
               className="absolute bottom-0 left-0 right-0 bg-card border-t border-border rounded-t-2xl p-4 z-[65] shadow-lg"
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">Edit Color</span>
+                <span className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">Edit Calendar</span>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      const cal = calendars.find((c) => c.id === editingId);
-                      if (cal && !cal.isDefault) {
-                        deleteCalendar(editingId);
-                        setEditingId(null);
-                      }
-                    }}
-                    className="text-[12px] text-destructive font-medium"
-                  >
-                    Delete
-                  </button>
+                  {(() => {
+                    const cal = calendars.find((c) => c.id === editingId);
+                    return cal && !cal.isDefault ? (
+                      <button
+                        onClick={() => {
+                          deleteCalendar(editingId);
+                          setEditingId(null);
+                        }}
+                        className="text-[12px] text-destructive font-medium"
+                      >
+                        Delete
+                      </button>
+                    ) : null;
+                  })()}
                   <button onClick={saveEdit} className="text-[12px] text-primary font-semibold">
                     Done
                   </button>
                 </div>
               </div>
+
+              {/* Editable name */}
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full bg-secondary rounded-lg px-3 py-2 text-[14px] text-foreground outline-none mb-3"
+              />
+
               <div className="grid grid-cols-6 gap-3">
                 {CALENDAR_COLORS.map((c) => (
                   <button

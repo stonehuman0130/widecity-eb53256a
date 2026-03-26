@@ -21,5 +21,8 @@ verify_jwt = false
 [functions.google-calendar-disconnect]
 verify_jwt = false
 
+[functions.google-calendar-list]
+verify_jwt = false
+
 [functions.ai-coach]
 verify_jwt = false
