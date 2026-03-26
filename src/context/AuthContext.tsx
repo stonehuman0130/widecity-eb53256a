@@ -348,18 +348,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setGroups(enrichedGroups);
     saveCachedGroups(user.id, enrichedGroups);
 
-    if (activeGroup) {
-      const still = enrichedGroups.find((g) => g.id === activeGroup.id);
-      if (still) {
-        setActiveGroup(still);
-      } else if (enrichedGroups.length > 0) {
-        setActiveGroup(enrichedGroups[0]);
-      } else {
-        setActiveGroup(null);
+    setActiveGroup((prev) => {
+      if (prev) {
+        const still = enrichedGroups.find((g) => g.id === prev.id);
+        return still ?? enrichedGroups[0] ?? null;
       }
-    } else if (enrichedGroups.length > 0) {
-      setActiveGroup(enrichedGroups[0]);
-    }
+      return enrichedGroups.length > 0 ? enrichedGroups[0] : null;
+    });
   }, [user, session?.access_token]);
 
   const refreshProfile = async () => {
