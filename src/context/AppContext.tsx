@@ -1073,6 +1073,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("events").delete().eq("id", id);
   };
 
+  const updateEvent = async (id: string, updates: Partial<Pick<ScheduledEvent, "title" | "time" | "endTime" | "day" | "month" | "year" | "endDay" | "endMonth" | "endYear" | "allDay" | "description">>) => {
+    setEvents((e) => e.map((item) => item.id === id ? { ...item, ...updates } : item));
+    const dbUpdates: any = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.time !== undefined) dbUpdates.time = updates.time;
+    if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
+    if (updates.day !== undefined) dbUpdates.day = updates.day;
+    if (updates.month !== undefined) dbUpdates.month = updates.month;
+    if (updates.year !== undefined) dbUpdates.year = updates.year;
+    if (updates.endDay !== undefined) dbUpdates.end_day = updates.endDay;
+    if (updates.endMonth !== undefined) dbUpdates.end_month = updates.endMonth;
+    if (updates.endYear !== undefined) dbUpdates.end_year = updates.endYear;
+    if (updates.allDay !== undefined) dbUpdates.all_day = updates.allDay;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    await supabase.from("events").update(dbUpdates).eq("id", id);
+  };
+
   const rescheduleEvent = async (id: string, day: number, month: number, year: number) => {
     setEvents((e) =>
       e.map((item) => item.id === id ? { ...item, day, month, year } : item)
