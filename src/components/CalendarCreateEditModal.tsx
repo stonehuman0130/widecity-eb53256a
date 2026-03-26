@@ -1014,6 +1014,64 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
           )}
         </div>
       </motion.div>
+
+      {/* ── Timezone Picker Sheet ── */}
+      <AnimatePresence>
+        {showTzPicker && (
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 300 }}
+            className="absolute inset-0 z-[70] bg-background flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+              <button onClick={() => setShowTzPicker(false)} className="text-sm font-medium text-primary">
+                Cancel
+              </button>
+              <h2 className="text-[15px] font-semibold text-foreground">Time Zone</h2>
+              <div className="w-12" />
+            </div>
+
+            <div className="px-4 py-2 border-b border-border flex-shrink-0">
+              <div className="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2">
+                <Search size={16} className="text-muted-foreground flex-shrink-0" />
+                <input
+                  value={tzSearch}
+                  onChange={(e) => setTzSearch(e.target.value)}
+                  placeholder="Search time zones..."
+                  className="flex-1 text-[14px] bg-transparent outline-none text-foreground placeholder:text-muted-foreground/60"
+                  autoFocus
+                />
+                {tzSearch && (
+                  <button onClick={() => setTzSearch("")} className="text-muted-foreground">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {filteredTimezones.map((tz) => (
+                <button
+                  key={tz}
+                  onClick={() => { setTimezone(tz); setShowTzPicker(false); }}
+                  className={cn(
+                    "w-full flex items-center justify-between px-4 py-3 text-left hover:bg-secondary/50 transition-colors border-b border-border/50",
+                    timezone === tz && "bg-primary/5"
+                  )}
+                >
+                  <span className="text-[14px] text-foreground truncate">{tzDisplayLabel(tz)}</span>
+                  {timezone === tz && <Check size={18} className="text-primary flex-shrink-0" />}
+                </button>
+              ))}
+              {filteredTimezones.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-8">No time zones found</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 };
