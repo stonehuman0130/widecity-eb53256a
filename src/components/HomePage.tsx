@@ -945,7 +945,6 @@ const TaskCard = ({ task, onToggle, onCongrats, readOnly }: { task: Task; onTogg
         {!readOnly && <TaskActionMenu taskId={task.id} />}
       </div>
       <div className="mt-2 ml-9 flex items-center gap-2">
-        <TaskTag tag={task.tag} />
         <GroupBadge groupId={task.groupId} />
       </div>
     </motion.div>

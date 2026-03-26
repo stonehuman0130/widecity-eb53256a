@@ -259,11 +259,6 @@ const TeamDashboard = ({
             <span className="text-[8px] font-semibold text-primary bg-primary/10 px-1 py-0.5 rounded flex-shrink-0">Google</span>
           )}
         </div>
-        {item.tag && (
-          <div className="mt-0.5 ml-5">
-            <TaskTag tag={item.tag as "Work" | "Personal" | "Household"} />
-          </div>
-        )}
       </motion.div>
     );
   };
