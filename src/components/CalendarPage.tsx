@@ -9,6 +9,7 @@ import UserBadge from "@/components/UserBadge";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { formatTime } from "@/lib/formatTime";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -22,6 +23,7 @@ import CalendarCreateEditModal from "@/components/CalendarCreateEditModal";
 // ── Constants ──────────────────────────────────────────────
 
 const DAYS_SHORT = ["S", "M", "T", "W", "T", "F", "S"];
+const DAYS_FULL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 const GROUP_COLORS = [
@@ -48,33 +50,23 @@ const VIEW_LABELS: Record<ViewMode, string> = { month: "Month", list: "List", da
 
 function parseTimeToMinutes(time: string): number | null {
   if (!time || time === "All day") return null;
-
   const twelveHourMatch = time.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
   if (twelveHourMatch) {
     let hour = parseInt(twelveHourMatch[1], 10);
     const minute = parseInt(twelveHourMatch[2], 10);
     const period = twelveHourMatch[3].toUpperCase();
-
     if (period === "AM" && hour === 12) hour = 0;
     if (period === "PM" && hour < 12) hour += 12;
-
     return hour * 60 + minute;
   }
-
   const twentyFourHourMatch = time.trim().match(/^(\d{1,2}):(\d{2})$/);
   if (twentyFourHourMatch) {
     const hour = parseInt(twentyFourHourMatch[1], 10);
     const minute = parseInt(twentyFourHourMatch[2], 10);
-    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
-      return hour * 60 + minute;
-    }
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) return hour * 60 + minute;
   }
-
   const parsed = new Date(time);
-  if (!isNaN(parsed.getTime())) {
-    return parsed.getHours() * 60 + parsed.getMinutes();
-  }
-
+  if (!isNaN(parsed.getTime())) return parsed.getHours() * 60 + parsed.getMinutes();
   return null;
 }
 
@@ -88,13 +80,11 @@ function timeToHour(time: string): number | null {
 
 function parseGoogleDateValue(value?: string | null): Date | null {
   if (!value) return null;
-
   const dateOnly = value.split("T")[0];
   if (/^\d{4}-\d{2}-\d{2}$/.test(value) || (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly) && !value.includes("T"))) {
     const [yy, mm, dd] = dateOnly.split("-").map(Number);
     return new Date(yy, mm - 1, dd, 12, 0, 0, 0);
   }
-
   const parsed = new Date(value);
   return isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -120,17 +110,21 @@ function dateToKey(d: number, m: number, y: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-function keyToDate(k: string) {
-  const [y, m, d] = k.split("-").map(Number);
-  return { day: d, month: m - 1, year: y };
-}
-
-/** Check if a date falls between start and end (inclusive) */
 function dateInRange(d: number, m: number, y: number, startD: number, startM: number, startY: number, endD: number, endM: number, endY: number) {
   const dt = new Date(y, m, d).getTime();
   const st = new Date(startY, startM, startD).getTime();
   const et = new Date(endY, endM, endD).getTime();
   return dt >= st && dt <= et;
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
 }
 
 // ── Unified calendar item type ──────────────────────────────
@@ -300,13 +294,11 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         });
       });
 
-    // Add to-do tasks with due dates (only on the due date itself, not notice days)
     const dateKey = dateToKey(d, m, y);
     filteredTasks
       .filter((t) => {
         if (!t.dueDate) return false;
         if (t.dueDate !== dateKey) return false;
-        // Avoid duplicates: skip if already added via scheduledDay
         if (t.scheduledDay === d && t.scheduledMonth === m && t.scheduledYear === y) return false;
         return true;
       })
@@ -342,15 +334,9 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         }
 
         const includeInDate = dateInRange(
-          d,
-          m,
-          y,
-          gcalStart.getDate(),
-          gcalStart.getMonth(),
-          gcalStart.getFullYear(),
-          rangeEnd.getDate(),
-          rangeEnd.getMonth(),
-          rangeEnd.getFullYear(),
+          d, m, y,
+          gcalStart.getDate(), gcalStart.getMonth(), gcalStart.getFullYear(),
+          rangeEnd.getDate(), rangeEnd.getMonth(), rangeEnd.getFullYear(),
         );
 
         if (!includeInDate) return;
@@ -361,14 +347,9 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           gcalStart.getFullYear() !== rangeEnd.getFullYear();
 
         const isStartDay =
-          d === gcalStart.getDate() &&
-          m === gcalStart.getMonth() &&
-          y === gcalStart.getFullYear();
-
+          d === gcalStart.getDate() && m === gcalStart.getMonth() && y === gcalStart.getFullYear();
         const isEndDay =
-          d === rangeEnd.getDate() &&
-          m === rangeEnd.getMonth() &&
-          y === rangeEnd.getFullYear();
+          d === rangeEnd.getDate() && m === rangeEnd.getMonth() && y === rangeEnd.getFullYear();
 
         const startMinutes = gcalStart.getHours() * 60 + gcalStart.getMinutes();
         const endMinutes = gcalEnd.getHours() * 60 + gcalEnd.getMinutes();
@@ -427,18 +408,13 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     }
 
     items.sort((a, b) => {
-      // Due-date tasks first
       if (a.isDueDateTask && !b.isDueDateTask) return -1;
       if (!a.isDueDateTask && b.isDueDateTask) return 1;
-
-      // Then all-day
       if (a.allDay && !b.allDay) return -1;
       if (!a.allDay && b.allDay) return 1;
-
       const aStart = a.startDateTime?.getTime() ?? Number.MAX_SAFE_INTEGER;
       const bStart = b.startDateTime?.getTime() ?? Number.MAX_SAFE_INTEGER;
       if (aStart !== bStart) return aStart - bStart;
-
       return a.title.localeCompare(b.title);
     });
 
@@ -482,15 +458,6 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   };
   const selectDay = (d: number) => setSelectedDate(new Date(year, month, d));
 
-  // ── Swipe ─────────────────────────────────────────────
-
-  const touchStartX = useRef(0);
-  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(diff) > 60) { diff > 0 ? prevMonth() : nextMonth(); }
-  };
-
   const openAddForm = () => setShowCreateModal(true);
 
   const handleEditFromDetail = (item: CalItem) => {
@@ -505,14 +472,45 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     });
   };
 
-  // (Add form state and handlers moved to CalendarCreateEditModal)
-
   // Scroll time grid to 8am
   useEffect(() => {
     if ((viewMode === "day" || viewMode === "3day") && timeGridRef.current) {
       timeGridRef.current.scrollTop = 8 * 60;
     }
   }, [viewMode]);
+
+  // ── Day/3-Day swipe handlers ──────────────────────────
+
+  const handleDaySwipe = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (Math.abs(info.offset.x) > 50) {
+      setSelectedDate((prev) => addDays(prev, info.offset.x > 0 ? -1 : 1));
+    }
+  }, []);
+
+  const handleThreeDaySwipe = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (Math.abs(info.offset.x) > 50) {
+      setSelectedDate((prev) => addDays(prev, info.offset.x > 0 ? -3 : 3));
+    }
+  }, []);
+
+  // Sync currentDate when selectedDate changes (for day/3day views)
+  useEffect(() => {
+    if (viewMode === "day" || viewMode === "3day") {
+      setCurrentDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+    }
+  }, [selectedDate, viewMode]);
+
+  // ── Month swipe for month view ────────────────────────
+
+  const handleMonthSwipe = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (Math.abs(info.offset.y) > 60) {
+      if (info.offset.y > 0) {
+        prevMonth();
+      } else {
+        nextMonth();
+      }
+    }
+  }, [year, month]);
 
   // ── Search results ────────────────────────────────────
 
@@ -584,8 +582,76 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
   const threeDayDates = useMemo(() => {
     const d = new Date(selYear, selMonth, selDay);
-    return [d, new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1), new Date(d.getFullYear(), d.getMonth(), d.getDate() + 2)];
+    return [d, addDays(d, 1), addDays(d, 2)];
   }, [selDay, selMonth, selYear]);
+
+  // ── Date strip for Day/3-Day views ────────────────────
+
+  const dateStripDates = useMemo(() => {
+    // Show a 7-day strip centered around selected date
+    const dates: Date[] = [];
+    const center = new Date(selYear, selMonth, selDay);
+    for (let i = -3; i <= 3; i++) {
+      dates.push(addDays(center, i));
+    }
+    return dates;
+  }, [selDay, selMonth, selYear]);
+
+  // ── List view: generate dates for continuous scroll ───
+
+  const listViewDates = useMemo(() => {
+    // Show 60 days: 15 before today's month start, rest after
+    const dates: Date[] = [];
+    const start = new Date(year, month, 1);
+    start.setDate(start.getDate() - 15);
+    for (let i = 0; i < 75; i++) {
+      dates.push(addDays(start, i));
+    }
+    return dates;
+  }, [year, month]);
+
+  // List view month header tracking
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const [listVisibleMonth, setListVisibleMonth] = useState(`${monthName} ${year}`);
+  const listDayRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const handleListScroll = useCallback(() => {
+    if (!listScrollRef.current) return;
+    const container = listScrollRef.current;
+    const containerTop = container.getBoundingClientRect().top;
+
+    // Find the first visible day element
+    let found = false;
+    for (const [key, el] of listDayRefs.current.entries()) {
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.top >= containerTop - 10) {
+        const { month: m, year: y } = keyToDate(key);
+        const label = new Date(y, m, 1).toLocaleString("default", { month: "long" }) + " " + y;
+        setListVisibleMonth(label);
+        found = true;
+        break;
+      }
+    }
+
+    // Load more dates if near the bottom
+    if (!found) {
+      // Just keep current label
+    }
+  }, []);
+
+  // Scroll list to today on mount
+  useEffect(() => {
+    if (viewMode === "list" && listScrollRef.current) {
+      const todayKey = dateToKey(today.getDate(), today.getMonth(), today.getFullYear());
+      const el = listDayRefs.current.get(todayKey);
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ block: "start" });
+        }, 100);
+      }
+    }
+  }, [viewMode]);
 
   // ═══════════════════════════════════════════════════════
   // RENDER
@@ -596,30 +662,65 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       {/* ── Header ──────────────────────────────────────── */}
       <header className="pt-10 pb-2">
         <div className="flex items-center justify-between">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 hover:bg-secondary rounded-lg px-2 py-1 transition-colors">
-                <h1 className="text-xl font-bold text-foreground">{monthName}</h1>
-                <span className="text-xl font-light text-muted-foreground">{year}</span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                defaultMonth={currentDate}
-                onSelect={(date) => {
-                  if (date) {
-                    setSelectedDate(date);
-                    setCurrentDate(new Date(date.getFullYear(), date.getMonth(), 1));
-                  }
-                }}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
+          {viewMode === "list" ? (
+            <button onClick={goToday} className="flex items-center gap-2 hover:bg-secondary rounded-lg px-2 py-1 transition-colors">
+              <h1 className="text-xl font-bold text-foreground">{listVisibleMonth}</h1>
+            </button>
+          ) : viewMode === "day" || viewMode === "3day" ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-2 hover:bg-secondary rounded-lg px-2 py-1 transition-colors">
+                  <h1 className="text-xl font-bold text-foreground">
+                    {selectedDate.toLocaleString("default", { month: "long" })}
+                  </h1>
+                  <span className="text-xl font-light text-muted-foreground">{selYear}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  defaultMonth={selectedDate}
+                  onSelect={(date) => {
+                    if (date) {
+                      setSelectedDate(date);
+                      setCurrentDate(new Date(date.getFullYear(), date.getMonth(), 1));
+                    }
+                  }}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-2 hover:bg-secondary rounded-lg px-2 py-1 transition-colors">
+                  <h1 className="text-xl font-bold text-foreground">{monthName}</h1>
+                  <span className="text-xl font-light text-muted-foreground">{year}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  defaultMonth={currentDate}
+                  onSelect={(date) => {
+                    if (date) {
+                      setSelectedDate(date);
+                      setCurrentDate(new Date(date.getFullYear(), date.getMonth(), 1));
+                    }
+                  }}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          )}
           <div className="flex items-center gap-0.5">
+            <button onClick={goToday} className="h-7 px-2 text-[11px] font-semibold text-primary hover:bg-primary/10 rounded-full transition-colors">
+              Today
+            </button>
             <button onClick={() => setShowSearch(true)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground">
               <Search size={16} />
             </button>
@@ -648,18 +749,13 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
               <Plus size={14} />
             </button>
 
-            <div className="w-px h-4 bg-border mx-0.5" />
-
-            <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground">
-              <ChevronLeft size={18} />
-            </button>
-            <button onClick={nextMonth} className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground">
-              <ChevronRight size={18} />
-            </button>
             {onOpenSettings && (
-              <button onClick={onOpenSettings} className="w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-                <Settings size={16} />
-              </button>
+              <>
+                <div className="w-px h-4 bg-border mx-0.5" />
+                <button onClick={onOpenSettings} className="w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                  <Settings size={16} />
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -682,49 +778,61 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         editItem={editingItem}
       />
 
-      {/* ── MONTH VIEW ──────────────────────────────────── */}
+      {/* ── MONTH VIEW (swipeable vertically) ──────────── */}
       {viewMode === "month" && (
-        <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        <motion.div
+          onPanEnd={handleMonthSwipe}
+          style={{ touchAction: "pan-x" }}
+        >
           <div className="grid grid-cols-7 mb-1">
             {DAYS_SHORT.map((d, i) => (
               <div key={i} className="text-center text-[11px] font-medium text-muted-foreground py-1">{d}</div>
             ))}
           </div>
 
-          <div className="grid grid-cols-7">
-            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-              <div key={`e-${i}`} className="h-11" />
-            ))}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const isTodayDay = isCurrentMonth && day === today.getDate();
-              const isSelected = day === selDay && month === selMonth && year === selYear;
-              const dots = monthDots.get(day);
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              key={`${year}-${month}`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+              className="grid grid-cols-7"
+            >
+              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                <div key={`e-${i}`} className="h-11" />
+              ))}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const isTodayDay = isCurrentMonth && day === today.getDate();
+                const isSelected = day === selDay && month === selMonth && year === selYear;
+                const dots = monthDots.get(day);
 
-              return (
-                <button key={day} onClick={() => selectDay(day)} className="h-11 flex flex-col items-center justify-center relative">
-                  <span className={`w-8 h-8 flex items-center justify-center rounded-full text-[13px] transition-all ${
-                    isSelected ? "bg-primary text-primary-foreground font-semibold"
-                      : isTodayDay ? "bg-destructive text-destructive-foreground font-semibold"
-                      : "text-foreground hover:bg-secondary"
-                  }`}>
-                    {day}
-                  </span>
-                  {dots && !isSelected && (
-                    <div className="flex gap-[2px] absolute bottom-0">
-                      {Array.from(dots).slice(0, 3).map((gid, idx) => {
-                        const dotColor = gid === "__todo" ? TODO_COLOR : GROUP_COLORS[(gid === "__default" ? 0 : getGroupColorIndex(gid, groups)) % GROUP_COLORS.length];
-                        return (
-                          <span key={idx} className="w-[4px] h-[4px] rounded-full"
-                            style={{ backgroundColor: dotColor }} />
-                        );
-                      })}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button key={day} onClick={() => selectDay(day)} className="h-11 flex flex-col items-center justify-center relative">
+                    <span className={`w-8 h-8 flex items-center justify-center rounded-full text-[13px] transition-all ${
+                      isSelected ? "bg-primary text-primary-foreground font-semibold"
+                        : isTodayDay ? "bg-destructive text-destructive-foreground font-semibold"
+                        : "text-foreground hover:bg-secondary"
+                    }`}>
+                      {day}
+                    </span>
+                    {dots && !isSelected && (
+                      <div className="flex gap-[2px] absolute bottom-0">
+                        {Array.from(dots).slice(0, 3).map((gid, idx) => {
+                          const dotColor = gid === "__todo" ? TODO_COLOR : GROUP_COLORS[(gid === "__default" ? 0 : getGroupColorIndex(gid, groups)) % GROUP_COLORS.length];
+                          return (
+                            <span key={idx} className="w-[4px] h-[4px] rounded-full"
+                              style={{ backgroundColor: dotColor }} />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
 
           {/* Selected day event list */}
           <div className="mt-3 border-t border-border pt-3">
@@ -737,29 +845,67 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
               <EventList items={selectedDayItems} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} />
             )}
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* ── LIST VIEW ───────────────────────────────────── */}
+      {/* ── LIST VIEW (continuous scroll) ───────────────── */}
       {viewMode === "list" && (
-        <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-          <div className="space-y-4">
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const items = getItemsForDate(day, month, year);
-              if (items.length === 0) return null;
-              const isTodayDay = isCurrentMonth && day === today.getDate();
-              const dateObj = new Date(year, month, day);
+        <div
+          ref={listScrollRef}
+          onScroll={handleListScroll}
+          className="overflow-y-auto scroll-smooth-touch"
+          style={{ maxHeight: "calc(100vh - 200px)" }}
+        >
+          <div className="space-y-1">
+            {listViewDates.map((dateObj) => {
+              const d = dateObj.getDate();
+              const m = dateObj.getMonth();
+              const y = dateObj.getFullYear();
+              const key = dateToKey(d, m, y);
+              const items = getItemsForDate(d, m, y);
+              const isTodayDay = isSameDay(dateObj, today);
+              const isFirstOfMonth = d === 1;
 
               return (
-                <div key={day}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[13px] font-semibold ${isTodayDay ? "text-primary" : "text-foreground"}`}>
-                      {dateObj.toLocaleDateString("en-US", { weekday: "short", day: "numeric" })}
-                    </span>
-                    {isTodayDay && <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">TODAY</span>}
+                <div
+                  key={key}
+                  ref={(el) => {
+                    if (el) listDayRefs.current.set(key, el);
+                  }}
+                >
+                  {isFirstOfMonth && (
+                    <div className="pt-4 pb-2">
+                      <h3 className="text-base font-bold text-foreground">
+                        {dateObj.toLocaleString("default", { month: "long" })} {y}
+                      </h3>
+                    </div>
+                  )}
+                  <div className={cn(
+                    "flex gap-3 py-2 border-b border-border/50",
+                    isTodayDay && "bg-primary/5 rounded-lg px-2 -mx-2"
+                  )}>
+                    <div className="w-12 flex-shrink-0 text-center pt-0.5">
+                      <div className={cn(
+                        "text-[11px] font-medium",
+                        isTodayDay ? "text-primary" : "text-muted-foreground"
+                      )}>
+                        {DAYS_FULL[dateObj.getDay()]}
+                      </div>
+                      <div className={cn(
+                        "text-lg font-bold leading-tight",
+                        isTodayDay ? "text-primary" : "text-foreground"
+                      )}>
+                        {d}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {items.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-1">No events</p>
+                      ) : (
+                        <EventList items={items} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} compact />
+                      )}
+                    </div>
                   </div>
-                  <EventList items={items} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} />
                 </div>
               );
             })}
@@ -767,14 +913,64 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         </div>
       )}
 
-      {/* ── DAY VIEW ────────────────────────────────────── */}
+      {/* ── DAY VIEW (with date strip + swipe) ──────────── */}
       {viewMode === "day" && (
-        <TimeGridView dates={[selectedDate]} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} onItemTap={setSelectedItem} />
+        <div>
+          {/* Date strip */}
+          <DateStrip
+            dates={dateStripDates}
+            selectedDate={selectedDate}
+            onSelectDate={(d) => setSelectedDate(d)}
+          />
+          {/* Swipeable time grid */}
+          <motion.div
+            key={getLocalDateKey(selectedDate)}
+            onPanEnd={handleDaySwipe}
+            style={{ touchAction: "pan-y" }}
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <TimeGridView
+              dates={[selectedDate]}
+              getItemsForDate={getItemsForDate}
+              groups={groups}
+              timeGridRef={timeGridRef}
+              onItemTap={setSelectedItem}
+              hideColumnHeaders
+            />
+          </motion.div>
+        </div>
       )}
 
-      {/* ── 3-DAY VIEW ──────────────────────────────────── */}
+      {/* ── 3-DAY VIEW (with date strip + swipe 3 days) ── */}
       {viewMode === "3day" && (
-        <TimeGridView dates={threeDayDates} getItemsForDate={getItemsForDate} groups={groups} timeGridRef={timeGridRef} onItemTap={setSelectedItem} />
+        <div>
+          {/* Date strip for 3-day */}
+          <DateStrip
+            dates={dateStripDates}
+            selectedDate={selectedDate}
+            onSelectDate={(d) => setSelectedDate(d)}
+            rangeLength={3}
+          />
+          {/* Swipeable time grid */}
+          <motion.div
+            key={getLocalDateKey(selectedDate)}
+            onPanEnd={handleThreeDaySwipe}
+            style={{ touchAction: "pan-y" }}
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <TimeGridView
+              dates={threeDayDates}
+              getItemsForDate={getItemsForDate}
+              groups={groups}
+              timeGridRef={timeGridRef}
+              onItemTap={setSelectedItem}
+            />
+          </motion.div>
+        </div>
       )}
 
       {/* ── Search Modal ────────────────────────────────── */}
@@ -841,15 +1037,77 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   );
 };
 
+// ── Date Strip Component (Apple Calendar style) ───────────
+
+function keyToDate(k: string) {
+  const [y, m, d] = k.split("-").map(Number);
+  return { day: d, month: m - 1, year: y };
+}
+
+const DateStrip = ({
+  dates,
+  selectedDate,
+  onSelectDate,
+  rangeLength,
+}: {
+  dates: Date[];
+  selectedDate: Date;
+  onSelectDate: (d: Date) => void;
+  rangeLength?: number;
+}) => {
+  const today = new Date();
+
+  return (
+    <div className="flex items-stretch border-b border-border mb-0 overflow-x-auto">
+      {dates.map((d, i) => {
+        const isToday = isSameDay(d, today);
+        const isSelected = isSameDay(d, selectedDate);
+        const isInRange = rangeLength
+          ? d >= selectedDate && d < addDays(selectedDate, rangeLength)
+          : isSelected;
+
+        return (
+          <button
+            key={i}
+            onClick={() => onSelectDate(d)}
+            className={cn(
+              "flex-1 flex flex-col items-center py-2 transition-colors min-w-0",
+              isInRange && "bg-primary/10",
+              !isInRange && "hover:bg-secondary/50",
+            )}
+          >
+            <span className={cn(
+              "text-[10px] font-medium uppercase",
+              isToday ? "text-primary" : "text-muted-foreground"
+            )}>
+              {DAYS_FULL[d.getDay()]}
+            </span>
+            <span className={cn(
+              "w-8 h-8 flex items-center justify-center rounded-full text-[14px] font-semibold mt-0.5 transition-all",
+              isSelected ? "bg-primary text-primary-foreground"
+                : isToday ? "bg-destructive text-destructive-foreground"
+                : isInRange ? "text-primary font-bold"
+                : "text-foreground"
+            )}>
+              {d.getDate()}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 // ── Event List Component ──────────────────────────────────
 
 const EventList = ({
-  items, groups, getColorClasses, onItemTap,
+  items, groups, getColorClasses, onItemTap, compact,
 }: {
   items: CalItem[];
   groups: Group[];
   getColorClasses: (gid: string | null | undefined) => typeof GROUP_COLOR_CLASSES[0];
   onItemTap?: (item: CalItem) => void;
+  compact?: boolean;
 }) => {
   const { activeGroup } = useAuth();
   const todoItems = items.filter((i) => i.isDueDateTask);
@@ -857,9 +1115,9 @@ const EventList = ({
   const timedItems = items.filter((i) => !i.allDay);
 
   return (
-    <div className="divide-y divide-border">
+    <div className={compact ? "space-y-0.5" : "divide-y divide-border"}>
       {todoItems.length > 0 && (
-        <div className="py-1">
+        <div className="py-0.5">
           {todoItems.map((item) => {
             const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
             return (
@@ -881,7 +1139,7 @@ const EventList = ({
       )}
 
       {allDayItems.length > 0 && (
-        <div className="py-1">
+        <div className="py-0.5">
           {allDayItems.map((item) => {
             const colors = getColorClasses(item.groupId);
             const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
@@ -938,19 +1196,20 @@ const EventList = ({
 // ── Time Grid View (Day / 3-Day) ──────────────────────────
 
 const TimeGridView = ({
-  dates, getItemsForDate, groups, timeGridRef, onItemTap,
+  dates, getItemsForDate, groups, timeGridRef, onItemTap, hideColumnHeaders,
 }: {
   dates: Date[];
   getItemsForDate: (d: number, m: number, y: number) => CalItem[];
   groups: Group[];
   timeGridRef: React.RefObject<HTMLDivElement | null>;
   onItemTap?: (item: CalItem) => void;
+  hideColumnHeaders?: boolean;
 }) => {
   const columns = dates.map((d) => ({
     date: d,
     label: d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" }),
     items: getItemsForDate(d.getDate(), d.getMonth(), d.getFullYear()),
-    isToday: d.getDate() === new Date().getDate() && d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear(),
+    isToday: isSameDay(d, new Date()),
   }));
 
   const hourHeight = 60;
@@ -983,15 +1242,17 @@ const TimeGridView = ({
 
   return (
     <div>
-      {/* Column headers */}
-      <div className="flex border-b border-border mb-0">
-        <div className="w-12 flex-shrink-0" />
-        {columns.map((col, i) => (
-          <div key={i} className={`flex-1 text-center py-2 text-[12px] font-semibold ${col.isToday ? "text-primary" : "text-foreground"}`}>
-            {col.label}
-          </div>
-        ))}
-      </div>
+      {/* Column headers (only for multi-column / 3-day) */}
+      {!hideColumnHeaders && (
+        <div className="flex border-b border-border mb-0">
+          <div className="w-12 flex-shrink-0" />
+          {columns.map((col, i) => (
+            <div key={i} className={`flex-1 text-center py-2 text-[12px] font-semibold ${col.isToday ? "text-primary" : "text-foreground"}`}>
+              {col.label}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* To-do tasks row */}
       {columns.some((c) => c.items.some((it) => it.isDueDateTask)) && (
@@ -1052,9 +1313,7 @@ const TimeGridView = ({
                 {/* Hour lines (solid) + 15-min lines (dotted) */}
                 {HOURS.map((h) => (
                   <div key={h}>
-                    {/* Main hour line */}
                     <div className="absolute w-full border-t border-border" style={{ top: h * hourHeight }} />
-                    {/* 15-min dotted lines */}
                     <div className="absolute w-full border-t border-dotted border-border/30" style={{ top: h * hourHeight + hourHeight * 0.25 }} />
                     <div className="absolute w-full border-t border-dotted border-border/30" style={{ top: h * hourHeight + hourHeight * 0.5 }} />
                     <div className="absolute w-full border-t border-dotted border-border/30" style={{ top: h * hourHeight + hourHeight * 0.75 }} />
@@ -1073,7 +1332,7 @@ const TimeGridView = ({
                   );
                 })()}
 
-                {/* Event blocks - full duration shaded */}
+                {/* Event blocks */}
                 {positioned.map(({ item, col: colIdx, totalCols }) => {
                   const colorIdx = getGroupColorIndex(item.groupId, groups);
                   const color = item.type === "task" ? TODO_COLOR : GROUP_COLORS[colorIdx];
