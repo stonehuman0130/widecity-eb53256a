@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   X, Clock, MapPin, Bell, Repeat, Eye, AlignLeft, ChevronDown, ChevronUp,
-  CalendarDays, ListTodo, Globe, Palette, Trash2, Check,
+  CalendarDays, ListTodo, Globe, Palette, Trash2, Check, Search,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext, ScheduledEvent, Task } from "@/context/AppContext";
