@@ -836,7 +836,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         </div>
       )}
       {/* ── Item Detail Modal ───────────────────────────── */}
-      <CalendarItemDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+      <CalendarItemDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} onEdit={handleEditFromDetail} />
     </div>
   );
 };
