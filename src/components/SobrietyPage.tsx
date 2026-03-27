@@ -89,7 +89,8 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
   const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [showCheckinDialog, setShowCheckinDialog] = useState(false);
   const [checkinCategory, setCheckinCategory] = useState<SobrietyCategory | null>(null);
-  const [checkinDate, setCheckinDate] = useState<string>("");
+  const [checkinDates, setCheckinDates] = useState<string[]>([]);
+  const [checkinIsMissed, setCheckinIsMissed] = useState(false);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [customLabel, setCustomLabel] = useState("");
   const [customIcon, setCustomIcon] = useState("🚫");
@@ -257,36 +258,78 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
   };
 
   const handleCheckin = async (onTrack: boolean) => {
-    if (!user || !checkinCategory) return;
-    const dateToUse = checkinDate || today;
+    if (!user || !checkinCategory || checkinDates.length === 0) return;
 
-    const { error } = await supabase.from("sobriety_checkins").upsert({
+    const rows = checkinDates.map(d => ({
       user_id: user.id,
       category_id: checkinCategory.id,
-      check_date: dateToUse,
+      check_date: d,
       stayed_on_track: onTrack,
-    } as any, { onConflict: "category_id,check_date" });
+    }));
+
+    const { error } = await supabase.from("sobriety_checkins").upsert(
+      rows as any[], { onConflict: "category_id,check_date" }
+    );
 
     if (error) { toast.error("Failed to check in"); return; }
 
     if (onTrack) {
-      const info = getStreakInfo(checkinCategory);
-      const newStreak = info.currentStreak + 1;
-      const milestone = MILESTONES.find(m => m === newStreak);
-      if (milestone) {
-        setCelebratingMilestone(milestone);
-        setTimeout(() => setCelebratingMilestone(null), 3000);
+      if (checkinDates.length === 1 && checkinDates[0] === today) {
+        const info = getStreakInfo(checkinCategory);
+        const newStreak = info.currentStreak + 1;
+        const milestone = MILESTONES.find(m => m === newStreak);
+        if (milestone) {
+          setCelebratingMilestone(milestone);
+          setTimeout(() => setCelebratingMilestone(null), 3000);
+        }
+        toast.success("Great job! Keep it up! 💪");
+      } else {
+        toast.success(`Checked in ${checkinDates.length} day${checkinDates.length > 1 ? "s" : ""} ✅`);
       }
-      const label = dateToUse === today ? "Great job! Keep it up! 💪" : `Checked in for ${format(parseISO(dateToUse), "MMM d")} ✅`;
-      toast.success(label);
     } else {
       toast("It's okay. Every day is a fresh start. 💙");
     }
 
     setShowCheckinDialog(false);
     setCheckinCategory(null);
-    setCheckinDate("");
+    setCheckinDates([]);
+    setCheckinIsMissed(false);
     fetchData();
+  };
+
+  const handleBatchCheckin = (cat: SobrietyCategory, dates: string[], onTrack: boolean) => {
+    setCheckinCategory(cat);
+    setCheckinDates(dates);
+    setCheckinIsMissed(true);
+    if (onTrack) {
+      // Direct confirm for batch missed days marked as sober
+      handleCheckinDirect(cat, dates, true);
+    } else {
+      setShowCheckinDialog(true);
+    }
+  };
+
+  const handleCheckinDirect = async (cat: SobrietyCategory, dates: string[], onTrack: boolean) => {
+    if (!user) return;
+    const rows = dates.map(d => ({
+      user_id: user.id,
+      category_id: cat.id,
+      check_date: d,
+      stayed_on_track: onTrack,
+    }));
+    const { error } = await supabase.from("sobriety_checkins").upsert(
+      rows as any[], { onConflict: "category_id,check_date" }
+    );
+    if (error) { toast.error("Failed to check in"); return; }
+    toast.success(`Checked in ${dates.length} day${dates.length > 1 ? "s" : ""} ✅`);
+    fetchData();
+  };
+
+  const openCheckinFor = (cat: SobrietyCategory, date: string) => {
+    setCheckinCategory(cat);
+    setCheckinDates([date]);
+    setCheckinIsMissed(date !== today);
+    setShowCheckinDialog(true);
   };
 
   const handleDeleteCategory = async (catId: string) => {
@@ -351,11 +394,7 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
     return days;
   }, [getStreakInfo]);
 
-  const openCheckinFor = (cat: SobrietyCategory, date: string) => {
-    setCheckinCategory(cat);
-    setCheckinDate(date);
-    setShowCheckinDialog(true);
-  };
+  // openCheckinFor is defined above in handleCheckin section
 
   const readOnly = isViewingPartner;
 
@@ -478,7 +517,7 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
           partnerName={partnerName || "Partner"}
           expandedCard={expandedCard}
           setExpandedCard={setExpandedCard}
-          openCheckinFor={openCheckinFor}
+          onBatchCheckin={handleBatchCheckin}
           handleResetStreak={handleResetStreak}
           handleDeleteCategory={handleDeleteCategory}
           onUpdateMoneyPerDay={handleUpdateMoneyPerDay}
@@ -499,7 +538,7 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
               today={today}
               expandedCard={expandedCard}
               setExpandedCard={setExpandedCard}
-              openCheckinFor={openCheckinFor}
+              onBatchCheckin={handleBatchCheckin}
               handleResetStreak={handleResetStreak}
               handleDeleteCategory={handleDeleteCategory}
               readOnly={readOnly}
@@ -599,11 +638,13 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
         <DialogContent className="max-w-[320px] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-center">
-              {checkinCategory?.icon} Daily Check-In
+              {checkinCategory?.icon} {checkinIsMissed ? "Missed Day Check-In" : "Daily Check-In"}
             </DialogTitle>
             <DialogDescription className="text-center">
-              {checkinDate && checkinDate !== today
-                ? `Check in for ${format(parseISO(checkinDate), "MMM d, yyyy")}`
+              {checkinIsMissed
+                ? checkinDates.length > 1
+                  ? `Confirm check-in for ${checkinDates.length} missed days`
+                  : `Check in for ${format(parseISO(checkinDates[0] || today), "MMM d, yyyy")}`
                 : `Did you stay on track with ${checkinCategory?.label} today?`}
             </DialogDescription>
           </DialogHeader>
@@ -612,14 +653,14 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
               onClick={() => handleCheckin(true)}
               className="rounded-xl h-14 text-base bg-[hsl(var(--habit-green))] hover:bg-[hsl(var(--habit-green))]/90 text-white"
             >
-              ✅ Yes!
+              ✅ Yes{checkinIsMissed ? "" : "!"}
             </Button>
             <Button
               onClick={() => handleCheckin(false)}
               variant="outline"
               className="rounded-xl h-14 text-base border-destructive/30 text-destructive hover:bg-destructive/5"
             >
-              Not today
+              {checkinIsMissed ? "No" : "Not today"}
             </Button>
           </div>
           <p className="text-[10px] text-center text-muted-foreground mt-1">
@@ -667,7 +708,7 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
 // Category Card Component
 function SobrietyCategoryCard({
   cat, idx, getStreakInfo, getHeatmapData, getMissedDays, isCheckedIn,
-  today, expandedCard, setExpandedCard, openCheckinFor,
+  today, expandedCard, setExpandedCard, onBatchCheckin,
   handleResetStreak, handleDeleteCategory, readOnly, ownerLabel,
   onUpdateMoneyPerDay, onAddPriorDays,
 }: {
@@ -680,7 +721,7 @@ function SobrietyCategoryCard({
   today: string;
   expandedCard: string | null;
   setExpandedCard: (id: string | null) => void;
-  openCheckinFor: (cat: SobrietyCategory, date: string) => void;
+  onBatchCheckin: (cat: SobrietyCategory, dates: string[], onTrack: boolean) => void;
   handleResetStreak: (cat: SobrietyCategory) => void;
   handleDeleteCategory: (id: string) => void;
   readOnly?: boolean;
@@ -692,6 +733,9 @@ function SobrietyCategoryCard({
   const [moneyValue, setMoneyValue] = useState(String(cat.money_per_day || ""));
   const [showPriorDays, setShowPriorDays] = useState(false);
   const [priorDaysCount, setPriorDaysCount] = useState("3");
+  const [selectedMissed, setSelectedMissed] = useState<Set<string>>(new Set());
+  const [showMissedConfirm, setShowMissedConfirm] = useState(false);
+  const [showTodayCheckin, setShowTodayCheckin] = useState(false);
 
   const info = getStreakInfo(cat);
   const isExpanded = expandedCard === cat.id;
@@ -700,6 +744,14 @@ function SobrietyCategoryCard({
   const milestones = getReachedMilestones(info.currentStreak);
   const latestMilestone = milestones.length > 0 ? milestones[milestones.length - 1] : null;
   const missedDays = getMissedDays(cat);
+
+  const toggleMissedDay = (d: string) => {
+    setSelectedMissed(prev => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d); else next.add(d);
+      return next;
+    });
+  };
 
   return (
     <motion.div
@@ -764,7 +816,7 @@ function SobrietyCategoryCard({
           <Button
             onClick={(e) => {
               e.stopPropagation();
-              openCheckinFor(cat, today);
+              setShowTodayCheckin(true);
             }}
             variant="outline"
             className="w-full rounded-xl text-sm h-9 border-primary/30 text-primary hover:bg-primary/5"
@@ -773,6 +825,41 @@ function SobrietyCategoryCard({
           </Button>
         </div>
       )}
+
+      {/* Today check-in inline dialog */}
+      <AnimatePresence>
+        {showTodayCheckin && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="px-4 pb-3 overflow-hidden"
+          >
+            <div className="bg-secondary/50 rounded-xl p-3 text-center space-y-2">
+              <p className="text-xs font-medium text-foreground">
+                Did you stay on track with {cat.label} today?
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  className="rounded-lg h-9 text-sm bg-[hsl(var(--habit-green))] hover:bg-[hsl(var(--habit-green))]/90 text-white"
+                  onClick={(e) => { e.stopPropagation(); onBatchCheckin(cat, [today], true); setShowTodayCheckin(false); }}
+                >
+                  ✅ Yes!
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg h-9 text-sm border-destructive/30 text-destructive"
+                  onClick={(e) => { e.stopPropagation(); onBatchCheckin(cat, [today], false); setShowTodayCheckin(false); }}
+                >
+                  Not today
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {checkedToday && (
         <div className="px-4 pb-3">
           <div className="text-center text-xs text-muted-foreground py-1.5 bg-secondary/50 rounded-xl">
@@ -926,24 +1013,54 @@ function SobrietyCategoryCard({
                 </div>
               )}
 
-              {/* Retroactive check-in for missed days */}
+              {/* Retroactive check-in for missed days - multi-select */}
               {!readOnly && missedDays.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-foreground mb-2">Missed Days</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {missedDays.slice(0, 14).map(d => (
-                      <button
-                        key={d}
-                        onClick={() => openCheckinFor(cat, d)}
-                        className="text-[10px] font-medium px-2 py-1 rounded-lg bg-secondary hover:bg-primary/10 hover:text-primary transition-colors border border-border"
-                      >
-                        {format(parseISO(d), "MMM d")}
-                      </button>
-                    ))}
+                    {missedDays.slice(0, 14).map(d => {
+                      const isSelected = selectedMissed.has(d);
+                      return (
+                        <button
+                          key={d}
+                          onClick={(e) => { e.stopPropagation(); toggleMissedDay(d); }}
+                          className={`text-[10px] font-medium px-2 py-1 rounded-lg transition-colors border ${
+                            isSelected
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-secondary hover:bg-primary/10 hover:text-primary border-border"
+                          }`}
+                        >
+                          {format(parseISO(d), "MMM d")}
+                        </button>
+                      );
+                    })}
                     {missedDays.length > 14 && (
                       <span className="text-[10px] text-muted-foreground self-center">+{missedDays.length - 14} more</span>
                     )}
                   </div>
+                  {selectedMissed.size > 0 && (
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs rounded-lg flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onBatchCheckin(cat, Array.from(selectedMissed), true);
+                          setSelectedMissed(new Set());
+                        }}
+                      >
+                        ✅ Check in {selectedMissed.size} day{selectedMissed.size > 1 ? "s" : ""}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-xs"
+                        onClick={(e) => { e.stopPropagation(); setSelectedMissed(new Set()); }}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1001,7 +1118,7 @@ function SobrietyCategoryCard({
 function TogetherSobrietyView({
   categories, checkins, getStreakInfo, getHeatmapData, getMissedDays, isCheckedIn,
   today, currentUserId, myName, partnerName, expandedCard, setExpandedCard,
-  openCheckinFor, handleResetStreak, handleDeleteCategory, onUpdateMoneyPerDay, onAddPriorDays,
+  onBatchCheckin, handleResetStreak, handleDeleteCategory, onUpdateMoneyPerDay, onAddPriorDays,
 }: {
   categories: SobrietyCategory[];
   checkins: SobrietyCheckin[];
@@ -1015,7 +1132,7 @@ function TogetherSobrietyView({
   partnerName: string;
   expandedCard: string | null;
   setExpandedCard: (id: string | null) => void;
-  openCheckinFor: (cat: SobrietyCategory, date: string) => void;
+  onBatchCheckin: (cat: SobrietyCategory, dates: string[], onTrack: boolean) => void;
   handleResetStreak: (cat: SobrietyCategory) => void;
   handleDeleteCategory: (id: string) => void;
   onUpdateMoneyPerDay?: (catId: string, value: number) => void;
@@ -1049,7 +1166,7 @@ function TogetherSobrietyView({
                 today={today}
                 expandedCard={expandedCard}
                 setExpandedCard={setExpandedCard}
-                openCheckinFor={openCheckinFor}
+                onBatchCheckin={onBatchCheckin}
                 handleResetStreak={handleResetStreak}
                 handleDeleteCategory={handleDeleteCategory}
                 readOnly={false}
@@ -1084,7 +1201,7 @@ function TogetherSobrietyView({
                 today={today}
                 expandedCard={expandedCard}
                 setExpandedCard={setExpandedCard}
-                openCheckinFor={openCheckinFor}
+                onBatchCheckin={onBatchCheckin}
                 handleResetStreak={handleResetStreak}
                 handleDeleteCategory={handleDeleteCategory}
                 readOnly={true}
