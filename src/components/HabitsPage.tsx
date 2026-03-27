@@ -49,6 +49,11 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     return saved !== null ? saved === "true" : true;
   });
 
+  // Water display mode
+  const [waterDisplayMode, setWaterDisplayMode] = useState<"circular" | "bar">(() => {
+    return (localStorage.getItem("water_display_mode") as "circular" | "bar") || "circular";
+  });
+
   // Custom water goal
   const [editingWaterGoal, setEditingWaterGoal] = useState(false);
   const [customGoalInput, setCustomGoalInput] = useState("");
