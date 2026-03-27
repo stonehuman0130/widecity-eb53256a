@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Plus, Settings, Users, Loader2, X, Check, Camera, Compass } from "lucide-react";
 import { Group, useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface LauncherPageProps {
   onEnterGroup: (groupId: string | null) => void;
@@ -35,6 +36,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
   const [inviteState, setInviteState] = useState<InviteState>({ type: "idle" });
   const [fallbackGroups, setFallbackGroups] = useState<Group[]>([]);
   const [uploadingGroupId, setUploadingGroupId] = useState<string | null>(null);
+  const pendingGroupIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const now = new Date();
@@ -123,23 +125,31 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
         .eq("id", groupId);
 
       await refreshGroups();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error uploading cover image:", err);
+      toast({
+        title: "Upload failed",
+        description: err?.message || "Could not upload the image. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setUploadingGroupId(null);
+      pendingGroupIdRef.current = null;
     }
   };
 
   const triggerFileInput = (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    pendingGroupIdRef.current = groupId;
     setUploadingGroupId(groupId);
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && uploadingGroupId) {
-      handleCoverUpload(uploadingGroupId, file);
+    const groupId = pendingGroupIdRef.current;
+    if (file && groupId) {
+      handleCoverUpload(groupId, file);
     }
     e.target.value = "";
   };
