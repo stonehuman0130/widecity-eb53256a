@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Heart, Search, X } from "lucide-react";
+import { Plus, Heart, Search, X, SlidersHorizontal, Check } from "lucide-react";
 import GroupSelector from "@/components/GroupSelector";
 import { motion, AnimatePresence } from "framer-motion";
 import SettingsButton from "@/components/SettingsButton";
@@ -10,8 +10,8 @@ import SpecialDayHeroCard from "./special-days/SpecialDayHeroCard";
 import SpecialDayListCard from "./special-days/SpecialDayListCard";
 import SpecialDayFormModal from "./special-days/SpecialDayFormModal";
 
-const FILTER_CHIPS = [
-  { value: "all", label: "All", icon: "🌐" },
+const CATEGORY_FILTERS = [
+  { value: "all", label: "All Categories", icon: "✨" },
   ...CATEGORY_OPTIONS,
 ];
 
@@ -21,9 +21,10 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingDay, setEditingDay] = useState<SpecialDay | null>(null);
-  const [filter, setFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+  const [showCategoryPopup, setShowCategoryPopup] = useState(false);
 
   const loadDays = async () => {
     if (!user) return;
@@ -45,22 +46,20 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
 
   const filteredDays = useMemo(() => {
     let result = days;
-    if (filter !== "all") {
-      result = result.filter((d) => d.category === filter);
+    if (categoryFilter !== "all") {
+      result = result.filter((d) => d.category === categoryFilter);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((d) => d.title.toLowerCase().includes(q));
     }
     return result;
-  }, [days, filter, searchQuery]);
+  }, [days, categoryFilter, searchQuery]);
 
   const heroDay = useMemo(() => {
     if (filteredDays.length === 0) return null;
-    // Pinned / featured first
     const featured = filteredDays.find((d) => d.is_featured);
     if (featured) return featured;
-    // Nearest upcoming recurring event
     const recurring = filteredDays
       .filter((d) => d.repeats_yearly || d.count_direction === "until" || d.event_type === "birthday")
       .map((d) => ({ day: d, count: getDayCount(d, now) }))
@@ -74,15 +73,11 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
     [filteredDays, heroDay]
   );
 
-  const openAdd = () => {
-    setEditingDay(null);
-    setShowForm(true);
-  };
+  const openAdd = () => { setEditingDay(null); setShowForm(true); };
+  const openEdit = (day: SpecialDay) => { setEditingDay(day); setShowForm(true); };
 
-  const openEdit = (day: SpecialDay) => {
-    setEditingDay(day);
-    setShowForm(true);
-  };
+  const activeFilterLabel = CATEGORY_FILTERS.find((f) => f.value === categoryFilter);
+  const hasActiveFilter = categoryFilter !== "all";
 
   return (
     <div className="px-4 pt-5 pb-8 max-w-md mx-auto">
@@ -97,6 +92,83 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
           </p>
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
+          {/* Filter trigger */}
+          <div className="relative">
+            <button
+              onClick={() => setShowCategoryPopup(!showCategoryPopup)}
+              className={`w-8 h-8 rounded-full backdrop-blur-sm flex items-center justify-center transition-colors border ${
+                hasActiveFilter
+                  ? "bg-primary/10 text-primary border-primary/30"
+                  : "bg-secondary/60 text-muted-foreground border-border/30 hover:text-foreground"
+              }`}
+            >
+              <SlidersHorizontal size={14} />
+            </button>
+
+            {/* Category filter popup */}
+            <AnimatePresence>
+              {showCategoryPopup && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowCategoryPopup(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                    className="absolute right-0 top-10 z-50 w-52 bg-card/95 backdrop-blur-xl rounded-2xl border border-border/40 shadow-xl overflow-hidden"
+                  >
+                    <div className="px-3 pt-3 pb-1.5">
+                      <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
+                        Filter by category
+                      </p>
+                    </div>
+                    <div className="py-1 px-1.5">
+                      {CATEGORY_FILTERS.map((cat) => (
+                        <button
+                          key={cat.value}
+                          onClick={() => {
+                            setCategoryFilter(cat.value);
+                            setShowCategoryPopup(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all ${
+                            categoryFilter === cat.value
+                              ? "bg-primary/8 text-foreground"
+                              : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                          }`}
+                        >
+                          <span className="text-[14px]">{cat.icon}</span>
+                          <span className="text-[13px] font-medium flex-1">{cat.label}</span>
+                          {categoryFilter === cat.value && (
+                            <Check size={14} className="text-primary" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    {hasActiveFilter && (
+                      <div className="px-3 pb-3 pt-1">
+                        <button
+                          onClick={() => {
+                            setCategoryFilter("all");
+                            setShowCategoryPopup(false);
+                          }}
+                          className="w-full py-2 rounded-xl bg-secondary/40 text-[12px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Reset filter
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
           <button
             onClick={openAdd}
             className="w-8 h-8 rounded-full bg-secondary/60 backdrop-blur-sm flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors border border-border/30"
@@ -112,6 +184,20 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
           {onOpenSettings && <SettingsButton onClick={onOpenSettings} />}
         </div>
       </div>
+
+      {/* Active filter badge */}
+      {hasActiveFilter && (
+        <div className="flex items-center gap-1.5 mb-3">
+          <span className="text-[11px] text-muted-foreground/60">Filtered:</span>
+          <button
+            onClick={() => setCategoryFilter("all")}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/8 border border-primary/20 text-[11px] font-medium text-primary"
+          >
+            {activeFilterLabel?.icon} {activeFilterLabel?.label}
+            <X size={10} className="ml-0.5" />
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <AnimatePresence>
@@ -133,26 +219,8 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
         )}
       </AnimatePresence>
 
-      {/* Group selector — single bar */}
+      {/* Group selector — single horizontal row */}
       <GroupSelector />
-
-      {/* Filter chips — single row */}
-      <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide -mx-1 px-1">
-        {FILTER_CHIPS.map((chip) => (
-          <button
-            key={chip.value}
-            onClick={() => setFilter(chip.value)}
-            className={`flex items-center gap-1.5 px-4 py-[7px] rounded-full text-[12px] font-medium whitespace-nowrap transition-all flex-shrink-0 border ${
-              filter === chip.value
-                ? "bg-card shadow-md border-border/60 text-foreground"
-                : "bg-card/40 backdrop-blur-sm text-muted-foreground border-border/20 hover:bg-card/70"
-            }`}
-          >
-            <span className="text-[13px]">{chip.icon}</span>
-            {chip.label}
-          </button>
-        ))}
-      </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
