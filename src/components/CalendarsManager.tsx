@@ -223,13 +223,24 @@ const CalendarsManager = ({ open, onClose }: Props) => {
 
   const saveEdit = async () => {
     if (!editingId || !editName.trim()) return;
-    await supabase
+    // Optimistically update local state
+    setCalendars((prev) =>
+      prev.map((c) => (c.id === editingId ? { ...c, name: editName.trim(), color: editColor } : c))
+    );
+    const savedId = editingId;
+    setEditingId(null);
+
+    const { error } = await supabase
       .from("calendars")
       .update({ name: editName.trim(), color: editColor, updated_at: new Date().toISOString() } as any)
-      .eq("id", editingId);
-    setEditingId(null);
-    fetchCalendars();
-    toast.success("Calendar updated");
+      .eq("id", savedId);
+
+    if (error) {
+      toast.error("Failed to save changes");
+      fetchCalendars(); // revert
+    } else {
+      toast.success("Calendar updated");
+    }
   };
 
   const deleteCalendar = async (id: string) => {
