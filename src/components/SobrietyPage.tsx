@@ -480,6 +480,8 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
               handleResetStreak={handleResetStreak}
               handleDeleteCategory={handleDeleteCategory}
               readOnly={readOnly}
+              onUpdateMoneyPerDay={handleUpdateMoneyPerDay}
+              onAddPriorDays={handleAddPriorDays}
             />
           ))}
         </div>
