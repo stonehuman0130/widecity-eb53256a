@@ -739,16 +739,30 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
   const saveGoals = async () => {
     if (!user) return;
-    const payload = {
+    const payload: any = {
       user_id: user.id,
       group_id: groupId,
       protein_goal: parseInt(goalProtein) || 150,
       calorie_goal: goalCalories ? parseInt(goalCalories) : null,
-      show_calories: goalShowCal,
+      carbs_goal: goalCarbs ? parseInt(goalCarbs) : null,
+      fat_goal: goalFat ? parseInt(goalFat) : null,
+      fiber_goal: goalFiber ? parseInt(goalFiber) : null,
+      show_calories: goalEnabledTrackers.includes("calories"),
+      enabled_trackers: goalEnabledTrackers,
+      tracker_order: goals.tracker_order,
     };
     const { error } = await supabase.from("nutrition_goals").upsert(payload, { onConflict: "user_id,group_id" });
     if (!error) {
-      setGoals({ protein_goal: payload.protein_goal, calorie_goal: payload.calorie_goal, show_calories: payload.show_calories });
+      setGoals({
+        protein_goal: payload.protein_goal,
+        calorie_goal: payload.calorie_goal,
+        carbs_goal: payload.carbs_goal,
+        fat_goal: payload.fat_goal,
+        fiber_goal: payload.fiber_goal,
+        show_calories: payload.show_calories,
+        enabled_trackers: goalEnabledTrackers,
+        tracker_order: goals.tracker_order,
+      });
       setShowGoalSettings(false);
       toast.success("Goals updated");
     }
