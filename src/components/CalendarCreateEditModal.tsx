@@ -3,7 +3,7 @@ import {
   X, Clock, MapPin, Bell, Repeat, Eye, AlignLeft, ChevronDown, ChevronUp,
   CalendarDays, ListTodo, Globe, Trash2, Check, Search,
 } from "lucide-react";
-import CalendarPickerSheet from "@/components/CalendarPickerSheet";
+import CalendarPickerInline from "@/components/CalendarPickerInline";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext, ScheduledEvent, Task } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -581,21 +581,52 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
 
               <div className="h-px bg-border" />
 
-              {/* Calendar selector — prominent placement */}
-              <button
-                onClick={() => setShowCalendarPicker(true)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/50 transition-colors"
-              >
-                <div
-                  className="w-4 h-4 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: calendarColor }}
-                />
-                <div className="flex flex-col items-start flex-1 min-w-0">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Calendar</span>
-                  <span className="text-[14px] text-foreground truncate">{selectedCalendarName}</span>
-                </div>
-                <ChevronDown size={16} className="text-muted-foreground flex-shrink-0" />
-              </button>
+              {/* Calendar selector — inline dropdown like Apple Calendar */}
+              <div className="px-4 py-3">
+                <button
+                  onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                  className="w-full flex items-center justify-between"
+                >
+                  <span className="text-[15px] text-foreground">Calendar</span>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: calendarColor }}
+                    />
+                    <span className="text-[15px] text-muted-foreground">{selectedCalendarName}</span>
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        "text-muted-foreground transition-transform",
+                        showCalendarPicker && "rotate-180"
+                      )}
+                    />
+                  </div>
+                </button>
+
+                {/* Inline calendar list */}
+                <AnimatePresence>
+                  {showCalendarPicker && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <CalendarPickerInline
+                        selectedCalendarId={selectedCalendarId}
+                        onSelect={(id, color, name) => {
+                          setSelectedCalendarId(id);
+                          setCalendarColor(color);
+                          setSelectedCalendarName(name);
+                          setShowCalendarPicker(false);
+                        }}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               <div className="h-px bg-border" />
 
@@ -1019,19 +1050,7 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
         </div>
       </motion.div>
 
-      {/* ── Calendar Picker Sheet ── */}
-      <AnimatePresence>
-        <CalendarPickerSheet
-          open={showCalendarPicker}
-          onClose={() => setShowCalendarPicker(false)}
-          selectedCalendarId={selectedCalendarId}
-          onSelect={(id, color, name) => {
-            setSelectedCalendarId(id);
-            setCalendarColor(color);
-            setSelectedCalendarName(name);
-          }}
-        />
-      </AnimatePresence>
+
 
       {/* ── Timezone Picker Sheet ── */}
       <AnimatePresence>
