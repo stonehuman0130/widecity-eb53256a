@@ -9,9 +9,9 @@ interface Props {
 }
 
 const PLACEHOLDER_GRADIENTS = [
-  "from-rose-200/80 via-amber-100/60 to-orange-200/80",
-  "from-violet-200/80 via-pink-100/60 to-rose-200/80",
-  "from-sky-200/80 via-indigo-100/60 to-violet-200/80",
+  "linear-gradient(135deg, hsl(30 30% 88%), hsl(35 25% 82%), hsl(25 20% 78%))",
+  "linear-gradient(135deg, hsl(340 20% 88%), hsl(330 18% 82%), hsl(320 15% 78%))",
+  "linear-gradient(135deg, hsl(210 20% 88%), hsl(220 18% 82%), hsl(230 15% 78%))",
 ];
 
 const SpecialDayHeroCard = ({ day, now, onEdit }: Props) => {
@@ -33,75 +33,87 @@ const SpecialDayHeroCard = ({ day, now, onEdit }: Props) => {
     : [];
 
   return (
-    <div className="mb-5">
+    <div className="mb-1">
+      {/* Outer frosted container — matching reference glassmorphism wrapper */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="relative rounded-[1.25rem] overflow-hidden shadow-lg"
-        style={{ aspectRatio: "4/3" }}
+        className="rounded-[1.5rem] bg-card/50 backdrop-blur-md border border-border/30 shadow-lg p-2.5 relative"
       >
-        {/* Background */}
-        {hasPhoto ? (
-          <img
-            src={day.photo_url!}
-            alt={day.title}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        ) : (
-          <div className={`absolute inset-0 bg-gradient-to-br ${PLACEHOLDER_GRADIENTS[gradientIdx]}`}>
-            <div className="absolute inset-0 flex items-center justify-center opacity-20 text-8xl select-none pointer-events-none">
-              {day.icon}
-            </div>
-          </div>
-        )}
-
-        {/* Overlay gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-
-        {/* Content */}
-        <div className="absolute inset-0 flex flex-col justify-end p-5">
-          <div className="flex items-end justify-between">
-            <div>
-              <h2 className="text-white text-lg font-semibold tracking-tight mb-0.5 drop-shadow-sm">
-                {day.title}
-              </h2>
-              <p className="text-white text-5xl font-extrabold tracking-tight leading-none drop-shadow-md">
-                {count.toLocaleString()}
-              </p>
-              <p className="text-white/80 text-sm font-medium mt-1">
-                {day.count_direction === "since" ? "days together" : "days to go"}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-white/90 text-sm font-medium drop-shadow-sm">
-                {shortDate}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Edit button */}
-        <button
-          onClick={() => onEdit(day)}
-          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-white/30 transition-all"
+        {/* Inner photo card */}
+        <div
+          className="relative rounded-[1.1rem] overflow-hidden"
+          style={{ aspectRatio: "5 / 4" }}
         >
-          <Pencil size={13} />
-        </button>
+          {/* Background */}
+          {hasPhoto ? (
+            <img
+              src={day.photo_url!}
+              alt={day.title}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{ background: PLACEHOLDER_GRADIENTS[gradientIdx] }}
+            >
+              <div className="absolute inset-0 flex items-center justify-center opacity-15 text-[96px] select-none pointer-events-none">
+                {day.icon}
+              </div>
+            </div>
+          )}
+
+          {/* Dark gradient for readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/25 to-transparent" />
+
+          {/* Text overlay — left aligned, matching reference */}
+          <div className="absolute inset-0 flex flex-col justify-end p-5 pb-4">
+            <div className="flex items-end justify-between">
+              <div>
+                <h2 className="text-white/95 text-[17px] font-semibold tracking-tight drop-shadow-sm">
+                  {day.title}
+                </h2>
+                <p className="text-white text-[52px] font-extrabold tracking-tighter leading-[1] mt-0.5 drop-shadow-md"
+                  style={{ fontFeatureSettings: "'tnum'" }}
+                >
+                  {count.toLocaleString()}
+                </p>
+                <p className="text-white/75 text-[13px] font-medium mt-0.5">
+                  {day.count_direction === "since" ? "days together" : "days to go"}
+                </p>
+              </div>
+              <div className="text-right pb-1">
+                <p className="text-white/85 text-[13px] font-medium drop-shadow-sm">
+                  {shortDate}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Edit affordance */}
+          <button
+            onClick={() => onEdit(day)}
+            className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-white/15 backdrop-blur-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all"
+          >
+            <Pencil size={12} />
+          </button>
+        </div>
       </motion.div>
 
-      {/* Full date below card */}
-      <p className="text-center text-xs text-muted-foreground mt-2.5 tracking-wide">
+      {/* Full date below — reference style */}
+      <p className="text-center text-[11px] text-muted-foreground/70 mt-2 tracking-wide font-medium">
         {fullDate}
       </p>
 
       {/* Milestone chips */}
       {milestones.length > 0 && (
-        <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+        <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
           {milestones.map((m) => (
             <div
               key={m.label}
-              className="px-2.5 py-1 rounded-full bg-card/80 backdrop-blur-sm border border-border/50 text-[10px]"
+              className="px-2.5 py-1 rounded-full bg-card/70 backdrop-blur-sm border border-border/40 text-[10px]"
             >
               <span className="font-bold text-primary">{m.label}</span>
               <span className="text-muted-foreground ml-1">in {m.daysLeft}d</span>

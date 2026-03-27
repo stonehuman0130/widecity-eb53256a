@@ -55,12 +55,10 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
     return result;
   }, [days, filter, searchQuery]);
 
-  // Auto hero: nearest upcoming event, or featured, or first
   const heroDay = useMemo(() => {
     if (filteredDays.length === 0) return null;
     const featured = filteredDays.find((d) => d.is_featured);
     if (featured) return featured;
-    // Find nearest upcoming
     const upcoming = filteredDays
       .filter((d) => d.count_direction === "until")
       .sort((a, b) => getDayCount(a, now) - getDayCount(b, now));
@@ -83,27 +81,29 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
   };
 
   return (
-    <div className="px-4 pt-6 pb-8 max-w-md mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+    <div className="px-4 pt-5 pb-8 max-w-md mx-auto">
+      {/* Header — matching reference: title left, icons right */}
+      <div className="flex items-start justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Special Days</h1>
-          <p className="text-[11px] text-muted-foreground mt-0.5 tracking-wide">
+          <h1 className="text-[22px] font-extrabold tracking-tight text-foreground leading-tight">
+            Special Days
+          </h1>
+          <p className="text-[11px] text-muted-foreground/70 mt-0.5 font-medium italic">
             Moments that matter
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSearch(!showSearch)}
-            className="w-8 h-8 rounded-full bg-secondary/50 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {showSearch ? <X size={14} /> : <Search size={14} />}
-          </button>
+        <div className="flex items-center gap-1.5 mt-0.5">
           <button
             onClick={openAdd}
-            className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors border border-primary/15"
+            className="w-8 h-8 rounded-full bg-secondary/60 backdrop-blur-sm flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors border border-border/30"
           >
-            <Plus size={16} />
+            <Plus size={15} strokeWidth={2.5} />
+          </button>
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className="w-8 h-8 rounded-full bg-secondary/60 backdrop-blur-sm flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors border border-border/30"
+          >
+            {showSearch ? <X size={14} /> : <Search size={14} />}
           </button>
           {onOpenSettings && <SettingsButton onClick={onOpenSettings} />}
         </div>
@@ -123,7 +123,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search special days…"
-              className="w-full px-4 py-2.5 rounded-2xl bg-card/80 backdrop-blur-sm border border-border/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/40"
+              className="w-full px-4 py-2.5 rounded-2xl bg-card/80 backdrop-blur-sm border border-border/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/40"
             />
           </motion.div>
         )}
@@ -131,12 +131,29 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
 
       <GroupSelector />
 
+      {/* Filter chips — luxury pill style matching reference */}
+      <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide -mx-1 px-1">
+        {FILTER_CHIPS.map((chip) => (
+          <button
+            key={chip.value}
+            onClick={() => setFilter(chip.value)}
+            className={`flex items-center gap-1.5 px-4 py-[7px] rounded-full text-[12px] font-medium whitespace-nowrap transition-all flex-shrink-0 border ${
+              filter === chip.value
+                ? "bg-card shadow-md border-border/60 text-foreground"
+                : "bg-card/40 backdrop-blur-sm text-muted-foreground border-border/20 hover:bg-card/70"
+            }`}
+          >
+            <span className="text-[13px]">{chip.icon}</span>
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
       ) : filteredDays.length === 0 ? (
-        /* Premium empty state */
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -158,36 +175,33 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
         </motion.div>
       ) : (
         <>
-          {/* Hero card */}
           {heroDay && (
             <SpecialDayHeroCard day={heroDay} now={now} onEdit={openEdit} />
           )}
 
-          {/* All special days list */}
           {otherDays.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-3">
+            <div className="mt-5">
+              <h3 className="text-[12px] font-bold text-foreground/70 uppercase tracking-[0.1em] mb-3 px-0.5">
                 All Special Days
               </h3>
-              <div className="space-y-2">
-                {otherDays.map((day) => (
-                  <SpecialDayListCard key={day.id} day={day} now={now} onEdit={openEdit} />
+              <div className="space-y-2.5">
+                {otherDays.map((day, i) => (
+                  <SpecialDayListCard key={day.id} day={day} now={now} onEdit={openEdit} index={i} />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Bottom CTA */}
+          {/* Bottom CTA — soft frosted pill */}
           <button
             onClick={openAdd}
-            className="mt-6 w-full py-3.5 rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm text-sm font-semibold text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-card/80 transition-all flex items-center justify-center gap-2 shadow-sm"
+            className="mt-5 w-full py-3.5 rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm text-[13px] font-semibold text-muted-foreground hover:text-foreground hover:border-border/60 hover:bg-card/80 transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
           >
-            <Plus size={15} /> New Special Moment
+            <Plus size={15} strokeWidth={2.5} /> New Special Moment
           </button>
         </>
       )}
 
-      {/* Form modal */}
       <SpecialDayFormModal
         open={showForm}
         editingDay={editingDay}
