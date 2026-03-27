@@ -696,7 +696,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 pb-24">
+      <div className="flex-1 overflow-y-auto pb-24">
         {dateRange === "today" ? (
           <>
             {/* Planned Meals - main section */}
