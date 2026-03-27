@@ -32,6 +32,7 @@ interface Props {
   workoutEmoji: string;
   workoutDuration?: string;
   workoutTag?: string;
+  currentCal?: number;
   exercises: Exercise[];
   scheduledDate?: string;
   readOnly?: boolean;
