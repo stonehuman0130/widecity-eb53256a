@@ -1055,7 +1055,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         completed_at: null,
         completed_by: null,
         group_id: groupId,
-      })
+        calendar_id: event.calendarId || null,
+      } as any)
       .select()
       .single();
 
