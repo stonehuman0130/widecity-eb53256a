@@ -291,6 +291,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
         editingDay={editingDay}
         userId={user?.id || ""}
         groupId={activeGroup?.id || null}
+        groups={groups}
         onClose={() => setShowForm(false)}
         onSaved={loadDays}
       />
