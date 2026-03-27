@@ -220,6 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             emoji: g.emoji,
             invite_code: g.invite_code,
             created_by: g.created_by,
+            cover_image_url: g.cover_image_url || null,
             members: [],
           }));
           setGroups(fallbackEnriched);
@@ -251,6 +252,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           emoji: g.emoji,
           invite_code: g.invite_code,
           created_by: g.created_by,
+          cover_image_url: g.cover_image_url || null,
           members: [],
         }));
 
@@ -299,6 +301,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         emoji: g.emoji,
         invite_code: g.invite_code,
         created_by: g.created_by,
+        cover_image_url: g.cover_image_url || null,
         members: [],
       }));
       setGroups(fallbackEnriched);

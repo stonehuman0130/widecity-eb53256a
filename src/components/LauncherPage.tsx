@@ -35,6 +35,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
   const { user, profile, groups, joinGroup, refreshGroups } = useAuth();
   const [inviteState, setInviteState] = useState<InviteState>({ type: "idle" });
   const [fallbackGroups, setFallbackGroups] = useState<Group[]>([]);
+  const [localCoverMap, setLocalCoverMap] = useState<Record<string, string>>({});
   const [uploadingGroupId, setUploadingGroupId] = useState<string | null>(null);
   const pendingGroupIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,30 +102,38 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
   const handleCoverUpload = async (groupId: string, file: File) => {
     setUploadingGroupId(groupId);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const filePath = `${groupId}/cover.${ext}`;
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("group-covers")
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { upsert: true, cacheControl: "60" });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("group-covers")
         .getPublicUrl(filePath);
 
-      const publicUrl = urlData.publicUrl + "?t=" + Date.now();
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-      // Update group record
-      await supabase
+      const { data: updatedGroup, error: updateError } = await supabase
         .from("groups")
         .update({ cover_image_url: publicUrl })
-        .eq("id", groupId);
+        .eq("id", groupId)
+        .select("id")
+        .maybeSingle();
 
+      if (updateError) throw updateError;
+      if (!updatedGroup) throw new Error("You do not have permission to update this group image.");
+
+      setLocalCoverMap((prev) => ({ ...prev, [groupId]: publicUrl }));
       await refreshGroups();
+
+      toast({
+        title: "Photo updated",
+        description: "Your launcher card image was uploaded successfully.",
+      });
     } catch (err: any) {
       console.error("Error uploading cover image:", err);
       toast({
@@ -141,16 +150,20 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
   const triggerFileInput = (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     pendingGroupIdRef.current = groupId;
-    setUploadingGroupId(groupId);
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     const groupId = pendingGroupIdRef.current;
+
     if (file && groupId) {
-      handleCoverUpload(groupId, file);
+      void handleCoverUpload(groupId, file);
+    } else {
+      setUploadingGroupId(null);
+      pendingGroupIdRef.current = null;
     }
+
     e.target.value = "";
   };
 
@@ -389,7 +402,8 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
             const otherMembers = group.members.filter((m) => m.user_id !== profile?.id);
             const memberNames = otherMembers.map((m) => m.display_name || "Member").join(", ");
             const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
-            const hasCover = !!group.cover_image_url;
+            const currentCoverUrl = localCoverMap[group.id] || group.cover_image_url || null;
+            const hasCover = !!currentCoverUrl;
             const isUploading = uploadingGroupId === group.id;
 
             return (
@@ -422,8 +436,8 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
                   <div className="relative w-[130px] h-[96px] flex-shrink-0 overflow-hidden">
                     {hasCover ? (
                       <img
-                        src={group.cover_image_url!}
-                        alt=""
+                        src={currentCoverUrl!}
+                        alt={`${group.name} cover`}
                         className="w-full h-full object-cover"
                       />
                     ) : (
