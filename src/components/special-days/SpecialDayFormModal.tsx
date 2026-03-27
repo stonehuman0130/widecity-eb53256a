@@ -107,6 +107,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
       notes: notes.trim() || null,
       reminder_minutes: reminder,
       is_featured: pinAsHero,
+      inclusive_count: inclusiveCount,
     };
 
     if (pinAsHero) {
