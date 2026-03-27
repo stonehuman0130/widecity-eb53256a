@@ -941,23 +941,35 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         </div>
       )}
 
-      {/* Protein progress */}
+      {/* Tracker progress */}
       {!isTogether && (
         <div className="mb-2 mt-1">
-          <div className="bg-card rounded-2xl p-4 shadow-card border border-border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold">Protein</span>
-              <span className="text-sm font-bold text-primary">{totalProtein}g / {goals.protein_goal}g</span>
-            </div>
-            <Progress value={proteinPercent} className="h-3" />
-            {goals.show_calories && goals.calorie_goal && (
-              <>
-              <div className="flex items-center justify-between mt-4 mb-2">
-                <span className="text-sm font-semibold">Calories</span>
-                <span className="text-sm font-bold text-primary">{totalCalories} / {goals.calorie_goal} kcal</span>
-              </div>
-              <Progress value={caloriePercent} className="h-3" />
-              </>
+          <div className="bg-card rounded-2xl p-4 shadow-card border border-border space-y-3">
+            {orderedTrackers.map((key: TrackerKey) => {
+              const info = ALL_TRACKERS.find(t => t.key === key)!;
+              const total = trackerTotals[key] || 0;
+              const goal = trackerGoals[key];
+              if (!goal && goal !== 0) return (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">{info.label}</span>
+                  <span className="text-sm font-bold" style={{ color: info.color }}>{total}{info.unit}</span>
+                </div>
+              );
+              const pct = goal > 0 ? Math.min((total / goal) * 100, 100) : 0;
+              return (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold">{info.label}</span>
+                    <span className="text-sm font-bold" style={{ color: info.color }}>{total}{info.unit} / {goal}{info.unit}</span>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: info.color }} />
+                  </div>
+                </div>
+              );
+            })}
+            {orderedTrackers.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">No trackers enabled. Tap Goals to configure.</p>
             )}
           </div>
         </div>
@@ -969,13 +981,13 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
           <div className="grid grid-cols-2 gap-2.5">
             <div className="bg-card rounded-2xl p-3.5 shadow-card border border-border">
               <p className="text-xs font-semibold text-muted-foreground mb-1">{profile?.display_name || "Me"}</p>
-              <p className="text-xl font-bold text-primary">{totalProtein}g</p>
+              <p className="text-xl font-bold text-primary">{totalProtein}g protein</p>
               <Progress value={proteinPercent} className="h-2 mt-1.5" />
               <p className="text-[10px] text-muted-foreground mt-1.5">{consumedMeals.length} consumed</p>
             </div>
             <div className="bg-card rounded-2xl p-3.5 shadow-card border border-border">
               <p className="text-xs font-semibold text-muted-foreground mb-1">{otherName}</p>
-              <p className="text-xl font-bold text-primary">{partnerTotalProtein}g</p>
+              <p className="text-xl font-bold text-primary">{partnerTotalProtein}g protein</p>
               <Progress value={goals.protein_goal > 0 ? Math.min((partnerTotalProtein / goals.protein_goal) * 100, 100) : 0} className="h-2 mt-1.5" />
               <p className="text-[10px] text-muted-foreground mt-1.5">{partnerConsumed.length} consumed</p>
             </div>
