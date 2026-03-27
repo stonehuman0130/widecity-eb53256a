@@ -630,6 +630,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       if (raw.calendarId && calendarColorMap.byId.has(raw.calendarId)) {
         return calendarColorMap.byId.get(raw.calendarId)!;
       }
+      // Local event without calendar_id → use default calendar color
+      if (calendarColorMap.defaultColor) return calendarColorMap.defaultColor;
     }
     // For gcal events, look up by calendarId (provider_calendar_id)
     if (item.type === "gcal") {
