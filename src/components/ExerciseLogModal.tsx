@@ -151,7 +151,12 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
       setEditingCal(false);
       loadLogs();
     }
-  }, [open, loadLogs, currentCal]);
+  }, [open, loadLogs]);
+
+  useEffect(() => {
+    if (!open || editingCal || currentCal === undefined || currentCal === null) return;
+    setCalOverride(currentCal);
+  }, [open, editingCal, currentCal]);
 
   // Calculate progress and calories
   const { progress, estimatedCal } = useMemo(() => {
