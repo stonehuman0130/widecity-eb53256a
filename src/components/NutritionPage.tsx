@@ -566,6 +566,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       title: manualTitle.trim(),
       protein: parseInt(manualProtein) || 0,
       calories: parseInt(manualCalories) || 0,
+      carbs: parseInt(manualCarbs) || 0,
+      fat: parseInt(manualFat) || 0,
+      fiber: parseInt(manualFiber) || 0,
       is_ai_generated: false,
       consumed: false,
     });
