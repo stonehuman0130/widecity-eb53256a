@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   X, Clock, MapPin, Bell, Repeat, Eye, AlignLeft, ChevronDown, ChevronUp,
-  CalendarDays, ListTodo, Globe, Trash2, Check, Search, CalendarIcon,
+  CalendarDays, ListTodo, Globe, Trash2, Check, Search,
 } from "lucide-react";
 import CalendarPickerSheet from "@/components/CalendarPickerSheet";
 import { motion, AnimatePresence } from "framer-motion";
