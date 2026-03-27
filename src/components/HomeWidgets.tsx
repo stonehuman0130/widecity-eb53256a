@@ -477,6 +477,13 @@ export const HomeHabitSectionWidget = ({ selectedDate, categoryKey, sectionLabel
     return cat === categoryKey || cat === `${categoryKey}-habits`;
   });
 
+  // Sort: incomplete first (stable), completed last (stable)
+  const sortedHabits = useMemo(() => {
+    const incomplete = sectionHabits.filter((h) => !h.completionDates.includes(dateStr));
+    const complete = sectionHabits.filter((h) => h.completionDates.includes(dateStr));
+    return [...incomplete, ...complete];
+  }, [sectionHabits, dateStr]);
+
   if (sectionHabits.length === 0) return null;
 
   return (
@@ -484,33 +491,39 @@ export const HomeHabitSectionWidget = ({ selectedDate, categoryKey, sectionLabel
       <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">
         {sectionIcon} {sectionLabel}
       </h2>
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-        {sectionHabits.map((habit) => {
-          const doneForDate = habit.completionDates.includes(dateStr);
-          const streak = getHabitStreak(habit.id);
-          return (
-            <button
-              key={habit.id}
-              onClick={() => isToday && toggleHabit(habit.id)}
-              disabled={!isToday}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-all active:scale-[0.97] ${
-                doneForDate
-                  ? "border-habit-green bg-habit-green/10 text-habit-green"
-                  : "border-border bg-card text-foreground"
-              } ${!isToday ? "opacity-80" : ""}`}
-            >
-              {doneForDate ? (
-                <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
-                  <Check size={12} className="text-primary-foreground" />
-                </span>
-              ) : (
-                <span className="w-5 h-5 rounded-full border-2 border-muted" />
-              )}
-              {habit.label}
-            </button>
-          );
-        })}
-      </div>
+      <LayoutGroup id={`habit-section-${categoryKey}`}>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+          <AnimatePresence mode="popLayout">
+            {sortedHabits.map((habit) => {
+              const doneForDate = habit.completionDates.includes(dateStr);
+              const streak = getHabitStreak(habit.id);
+              return (
+                <motion.button
+                  key={habit.id}
+                  layout
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  onClick={() => isToday && toggleHabit(habit.id)}
+                  disabled={!isToday}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full border whitespace-nowrap text-sm font-medium transition-colors active:scale-[0.97] ${
+                    doneForDate
+                      ? "border-habit-green bg-habit-green/10 text-habit-green"
+                      : "border-border bg-card text-foreground"
+                  } ${!isToday ? "opacity-80" : ""}`}
+                >
+                  {doneForDate ? (
+                    <span className="w-5 h-5 rounded-full bg-habit-green flex items-center justify-center">
+                      <Check size={12} className="text-primary-foreground" />
+                    </span>
+                  ) : (
+                    <span className="w-5 h-5 rounded-full border-2 border-muted" />
+                  )}
+                  {habit.label}
+                </motion.button>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      </LayoutGroup>
     </div>
   );
 };
