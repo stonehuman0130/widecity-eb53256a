@@ -5,19 +5,11 @@ import { useAppContext, Workout } from "@/context/AppContext";
 import { Droplets, Dumbbell, Trophy, Check, Flame, Heart, Apple, Sparkles, ShoppingCart } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
+import { SpecialDay as SpecialDayFull, getDisplayLabel as sdGetDisplayLabel } from "@/components/special-days/SpecialDayTypes";
 
 const fmtDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-const daysBetween = (a: Date, b: Date) => Math.floor((b.getTime() - a.getTime()) / 86400000);
-
-const getNextOccurrence = (dateStr: string, baseDate: Date) => {
-  const d = new Date(dateStr + "T00:00:00");
-  const thisYear = new Date(baseDate.getFullYear(), d.getMonth(), d.getDate());
-  if (thisYear >= baseDate) return daysBetween(baseDate, thisYear);
-  const nextYear = new Date(baseDate.getFullYear() + 1, d.getMonth(), d.getDate());
-  return daysBetween(baseDate, nextYear);
-};
 
 /** Draggable circular water gauge */
 const CircleWaterGauge = ({
@@ -388,18 +380,9 @@ export const HomeSobrietyWidget = ({ selectedDate, selectedTrackerIds }: { selec
   );
 };
 
-interface SpecialDayItem {
-  id: string;
-  title: string;
-  icon: string;
-  event_date: string;
-  repeats_yearly: boolean;
-  count_direction: "since" | "until";
-}
-
 export const HomeSpecialDaysWidget = ({ selectedDate, selectedDayIds }: { selectedDate: Date; selectedDayIds: string[] }) => {
-  const { user, activeGroup } = useAuth();
-  const [specialDays, setSpecialDays] = useState<SpecialDayItem[]>([]);
+  const { user, activeGroup, groups } = useAuth();
+  const [specialDays, setSpecialDays] = useState<SpecialDayFull[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -407,20 +390,24 @@ export const HomeSpecialDaysWidget = ({ selectedDate, selectedDayIds }: { select
     const load = async () => {
       let q = supabase
         .from("special_days")
-        .select("id, title, icon, event_date, repeats_yearly, count_direction")
-        .eq("user_id", user.id)
+        .select("*")
         .order("is_featured", { ascending: false })
         .order("event_date", { ascending: true });
 
-      if (activeGroup) q = q.eq("group_id", activeGroup.id);
-      else q = q.is("group_id", null);
+      if (activeGroup) {
+        // Group view: shared with this group + private events in this context for this user
+        q = q.or(
+          `shared_group_ids.cs.{${activeGroup.id}},and(context_group_id.eq.${activeGroup.id},user_id.eq.${user.id},shared_group_ids.eq.{})`
+        );
+      }
+      // "All" view: RLS returns own events + events shared with user's groups
 
       const { data } = await q;
-      if (data) setSpecialDays(data as SpecialDayItem[]);
+      if (data) setSpecialDays(data as unknown as SpecialDayFull[]);
     };
 
     load();
-  }, [user, activeGroup?.id]);
+  }, [user, activeGroup?.id, groups.length]);
 
   const refDate = useMemo(() => {
     const d = new Date(selectedDate);
@@ -431,19 +418,8 @@ export const HomeSpecialDaysWidget = ({ selectedDate, selectedDayIds }: { select
   const selectedDays = useMemo(() => {
     if (selectedDayIds.length === 0) return [];
     const map = new Map(specialDays.map((d) => [d.id, d]));
-    return selectedDayIds.map((id) => map.get(id)).filter((d): d is SpecialDayItem => Boolean(d));
+    return selectedDayIds.map((id) => map.get(id)).filter((d): d is SpecialDayFull => Boolean(d));
   }, [specialDays, selectedDayIds]);
-
-  const getDayCount = (day: SpecialDayItem) => {
-    const eventDate = new Date(day.event_date + "T00:00:00");
-    if (day.count_direction === "since") {
-      return Math.max(0, daysBetween(eventDate, refDate));
-    }
-    if (day.repeats_yearly) {
-      return getNextOccurrence(day.event_date, refDate);
-    }
-    return Math.max(0, daysBetween(refDate, eventDate));
-  };
 
   if (selectedDays.length === 0) {
     return (
@@ -465,13 +441,13 @@ export const HomeSpecialDaysWidget = ({ selectedDate, selectedDayIds }: { select
       </h2>
       <div className="bg-card rounded-xl p-3 shadow-card border border-border space-y-1.5">
         {selectedDays.slice(0, 4).map((day) => {
-          const count = getDayCount(day);
+          const label = sdGetDisplayLabel(day as any, refDate);
           return (
             <div key={day.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-secondary/40">
               <span className="text-sm">{day.icon}</span>
               <span className="flex-1 text-xs font-medium truncate">{day.title}</span>
               <span className="text-[11px] font-bold text-primary whitespace-nowrap">
-                {count}d {day.count_direction === "since" ? "since" : "left"}
+                {label.primary}
               </span>
             </div>
           );

@@ -219,13 +219,17 @@ const HomeSectionCustomizer = ({
     if (!open || !user) return;
     const load = async () => {
       let sobrietyQuery = supabase.from("sobriety_categories").select("id, label, icon").eq("user_id", user.id);
-      let specialDaysQuery = supabase.from("special_days").select("id, title, icon").eq("user_id", user.id).order("event_date", { ascending: true });
+      let specialDaysQuery = supabase.from("special_days").select("id, title, icon").order("event_date", { ascending: true });
+
       if (activeGroup) {
         sobrietyQuery = sobrietyQuery.eq("group_id", activeGroup.id);
-        specialDaysQuery = specialDaysQuery.eq("group_id", activeGroup.id);
+        // Show events shared with this group + private events in this context for this user
+        specialDaysQuery = specialDaysQuery.or(
+          `shared_group_ids.cs.{${activeGroup.id}},and(context_group_id.eq.${activeGroup.id},user_id.eq.${user.id},shared_group_ids.eq.{})`
+        );
       } else {
         sobrietyQuery = sobrietyQuery.is("group_id", null);
-        specialDaysQuery = specialDaysQuery.is("group_id", null);
+        // "All" view: RLS handles access control
       }
       const [{ data: sobrietyData }, { data: specialDaysData }] = await Promise.all([sobrietyQuery, specialDaysQuery]);
       if (sobrietyData) setSobrietyOptions(sobrietyData as SobrietyOption[]);
