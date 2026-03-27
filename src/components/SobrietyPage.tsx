@@ -258,36 +258,78 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
   };
 
   const handleCheckin = async (onTrack: boolean) => {
-    if (!user || !checkinCategory) return;
-    const dateToUse = checkinDate || today;
+    if (!user || !checkinCategory || checkinDates.length === 0) return;
 
-    const { error } = await supabase.from("sobriety_checkins").upsert({
+    const rows = checkinDates.map(d => ({
       user_id: user.id,
       category_id: checkinCategory.id,
-      check_date: dateToUse,
+      check_date: d,
       stayed_on_track: onTrack,
-    } as any, { onConflict: "category_id,check_date" });
+    }));
+
+    const { error } = await supabase.from("sobriety_checkins").upsert(
+      rows as any[], { onConflict: "category_id,check_date" }
+    );
 
     if (error) { toast.error("Failed to check in"); return; }
 
     if (onTrack) {
-      const info = getStreakInfo(checkinCategory);
-      const newStreak = info.currentStreak + 1;
-      const milestone = MILESTONES.find(m => m === newStreak);
-      if (milestone) {
-        setCelebratingMilestone(milestone);
-        setTimeout(() => setCelebratingMilestone(null), 3000);
+      if (checkinDates.length === 1 && checkinDates[0] === today) {
+        const info = getStreakInfo(checkinCategory);
+        const newStreak = info.currentStreak + 1;
+        const milestone = MILESTONES.find(m => m === newStreak);
+        if (milestone) {
+          setCelebratingMilestone(milestone);
+          setTimeout(() => setCelebratingMilestone(null), 3000);
+        }
+        toast.success("Great job! Keep it up! 💪");
+      } else {
+        toast.success(`Checked in ${checkinDates.length} day${checkinDates.length > 1 ? "s" : ""} ✅`);
       }
-      const label = dateToUse === today ? "Great job! Keep it up! 💪" : `Checked in for ${format(parseISO(dateToUse), "MMM d")} ✅`;
-      toast.success(label);
     } else {
       toast("It's okay. Every day is a fresh start. 💙");
     }
 
     setShowCheckinDialog(false);
     setCheckinCategory(null);
-    setCheckinDate("");
+    setCheckinDates([]);
+    setCheckinIsMissed(false);
     fetchData();
+  };
+
+  const handleBatchCheckin = (cat: SobrietyCategory, dates: string[], onTrack: boolean) => {
+    setCheckinCategory(cat);
+    setCheckinDates(dates);
+    setCheckinIsMissed(true);
+    if (onTrack) {
+      // Direct confirm for batch missed days marked as sober
+      handleCheckinDirect(cat, dates, true);
+    } else {
+      setShowCheckinDialog(true);
+    }
+  };
+
+  const handleCheckinDirect = async (cat: SobrietyCategory, dates: string[], onTrack: boolean) => {
+    if (!user) return;
+    const rows = dates.map(d => ({
+      user_id: user.id,
+      category_id: cat.id,
+      check_date: d,
+      stayed_on_track: onTrack,
+    }));
+    const { error } = await supabase.from("sobriety_checkins").upsert(
+      rows as any[], { onConflict: "category_id,check_date" }
+    );
+    if (error) { toast.error("Failed to check in"); return; }
+    toast.success(`Checked in ${dates.length} day${dates.length > 1 ? "s" : ""} ✅`);
+    fetchData();
+  };
+
+  const openCheckinFor = (cat: SobrietyCategory, date: string) => {
+    setCheckinCategory(cat);
+    setCheckinDates([date]);
+    setCheckinIsMissed(date !== today);
+    setShowCheckinDialog(true);
   };
 
   const handleDeleteCategory = async (catId: string) => {
