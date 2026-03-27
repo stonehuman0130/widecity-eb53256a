@@ -1007,6 +1007,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
               timeGridRef={timeGridRef}
               onItemTap={setSelectedItem}
               hideColumnHeaders
+              colorMap={calendarColorMap}
             />
           </motion.div>
         </div>
