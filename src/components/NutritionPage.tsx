@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { useModalScrollLock } from "@/hooks/useModalScrollLock";
+import GroupSelector from "@/components/GroupSelector";
 
 const fmtDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -563,9 +564,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const partnerTotalProtein = useMemo(() => partnerConsumed.reduce((s, m) => s + m.protein, 0), [partnerConsumed]);
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex flex-col min-h-full px-5">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-6 pb-2">
+      <div className="flex items-center justify-between pt-6 pb-2">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Apple size={24} className="text-primary" /> Nutrition
         </h1>
@@ -576,17 +577,20 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         )}
       </div>
 
-      {/* View Filter Tabs */}
+      {/* Group Selector */}
+      <GroupSelector />
+
+      {/* Mine / Other User / Together Toggle */}
       {viewTabs.length > 1 && (
-        <div className="flex gap-1.5 px-5 pb-2">
+        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5 overflow-x-auto scrollbar-hide">
           {viewTabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setViewFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              className={`flex-shrink-0 px-3 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
                 viewFilter === tab.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
+                  ? "bg-card text-foreground shadow-card"
+                  : "text-muted-foreground"
               }`}
             >
               {tab.label}
@@ -596,7 +600,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       )}
 
       {/* Quick actions: Goals + Date Ranges */}
-      <div className="px-5 pb-2">
+      <div className="pb-2">
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
           <button
             onClick={() => setShowGoalSettings(true)}
@@ -622,7 +626,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
       {/* Date nav (single day) */}
       {dateRange === "today" && (
-        <div className="flex items-center justify-between px-5 py-1">
+        <div className="flex items-center justify-between py-1">
           <button onClick={() => changeDate(-1)} className="p-2 rounded-full hover:bg-secondary"><ChevronLeft size={18} /></button>
           <button onClick={() => setSelectedDate(new Date())} className={`text-sm font-semibold px-3 py-1.5 rounded-full transition-colors ${isToday ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}>
             {isToday ? "Today" : dateLabel}
@@ -633,7 +637,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
       {/* Protein progress */}
       {!isTogether && (
-        <div className="px-5 mb-2 mt-1">
+        <div className="mb-2 mt-1">
           <div className="bg-card rounded-2xl p-4 shadow-card border border-border">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold">Protein</span>
@@ -655,7 +659,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
       {/* Together View */}
       {isTogether && (
-        <div className="px-5 mb-3 mt-1">
+        <div className="mb-3 mt-1">
           <div className="grid grid-cols-2 gap-2.5">
             <div className="bg-card rounded-2xl p-3.5 shadow-card border border-border">
               <p className="text-xs font-semibold text-muted-foreground mb-1">{profile?.display_name || "Me"}</p>
@@ -675,7 +679,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
       {/* AI insight */}
       {isViewingOwn && (
-        <div className="px-5 mb-3">
+        <div className="mb-3">
           <div className="bg-primary/5 rounded-xl px-4 py-3 border border-primary/10">
             <div className="flex items-start gap-2">
               <Sparkles size={14} className="text-primary mt-0.5 flex-shrink-0" />
@@ -692,7 +696,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 pb-24">
+      <div className="flex-1 overflow-y-auto pb-24">
         {dateRange === "today" ? (
           <>
             {/* Planned Meals - main section */}
