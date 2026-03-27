@@ -187,7 +187,7 @@ const GroupSelector = ({ onCreateGroup }: { onCreateGroup?: () => void }) => {
           </button>
         </div>
       )}
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth-touch" style={{ WebkitOverflowScrolling: "touch" }}>
         {/* All chip — fixed, never movable */}
         <button
           onClick={() => { if (!editMode) setActiveGroup(null); }}
