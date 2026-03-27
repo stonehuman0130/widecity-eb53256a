@@ -816,6 +816,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
           {sectionOrder.filter((id) => sectionVisible.has(id)).map((sectionId) => {
             switch (sectionId) {
               case "habits": {
+                if (effectiveHabitSubIds.length === 0) return null;
                 const HABIT_SECTION_META: Record<string, { label: string; icon: string }> = {
                   morning: { label: "Morning", icon: "🌅" },
                   afternoon: { label: "Afternoon", icon: "☀️" },
@@ -824,7 +825,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                 };
                 return (
                   <div key="habits">
-                    {selectedHabitSubIds.map((subId) => {
+                    {effectiveHabitSubIds.map((subId) => {
                       if (subId === "water") {
                         return (
                           <section key="water" className="mb-6">
