@@ -5,6 +5,7 @@ import { useAppContext, Workout } from "@/context/AppContext";
 import { Droplets, Dumbbell, Trophy, Check, Flame, Heart, Apple, Sparkles, ShoppingCart } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
+import { SpecialDay as SpecialDayFull, getDisplayLabel as sdGetDisplayLabel } from "@/components/special-days/SpecialDayTypes";
 
 const fmtDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
