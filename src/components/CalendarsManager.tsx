@@ -223,13 +223,24 @@ const CalendarsManager = ({ open, onClose }: Props) => {
 
   const saveEdit = async () => {
     if (!editingId || !editName.trim()) return;
-    await supabase
+    // Optimistically update local state
+    setCalendars((prev) =>
+      prev.map((c) => (c.id === editingId ? { ...c, name: editName.trim(), color: editColor } : c))
+    );
+    const savedId = editingId;
+    setEditingId(null);
+
+    const { error } = await supabase
       .from("calendars")
       .update({ name: editName.trim(), color: editColor, updated_at: new Date().toISOString() } as any)
-      .eq("id", editingId);
-    setEditingId(null);
-    fetchCalendars();
-    toast.success("Calendar updated");
+      .eq("id", savedId);
+
+    if (error) {
+      toast.error("Failed to save changes");
+      fetchCalendars(); // revert
+    } else {
+      toast.success("Calendar updated");
+    }
   };
 
   const deleteCalendar = async (id: string) => {
@@ -397,20 +408,9 @@ const CalendarsManager = ({ open, onClose }: Props) => {
 
                                 {/* Calendar info */}
                                 <div className="flex-1 min-w-0">
-                                  {editingId === cal.id ? (
-                                    <input
-                                      autoFocus
-                                      value={editName}
-                                      onChange={(e) => setEditName(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); }}
-                                      className="text-[14px] font-medium text-foreground bg-transparent outline-none border-b border-primary w-full"
-                                    />
-                                  ) : (
                                     <p className="text-[14px] font-medium text-foreground truncate">
-                                      {cal.name}
+                                      {editingId === cal.id ? editName : cal.name}
                                     </p>
-                                  )}
                                   {cal.groupId && cal.provider === "local" && (
                                     <p className="text-[11px] text-muted-foreground">
                                       Shared with group

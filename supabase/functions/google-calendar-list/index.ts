@@ -170,12 +170,11 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (existing) {
-        // Update name and color from Google (preserve user visibility preference)
+        // Only update name and account info, preserve user's color preference
         await supabase
           .from("calendars")
           .update({
             name: gcal.name,
-            color: gcal.color,
             provider_account_id: accountEmail,
             updated_at: new Date().toISOString(),
           })

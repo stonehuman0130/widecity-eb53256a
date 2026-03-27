@@ -151,6 +151,7 @@ interface CalItem {
   startDateTime?: Date | null;
   endDateTime?: Date | null;
   isDueDateTask?: boolean;
+  calendarColor?: string | null;
 }
 
 const TODO_COLOR = "hsl(280 70% 55%)";
@@ -405,6 +406,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           isEnd: isEndDay,
           startDateTime,
           endDateTime,
+          calendarColor: ge.calendarColor || null,
         });
       });
     }
@@ -431,23 +433,35 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   // ── Month grid: dots per day ──────────────────────────
 
   const monthDots = useMemo(() => {
-    const dots = new Map<number, Set<string>>();
+    const dots = new Map<number, { id: string; color: string }[]>();
     for (let d = 1; d <= daysInMonth; d++) {
       const items = getItemsForDate(d, month, year);
       if (items.length > 0) {
-        const groupIds = new Set<string>();
+        const seen = new Set<string>();
+        const dotColors: { id: string; color: string }[] = [];
         items.forEach((it) => {
+          let color: string;
+          let key: string;
           if (it.isDueDateTask) {
-            groupIds.add("__todo");
+            key = "__todo";
+            color = TODO_COLOR;
+          } else if (it.calendarColor) {
+            key = `cal-${it.calendarColor}`;
+            color = it.calendarColor;
           } else {
-            groupIds.add(it.groupId || "__default");
+            key = it.groupId || "__default";
+            color = GROUP_COLORS[(key === "__default" ? 0 : getGroupColorIndex(it.groupId ?? null, groups)) % GROUP_COLORS.length];
+          }
+          if (!seen.has(key)) {
+            seen.add(key);
+            dotColors.push({ id: key, color });
           }
         });
-        dots.set(d, groupIds);
+        dots.set(d, dotColors);
       }
     }
     return dots;
-  }, [daysInMonth, month, year, getItemsForDate]);
+  }, [daysInMonth, month, year, getItemsForDate, groups]);
 
   // ── Navigation ────────────────────────────────────────
 
@@ -562,7 +576,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           item: {
             id: `gcal-${ge.id}`, title: ge.title, time: ge.start || "",
             allDay: ge.allDay, hour: null, endHour: null, assignee: ge.assignee || "me",
-            groupId: null, type: "gcal", raw: ge,
+            groupId: null, type: "gcal", raw: ge, calendarColor: ge.calendarColor || null,
           },
           dateLabel: ge.start ? new Date(ge.start).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
         });
@@ -573,6 +587,13 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   }, [searchQuery, events, tasks, googleCalendarEvents]);
 
   // ── Color helpers ─────────────────────────────────────
+
+  const getItemColor = useCallback((item: CalItem): string => {
+    if (item.isDueDateTask) return TODO_COLOR;
+    if (item.calendarColor) return item.calendarColor;
+    const idx = getGroupColorIndex(item.groupId, groups);
+    return GROUP_COLORS[idx % GROUP_COLORS.length];
+  }, [groups]);
 
   const getColorClasses = (groupId: string | null | undefined) =>
     GROUP_COLOR_CLASSES[getGroupColorIndex(groupId, groups)];
@@ -821,13 +842,10 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                     </span>
                     {dots && !isSelected && (
                       <div className="flex gap-[2px] absolute bottom-0">
-                        {Array.from(dots).slice(0, 3).map((gid, idx) => {
-                          const dotColor = gid === "__todo" ? TODO_COLOR : GROUP_COLORS[(gid === "__default" ? 0 : getGroupColorIndex(gid, groups)) % GROUP_COLORS.length];
-                          return (
+                        {dots.slice(0, 3).map((dot, idx) => (
                             <span key={idx} className="w-[4px] h-[4px] rounded-full"
-                              style={{ backgroundColor: dotColor }} />
-                          );
-                        })}
+                              style={{ backgroundColor: dot.color }} />
+                        ))}
                       </div>
                     )}
                   </button>
@@ -994,7 +1012,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             <div className="space-y-1 max-h-[70vh] overflow-y-auto">
               {searchResults.map((r) => {
                 const group = getGroupName(r.item.groupId);
-                const colorClasses = getColorClasses(r.item.groupId);
+                const searchItemColor = resolveItemColor(r.item, groups);
                 return (
                   <button key={r.item.id} onClick={() => {
                     const raw = r.item.raw;
@@ -1013,7 +1031,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                     setShowSearch(false);
                     setSearchQuery("");
                   }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary text-left">
-                    <span className={`w-[3px] h-8 rounded-full flex-shrink-0 ${r.item.isDueDateTask ? TODO_COLOR_CLASSES.bg : colorClasses.bg}`} />
+                    <span className="w-[3px] h-8 rounded-full flex-shrink-0" style={{ backgroundColor: searchItemColor }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{r.item.title}</p>
                       <p className="text-[11px] text-muted-foreground">
@@ -1112,7 +1130,13 @@ const DateStrip = ({
   );
 };
 
-// ── Event List Component ──────────────────────────────────
+// Helper to resolve the display color for a CalItem
+function resolveItemColor(item: CalItem, groups: Group[]): string {
+  if (item.isDueDateTask) return TODO_COLOR;
+  if (item.calendarColor) return item.calendarColor;
+  const idx = getGroupColorIndex(item.groupId, groups);
+  return GROUP_COLORS[idx % GROUP_COLORS.length];
+}
 
 const EventList = ({
   items, groups, getColorClasses, onItemTap, compact,
@@ -1137,8 +1161,8 @@ const EventList = ({
             return (
               <button key={item.id} onClick={() => onItemTap?.(item)}
                 className="w-full flex items-center gap-2.5 py-1.5 px-1 text-left hover:bg-secondary/50 rounded-lg transition-colors active:bg-secondary">
-                <span className={`w-[3px] h-5 rounded-full ${TODO_COLOR_CLASSES.bg} flex-shrink-0`} />
-                <span className="text-[11px] text-violet-500 w-12 flex-shrink-0 font-medium">to-do</span>
+                <span className="w-[3px] h-5 rounded-full flex-shrink-0" style={{ backgroundColor: TODO_COLOR }} />
+                <span className="text-[11px] w-12 flex-shrink-0 font-medium" style={{ color: TODO_COLOR }}>to-do</span>
                 <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
                   {item.title}
                 </span>
@@ -1155,12 +1179,12 @@ const EventList = ({
       {allDayItems.length > 0 && (
         <div className="py-0.5">
           {allDayItems.map((item) => {
-            const colors = getColorClasses(item.groupId);
+            const color = resolveItemColor(item, groups);
             const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
             return (
               <button key={item.id} onClick={() => onItemTap?.(item)}
                 className="w-full flex items-center gap-2.5 py-1.5 px-1 text-left hover:bg-secondary/50 rounded-lg transition-colors active:bg-secondary">
-                <span className={`w-[3px] h-5 rounded-full ${colors.bg} flex-shrink-0`} />
+                <span className="w-[3px] h-5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                 <span className="text-[11px] text-muted-foreground w-12 flex-shrink-0">all-day</span>
                 <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
                   {item.title}
@@ -1179,7 +1203,7 @@ const EventList = ({
       )}
 
       {timedItems.map((item) => {
-        const colors = getColorClasses(item.groupId);
+        const color = resolveItemColor(item, groups);
         const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
         const displayTime = item.type === "gcal" && item.time
           ? new Date(item.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
@@ -1189,7 +1213,7 @@ const EventList = ({
         return (
           <button key={item.id} onClick={() => onItemTap?.(item)}
             className="w-full flex items-center gap-2.5 py-2 px-1 text-left hover:bg-secondary/50 rounded-lg transition-colors active:bg-secondary">
-            <span className={`w-[3px] h-5 rounded-full ${colors.bg} flex-shrink-0`} />
+            <span className="w-[3px] h-5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
             <span className="text-[11px] text-muted-foreground w-16 flex-shrink-0 tabular-nums">
               {displayTime}{displayEndTime && displayEndTime !== displayTime ? `–${displayEndTime}` : ""}
             </span>
@@ -1293,11 +1317,11 @@ const TimeGridView = ({
           {columns.map((col, ci) => (
             <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
               {col.items.filter((it) => it.allDay && !it.isDueDateTask).map((it) => {
-                const colorIdx = getGroupColorIndex(it.groupId, groups);
+                const color = resolveItemColor(it, groups);
                 return (
                   <button key={it.id} onClick={() => onItemTap?.(it)}
                     className="w-full text-left text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5 hover:opacity-80 active:opacity-60 transition-opacity"
-                    style={{ backgroundColor: GROUP_COLORS[colorIdx] + "22", color: GROUP_COLORS[colorIdx] }}>
+                    style={{ backgroundColor: color + "22", color }}>
                     {it.title}
                   </button>
                 );
@@ -1348,8 +1372,7 @@ const TimeGridView = ({
 
                 {/* Event blocks */}
                 {positioned.map(({ item, col: colIdx, totalCols }) => {
-                  const colorIdx = getGroupColorIndex(item.groupId, groups);
-                  const color = item.type === "task" ? TODO_COLOR : GROUP_COLORS[colorIdx];
+                  const color = resolveItemColor(item, groups);
                   const top = item.hour! * hourHeight;
                   const endH = item.endHour ?? item.hour! + 1;
                   const duration = Math.max(endH - item.hour!, 0.25);
