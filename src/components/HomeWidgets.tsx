@@ -10,15 +10,6 @@ import { SpecialDay as SpecialDayFull, getDisplayLabel as sdGetDisplayLabel } fr
 const fmtDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-const daysBetween = (a: Date, b: Date) => Math.floor((b.getTime() - a.getTime()) / 86400000);
-
-const getNextOccurrence = (dateStr: string, baseDate: Date) => {
-  const d = new Date(dateStr + "T00:00:00");
-  const thisYear = new Date(baseDate.getFullYear(), d.getMonth(), d.getDate());
-  if (thisYear >= baseDate) return daysBetween(baseDate, thisYear);
-  const nextYear = new Date(baseDate.getFullYear() + 1, d.getMonth(), d.getDate());
-  return daysBetween(baseDate, nextYear);
-};
 
 /** Draggable circular water gauge */
 const CircleWaterGauge = ({
