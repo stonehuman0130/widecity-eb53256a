@@ -579,6 +579,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       setManualTitle("");
       setManualProtein("");
       setManualCalories("");
+      setManualCarbs("");
+      setManualFat("");
+      setManualFiber("");
       setManualFoodText("");
       resetSharingSelection();
       toast.success("Meal added to plan!");
