@@ -341,33 +341,32 @@ const HomeSectionCustomizer = ({
   if (!open) return null;
 
   const renderSubItems = (
-    items: { id: string; label: string; icon: string }[],
+    items: { id: string; label?: string; title?: string; icon: string }[],
     selectedIds: string[],
     onToggle: (id: string) => void,
+    onReorder: (newOrder: string[]) => void,
     labelKey: "label" | "title" = "label"
-  ) => (
-    <div className="px-3 pb-3 space-y-1.5 ml-11">
-      {items.map((opt) => {
-        const selected = selectedIds.includes(opt.id);
-        const displayLabel = labelKey === "title" ? (opt as any).title : opt.label;
-        return (
-          <button
-            key={opt.id}
-            onClick={() => onToggle(opt.id)}
-            className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors ${
-              selected
-                ? "bg-primary/10 border border-primary/20"
-                : "bg-secondary/50 border border-transparent"
-            }`}
-          >
-            <span className="text-sm">{opt.icon}</span>
-            <span className="flex-1 text-xs font-medium truncate">{displayLabel}</span>
-            {selected ? <Eye size={13} className="text-primary" /> : <EyeOff size={13} className="text-muted-foreground" />}
-          </button>
-        );
-      })}
-    </div>
-  );
+  ) => {
+    // Sort items: selected ones first in selectedIds order, then unselected in original order
+    const sortedItems = (() => {
+      const selectedSet = new Set(selectedIds);
+      const inOrder = selectedIds
+        .map((id) => items.find((i) => i.id === id))
+        .filter(Boolean) as typeof items;
+      const rest = items.filter((i) => !selectedSet.has(i.id));
+      return [...inOrder, ...rest];
+    })();
+
+    return (
+      <DraggableSubItems
+        items={sortedItems}
+        selectedIds={selectedIds}
+        onToggle={onToggle}
+        onReorder={onReorder}
+        labelKey={labelKey}
+      />
+    );
+  };
 
   return (
     <AnimatePresence>
