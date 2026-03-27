@@ -102,8 +102,39 @@ function fmtDate(d: Date) {
 const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props) => {
   const { addEvent, updateEvent, removeEvent, addTask, updateTask, removeTask,
     toggleTask, toggleEventCompletion } = useAppContext();
-  const { activeGroup } = useAuth();
+  const { user, activeGroup } = useAuth();
   const { filters: groupFilters } = useGroupContext();
+
+  // Load default calendar on open
+  const loadDefaultCalendar = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("calendars")
+      .select("id, name, color")
+      .eq("is_default", true)
+      .eq("is_visible", true)
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      setSelectedCalendarId(data.id);
+      setSelectedCalendarName(data.name);
+      setCalendarColor(data.color);
+    } else {
+      // Fallback: use first visible calendar
+      const { data: first } = await supabase
+        .from("calendars")
+        .select("id, name, color")
+        .eq("is_visible", true)
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (first) {
+        setSelectedCalendarId(first.id);
+        setSelectedCalendarName(first.name);
+        setCalendarColor(first.color);
+      }
+    }
+  }, [user]);
 
   const isEditing = !!editItem;
 
