@@ -331,6 +331,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       emoji: g.emoji,
       invite_code: g.invite_code,
       created_by: g.created_by,
+      cover_image_url: g.cover_image_url || null,
       members: (allMembers || [])
         .filter((m: any) => m.group_id === g.id)
         .map((m: any) => {
