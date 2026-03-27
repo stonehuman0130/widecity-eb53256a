@@ -1428,15 +1428,33 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 </button>
               </div>
               <div className="px-5 flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
-                <div className="flex gap-3 mb-4">
-                  <div className="bg-primary/10 rounded-xl px-4 py-2 text-center flex-1">
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-primary/10 rounded-xl px-3 py-2 text-center">
                     <p className="text-lg font-bold text-primary">{detailMeal.protein}g</p>
                     <p className="text-[10px] text-muted-foreground">Protein</p>
                   </div>
-                  <div className="bg-secondary rounded-xl px-4 py-2 text-center flex-1">
+                  <div className="bg-secondary rounded-xl px-3 py-2 text-center">
                     <p className="text-lg font-bold">{detailMeal.calories}</p>
                     <p className="text-[10px] text-muted-foreground">Calories</p>
                   </div>
+                  {(detailMeal.carbs > 0 || detailMeal.fat > 0 || detailMeal.fiber > 0) && (
+                    <>
+                      <div className="bg-secondary rounded-xl px-3 py-2 text-center">
+                        <p className="text-base font-bold">{detailMeal.carbs || 0}g</p>
+                        <p className="text-[10px] text-muted-foreground">Carbs</p>
+                      </div>
+                      <div className="bg-secondary rounded-xl px-3 py-2 text-center">
+                        <p className="text-base font-bold">{detailMeal.fat || 0}g</p>
+                        <p className="text-[10px] text-muted-foreground">Fat</p>
+                      </div>
+                      {detailMeal.fiber > 0 && (
+                        <div className="bg-secondary rounded-xl px-3 py-2 text-center col-span-2">
+                          <p className="text-base font-bold">{detailMeal.fiber}g</p>
+                          <p className="text-[10px] text-muted-foreground">Fiber</p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {detailMeal.ingredients && (detailMeal.ingredients as string[]).length > 0 && (
