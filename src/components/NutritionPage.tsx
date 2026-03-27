@@ -564,9 +564,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const partnerTotalProtein = useMemo(() => partnerConsumed.reduce((s, m) => s + m.protein, 0), [partnerConsumed]);
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex flex-col min-h-full px-5">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-6 pb-2">
+      <div className="flex items-center justify-between pt-6 pb-2">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Apple size={24} className="text-primary" /> Nutrition
         </h1>
@@ -577,17 +577,20 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         )}
       </div>
 
-      {/* View Filter Tabs */}
+      {/* Group Selector */}
+      <GroupSelector />
+
+      {/* Mine / Other User / Together Toggle */}
       {viewTabs.length > 1 && (
-        <div className="flex gap-1.5 px-5 pb-2">
+        <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5 overflow-x-auto scrollbar-hide">
           {viewTabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setViewFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              className={`flex-shrink-0 px-3 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap ${
                 viewFilter === tab.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
+                  ? "bg-card text-foreground shadow-card"
+                  : "text-muted-foreground"
               }`}
             >
               {tab.label}
