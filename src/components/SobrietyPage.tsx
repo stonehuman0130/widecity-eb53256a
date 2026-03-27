@@ -394,11 +394,7 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
     return days;
   }, [getStreakInfo]);
 
-  const openCheckinFor = (cat: SobrietyCategory, date: string) => {
-    setCheckinCategory(cat);
-    setCheckinDate(date);
-    setShowCheckinDialog(true);
-  };
+  // openCheckinFor is defined above in handleCheckin section
 
   const readOnly = isViewingPartner;
 
