@@ -10,10 +10,12 @@ import {
   DisplayMode,
   ICON_OPTIONS,
   EVENT_TYPE_OPTIONS,
+  DISPLAY_MODE_OPTIONS,
   REMINDER_OPTIONS,
   fmtDate,
   getDayCount,
   getDisplayLabel,
+  resolveDisplayMode,
 } from "./SpecialDayTypes";
 
 interface Props {
@@ -35,6 +37,12 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
     return "custom";
   };
 
+  const getInitialDisplayMode = (): DisplayMode => {
+    if (editingDay?.display_mode && editingDay.display_mode !== "auto") return editingDay.display_mode;
+    const et = getInitialEventType();
+    return EVENT_TYPE_OPTIONS.find((o) => o.value === et)?.defaultDisplayMode || "countdown";
+  };
+
   const [step, setStep] = useState(editingDay ? 2 : 1);
   const [eventType, setEventType] = useState<EventType>(getInitialEventType());
   const [title, setTitle] = useState(editingDay?.title || "");
@@ -49,7 +57,8 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
   const [photoUrl, setPhotoUrl] = useState(editingDay?.photo_url || "");
   const [uploading, setUploading] = useState(false);
   const [pinAsHero, setPinAsHero] = useState(editingDay?.is_featured || false);
-  const [displayMode, setDisplayMode] = useState<DisplayMode>((editingDay as any)?.display_mode || "auto");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(getInitialDisplayMode());
+  const [inclusiveCount, setInclusiveCount] = useState(editingDay?.inclusive_count || false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const selectEventType = (type: EventType) => {
@@ -58,6 +67,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
     setDirection(opt.defaultDirection);
     setRepeats(opt.defaultRepeats);
     setIcon(opt.icon);
+    setDisplayMode(opt.defaultDisplayMode);
     setStep(2);
   };
 
@@ -79,10 +89,9 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
   };
 
   const handleSave = async () => {
-    if (!title.trim()) {
-      toast.error("Please enter a title");
-      return;
-    }
+    if (!title.trim()) { toast.error("Please enter a title"); return; }
+    if (!date) { toast.error("Please select a date"); return; }
+
     const payload = {
       title: title.trim(),
       icon,
@@ -101,7 +110,6 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
     };
 
     if (pinAsHero) {
-      // Unpin others
       await supabase
         .from("special_days")
         .update({ is_featured: false })
@@ -128,7 +136,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
     onClose();
   };
 
-  // Live preview data
+  // Live preview
   const previewDay = useMemo((): SpecialDay => ({
     id: "preview",
     title: title || "Your Moment",
@@ -145,13 +153,28 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
     reminder_minutes: null,
     event_type: eventType,
     display_mode: displayMode,
-  }), [title, icon, date, direction, repeats, eventType, photoUrl, displayMode, userId]);
+    inclusive_count: inclusiveCount,
+  }), [title, icon, date, direction, repeats, eventType, photoUrl, displayMode, inclusiveCount, userId]);
 
   const now = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
   const previewLabel = getDisplayLabel(previewDay, now);
   const previewCount = getDayCount(previewDay, now);
-
   const typeLabel = EVENT_TYPE_OPTIONS.find(o => o.value === eventType)?.label || "Custom";
+
+  // Which display modes make sense for the selected event type
+  const availableModes = useMemo((): DisplayMode[] => {
+    switch (eventType) {
+      case "birthday": return ["annual_countdown"];
+      case "anniversary": return ["days_together", "anniversary_style", "annual_countdown"];
+      case "first_met": return ["days_together", "days_since"];
+      case "wedding": return ["anniversary_style", "days_together", "annual_countdown"];
+      case "holiday": return ["annual_countdown", "countdown"];
+      case "custom":
+      default: return ["countdown", "days_since", "days_together", "annual_countdown", "anniversary_style"];
+    }
+  }, [eventType]);
+
+  const showInclusiveToggle = displayMode === "days_together" || displayMode === "anniversary_style";
 
   return (
     <AnimatePresence>
@@ -191,13 +214,13 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
               </button>
             </div>
 
+            {/* Scrollable content */}
             <div
-              className="px-5 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-4 space-y-5 flex-1 min-h-0 overflow-y-scroll overscroll-y-contain"
+              className="px-5 pt-4 space-y-5 flex-1 min-h-0 overflow-y-auto overscroll-y-contain"
               style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain" }}
             >
               {step === 1 ? (
-                /* Step 1: Event type selection */
-                <div className="space-y-2">
+                <div className="space-y-2 pb-6">
                   {EVENT_TYPE_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
@@ -221,9 +244,8 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                   ))}
                 </div>
               ) : (
-                /* Step 2: Form fields */
-                <>
-                  {/* Live preview card */}
+                <div className="space-y-5 pb-4">
+                  {/* ── Live Preview Card ── */}
                   <div className="rounded-2xl bg-secondary/20 border border-border/30 p-3">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-xl overflow-hidden bg-secondary/40 border border-border/20 flex-shrink-0">
@@ -235,7 +257,9 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                       </div>
                       <div className="min-w-0">
                         <p className="text-[13px] font-bold text-foreground truncate">{title || "Your Moment"}</p>
-                        <p className="text-[12px] font-bold text-primary">{previewCount === 0 ? "Today!" : previewLabel.primary}</p>
+                        <p className="text-[12px] font-bold text-primary">
+                          {previewCount === 0 ? "Today! 🎉" : previewLabel.primary}
+                        </p>
                         {previewLabel.secondary && (
                           <p className="text-[10px] text-muted-foreground">{previewLabel.secondary}</p>
                         )}
@@ -243,14 +267,113 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                     </div>
                   </div>
 
-                  {/* Photo */}
+                  {/* ── 1. Event Type (read-only indicator + change) ── */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{EVENT_TYPE_OPTIONS.find(o => o.value === eventType)?.icon}</span>
+                    <span className="text-sm font-semibold text-foreground">{typeLabel}</span>
+                    {!editingDay && (
+                      <button onClick={() => setStep(1)} className="text-[11px] text-primary font-medium ml-auto">
+                        Change
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ── 2. Title ── */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                      {eventType === "birthday" ? "Whose Birthday?" : "Title"}
+                    </label>
+                    <input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder={
+                        eventType === "birthday" ? "e.g., Evelyn's Birthday"
+                        : eventType === "anniversary" ? "e.g., Our Anniversary"
+                        : "e.g., Special Moment"
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/40"
+                    />
+                  </div>
+
+                  {/* ── 3. Date ── */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                      {eventType === "birthday" ? "Birth Date" : "Date"}
+                    </label>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+
+                  {/* ── 4. Day Count Style ── */}
+                  {availableModes.length > 1 && (
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+                        Day Count Style
+                      </label>
+                      <div className="space-y-1.5">
+                        {DISPLAY_MODE_OPTIONS.filter((m) => availableModes.includes(m.value)).map((m) => (
+                          <button
+                            key={m.value}
+                            onClick={() => setDisplayMode(m.value)}
+                            className={`w-full flex items-start gap-3 px-3.5 py-2.5 rounded-xl border text-left transition-all ${
+                              displayMode === m.value
+                                ? "bg-primary/5 border-primary/30"
+                                : "bg-secondary/30 border-border/30 hover:bg-secondary/50"
+                            }`}
+                          >
+                            <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                              displayMode === m.value ? "border-primary bg-primary" : "border-muted-foreground/40"
+                            }`}>
+                              {displayMode === m.value && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[13px] font-semibold text-foreground">{m.label}</p>
+                              <p className="text-[10px] text-muted-foreground/70 leading-snug">{m.description}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── 5. Inclusive count toggle ── */}
+                  {showInclusiveToggle && (
+                    <button
+                      onClick={() => setInclusiveCount(!inclusiveCount)}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border transition-colors ${
+                        inclusiveCount ? "bg-primary/5 border-primary/20" : "bg-secondary/40 border-border/40"
+                      }`}
+                    >
+                      <div className="text-left">
+                        <span className="text-sm font-medium block">Count the first day as Day 1</span>
+                        <span className="text-[10px] text-muted-foreground/60">Inclusive count — adds 1 to the total</span>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        inclusiveCount ? "border-primary bg-primary" : "border-muted-foreground/40"
+                      }`}>
+                        {inclusiveCount && (
+                          <svg viewBox="0 0 12 12" className="w-3 h-3 text-primary-foreground">
+                            <path d="M2 6l3 3 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                  )}
+
+                  {/* ── 6. Cover Photo ── */}
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                       Cover Photo
                     </label>
                     <div
                       onClick={() => fileRef.current?.click()}
-                      className="relative w-full h-32 rounded-2xl overflow-hidden bg-secondary/40 border border-dashed border-border/60 flex items-center justify-center cursor-pointer hover:border-primary/40 transition-colors"
+                      className="relative w-full h-28 rounded-2xl overflow-hidden bg-secondary/40 border border-dashed border-border/60 flex items-center justify-center cursor-pointer hover:border-primary/40 transition-colors"
                     >
                       {photoUrl ? (
                         <>
@@ -271,7 +394,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                     <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                   </div>
 
-                  {/* Icon */}
+                  {/* ── 7. Icon ── */}
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                       Icon
@@ -293,61 +416,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                     </div>
                   </div>
 
-                  {/* Title */}
-                  <div>
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                      {eventType === "birthday" ? "Whose Birthday?" : "Title"}
-                    </label>
-                    <input
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder={
-                        eventType === "birthday" ? "e.g., Evelyn's Birthday"
-                        : eventType === "anniversary" ? "e.g., Our Anniversary"
-                        : "e.g., Special Moment"
-                      }
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/40"
-                    />
-                  </div>
-
-                  {/* Date */}
-                  <div>
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                      {eventType === "birthday" ? "Birth Date" : "Date"}
-                    </label>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-
-                  {/* Direction — only for custom */}
-                  {eventType === "custom" && (
-                    <div>
-                      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                        Count Type
-                      </label>
-                      <div className="flex gap-2">
-                        {(["since", "until"] as const).map((dir) => (
-                          <button
-                            key={dir}
-                            onClick={() => setDirection(dir)}
-                            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                              direction === dir
-                                ? "bg-primary text-primary-foreground shadow-sm"
-                                : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
-                            }`}
-                          >
-                            {dir === "since" ? "Days since" : "Days until"}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Repeats */}
+                  {/* ── 8. Repeats yearly ── */}
                   <button
                     onClick={() => setRepeats(!repeats)}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border transition-colors ${
@@ -366,7 +435,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                     </div>
                   </button>
 
-                  {/* Pin as hero */}
+                  {/* ── Pin as hero ── */}
                   <button
                     onClick={() => setPinAsHero(!pinAsHero)}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border transition-colors ${
@@ -387,7 +456,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                     </div>
                   </button>
 
-                  {/* Reminder */}
+                  {/* ── 9. Reminder ── */}
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
                       Reminder
@@ -409,7 +478,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                     </div>
                   </div>
 
-                  {/* Notes */}
+                  {/* ── 10. Notes ── */}
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
                       Notes / Gift Ideas
@@ -423,26 +492,40 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                     />
                   </div>
 
-                  {/* Save */}
-                  <button
-                    onClick={handleSave}
-                    disabled={!title.trim()}
-                    className="w-full py-3 bg-primary text-primary-foreground rounded-2xl text-sm font-bold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
-                  >
-                    {editingDay ? "Save Changes" : `Add ${typeLabel}`}
-                  </button>
+                  {/* spacer so content doesn't hide behind sticky footer */}
+                  <div className="h-2" />
+                </div>
+              )}
+            </div>
 
+            {/* ── Sticky bottom action bar ── */}
+            {step === 2 && (
+              <div className="flex-shrink-0 px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3 border-t border-border/30 bg-card/95 backdrop-blur-sm shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.08)]">
+                <button
+                  onClick={handleSave}
+                  disabled={!title.trim() || !date}
+                  className="w-full py-3.5 bg-primary text-primary-foreground rounded-2xl text-sm font-bold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                  {editingDay ? "Save Changes" : `Add ${typeLabel}`}
+                </button>
+                <div className="flex items-center justify-center gap-4 mt-2">
+                  <button
+                    onClick={onClose}
+                    className="py-2 text-muted-foreground text-sm font-medium hover:text-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
                   {editingDay && (
                     <button
                       onClick={handleDelete}
-                      className="w-full py-2.5 text-destructive text-sm font-semibold hover:bg-destructive/5 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                      className="py-2 text-destructive text-sm font-semibold hover:text-destructive/80 transition-colors flex items-center gap-1"
                     >
                       <Trash2 size={13} /> Delete
                     </button>
                   )}
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}
