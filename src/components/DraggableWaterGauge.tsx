@@ -19,17 +19,21 @@ const DraggableWaterGauge = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
 
+  const handleR = strokeWidth * 0.9;
+  // Add padding so handle isn't clipped at edges
+  const pad = handleR + 3;
+  const viewBox = size + pad * 2;
+  const center = viewBox / 2;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const percent = goal > 0 ? Math.min(intake / goal, 1) : 0;
   const offset = circumference * (1 - percent);
-  const center = size / 2;
 
-  // Handle position: progress starts at top (12 o'clock = -90° in standard coords)
+  // Handle at end of arc: 0% at 12 o'clock
   const angleDeg = percent * 360 - 90;
   const angleRad = (angleDeg * Math.PI) / 180;
-  const handleX = center + radius * Math.cos(angleRad);
-  const handleY = center + radius * Math.sin(angleRad);
+  const hx = center + radius * Math.cos(angleRad);
+  const hy = center + radius * Math.sin(angleRad);
 
   const angleToValue = useCallback(
     (clientX: number, clientY: number) => {
@@ -40,13 +44,10 @@ const DraggableWaterGauge = ({
       const cy = rect.top + rect.height / 2;
       const dx = clientX - cx;
       const dy = clientY - cy;
-      // atan2 gives angle from positive x-axis; we want 0 at top
       let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
       if (deg < 0) deg += 360;
       const pct = Math.max(0, Math.min(deg / 360, 1));
-      const raw = pct * goal;
-      // Snap to 0.1
-      const snapped = Math.round(raw * 10) / 10;
+      const snapped = Math.round(pct * goal * 10) / 10;
       onIntakeChange(Math.max(0, Math.min(snapped, goal)));
     },
     [goal, onIntakeChange],
@@ -75,14 +76,16 @@ const DraggableWaterGauge = ({
 
   return (
     <div
-      className="relative mb-3 select-none"
+      className="relative select-none"
       style={{ width: size, height: size, touchAction: "none" }}
     >
       <svg
         ref={svgRef}
+        viewBox={`0 0 ${viewBox} ${viewBox}`}
         width={size}
         height={size}
-        className="cursor-pointer"
+        className="cursor-pointer overflow-visible"
+        style={{ overflow: "visible" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -93,7 +96,7 @@ const DraggableWaterGauge = ({
           cy={center}
           r={radius}
           fill="none"
-          className="stroke-secondary"
+          stroke="hsl(var(--secondary))"
           strokeWidth={strokeWidth}
         />
         {/* Progress arc */}
@@ -102,26 +105,26 @@ const DraggableWaterGauge = ({
           cy={center}
           r={radius}
           fill="none"
-          className="stroke-primary"
+          stroke="hsl(var(--primary))"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           transform={`rotate(-90 ${center} ${center})`}
-          style={{ transition: dragging.current ? "none" : "stroke-dashoffset 0.3s ease" }}
+          style={{
+            transition: dragging.current ? "none" : "stroke-dashoffset 0.35s cubic-bezier(.4,0,.2,1)",
+            willChange: "stroke-dashoffset",
+          }}
         />
-        {/* Draggable handle */}
+        {/* Handle */}
         <circle
-          cx={handleX}
-          cy={handleY}
-          r={strokeWidth * 0.9}
-          className="fill-primary"
+          cx={hx}
+          cy={hy}
+          r={handleR}
+          fill="hsl(var(--primary))"
           stroke="hsl(var(--card))"
           strokeWidth={2.5}
-          style={{
-            filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.2))",
-            cursor: "grab",
-          }}
+          style={{ cursor: "grab" }}
         />
       </svg>
       {/* Center label */}
