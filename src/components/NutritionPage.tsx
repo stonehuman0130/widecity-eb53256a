@@ -998,7 +998,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             isTogether={isTogether}
             partnerMeals={partnerMeals}
             onDetailMeal={setDetailMeal}
-            onAddMeal={(mt, date) => setShowAddMeal({ mealType: mt, date })}
+            onAddMeal={(mt, date) => { setShowAddMeal({ mealType: mt, date }); setAddMealPrivate(!activeGroup); setAddMealGroupIds(activeGroup ? [activeGroup.id] : []); }}
             aiLoading={aiLoading}
             onGenerate={generateSuggestions}
             onToggleConsumed={toggleConsumed}
