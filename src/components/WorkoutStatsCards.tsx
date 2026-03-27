@@ -106,11 +106,11 @@ const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label }: P
   const ownerLabel = label || (isViewingPartner ? partnerName || "Partner" : undefined);
 
   const stats = [
-    { label: "workouts", value: String(completedCount), sublabel: ownerLabel ? `Done` : `Done (${RANGE_LABELS[range]})`, icon: "📈" },
-    { label: "calories", value: String(totalCal), sublabel: RANGE_LABELS[range], icon: "🔥" },
-    { label: "calories", value: String(todayCal), sublabel: "Today", icon: "✅" },
-    { label: distUnit, value: fmtDist(totalDistKm), sublabel: RANGE_LABELS[range], icon: "📏" },
-    { label: distUnit, value: fmtDist(todayDistKm), sublabel: "Today", icon: "🏃" },
+    { label: "workouts", value: String(completedCount), sublabel: ownerLabel ? `Done` : `Done (${RANGE_LABELS[range]})`, icon: "📈", isDist: false },
+    { label: "calories", value: String(totalCal), sublabel: RANGE_LABELS[range], icon: "🔥", isDist: false },
+    { label: "calories", value: String(todayCal), sublabel: "Today", icon: "✅", isDist: false },
+    { label: distUnit, value: fmtDist(totalDistKm), sublabel: RANGE_LABELS[range], icon: "📏", isDist: true },
+    { label: distUnit, value: fmtDist(todayDistKm), sublabel: "Today", icon: "🏃", isDist: true },
   ];
 
   return (
