@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Plus, Settings, Users, Loader2, X, Check, Camera, Compass } from "lucide-react";
 import { Group, useAuth } from "@/context/AuthContext";
@@ -12,6 +12,30 @@ interface LauncherPageProps {
 }
 
 const INVITE_CODE_REGEX = /^[A-Za-z0-9]{6,10}$/;
+const CALENDAR_ORDER_KEY = "myCalendarsOrder";
+const LONG_PRESS_MS = 500;
+
+function loadCalendarOrder(): string[] {
+  try {
+    const raw = localStorage.getItem(CALENDAR_ORDER_KEY);
+    if (raw) return JSON.parse(raw) as string[];
+  } catch {}
+  return [];
+}
+
+function saveCalendarOrder(order: string[]) {
+  localStorage.setItem(CALENDAR_ORDER_KEY, JSON.stringify(order));
+}
+
+function reconcileCalendarOrder(saved: string[], current: Group[]): string[] {
+  const currentIds = new Set(current.map((g) => g.id));
+  const ordered = saved.filter((id) => currentIds.has(id));
+  const orderedSet = new Set(ordered);
+  for (const g of current) {
+    if (!orderedSet.has(g.id)) ordered.push(g.id);
+  }
+  return ordered;
+}
 
 type InviteState =
   | { type: "idle" }
@@ -40,9 +64,116 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
   const pendingGroupIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const visibleGroups = useMemo(() => (groups.length > 0 ? groups : fallbackGroups), [groups, fallbackGroups]);
+
+  // Calendar card reorder state
+  const [editMode, setEditMode] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const [orderedIds, setOrderedIds] = useState<string[]>(() =>
+    reconcileCalendarOrder(loadCalendarOrder(), visibleGroups)
+  );
+
+  useEffect(() => {
+    setOrderedIds((prev) => reconcileCalendarOrder(prev, visibleGroups));
+  }, [visibleGroups]);
+
+  useEffect(() => {
+    saveCalendarOrder(orderedIds);
+  }, [orderedIds]);
+
+  const orderedVisibleGroups = useMemo(() => {
+    const map = new Map(visibleGroups.map((g) => [g.id, g]));
+    return orderedIds.map((id) => map.get(id)).filter(Boolean) as Group[];
+  }, [orderedIds, visibleGroups]);
+
+  // Close edit mode on outside tap
+  useEffect(() => {
+    if (!editMode) return;
+    const handler = (e: PointerEvent) => {
+      if (listRef.current && !listRef.current.contains(e.target as Node)) {
+        setEditMode(false);
+      }
+    };
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, [editMode]);
+
+  const clearLP = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleCardPointerDown = useCallback((idx: number) => {
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      setEditMode(true);
+      setDragIdx(idx);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, LONG_PRESS_MS);
+  }, []);
+
+  const handleCardPointerUp = useCallback(
+    (group: Group) => {
+      const wasLongPress = didLongPress.current;
+      clearLP();
+
+      if (editMode && dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+        setOrderedIds((prev) => {
+          const next = [...prev];
+          const [moved] = next.splice(dragIdx, 1);
+          next.splice(dragOverIdx, 0, moved);
+          return next;
+        });
+      }
+
+      setDragIdx(null);
+      setDragOverIdx(null);
+
+      if (!wasLongPress && !editMode) {
+        onEnterGroup(group.id);
+      }
+    },
+    [editMode, dragIdx, dragOverIdx, clearLP, onEnterGroup]
+  );
+
+  const handleCardPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!editMode || dragIdx === null) return;
+      const y = e.clientY;
+      for (let i = 0; i < cardRefs.current.length; i++) {
+        const el = cardRefs.current[i];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (y >= rect.top && y <= rect.bottom) {
+          setDragOverIdx(i);
+          return;
+        }
+      }
+    },
+    [editMode, dragIdx]
+  );
+
+  const visualCalendarGroups = useMemo(() => {
+    if (editMode && dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+      const next = [...orderedVisibleGroups];
+      const [moved] = next.splice(dragIdx, 1);
+      next.splice(dragOverIdx, 0, moved);
+      return next;
+    }
+    return orderedVisibleGroups;
+  }, [orderedVisibleGroups, editMode, dragIdx, dragOverIdx]);
+
   const now = new Date();
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
-  const visibleGroups = useMemo(() => (groups.length > 0 ? groups : fallbackGroups), [groups, fallbackGroups]);
 
   useEffect(() => {
     if (!user || groups.length > 0) {
@@ -397,30 +528,44 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
           )}
         </div>
 
-        <div className="space-y-3">
-          {visibleGroups.map((group, index) => {
+        <div
+          ref={listRef}
+          className="space-y-3"
+          onPointerMove={handleCardPointerMove}
+          onPointerLeave={() => clearLP()}
+          onPointerCancel={() => { clearLP(); setDragIdx(null); setDragOverIdx(null); }}
+        >
+          {editMode && (
+            <div className="flex justify-center mb-1">
+              <button
+                onClick={() => setEditMode(false)}
+                className="text-[10px] font-semibold text-primary px-3 py-0.5 rounded-full bg-primary/10"
+              >
+                Done
+              </button>
+            </div>
+          )}
+          {visualCalendarGroups.map((group, index) => {
             const otherMembers = group.members.filter((m) => m.user_id !== profile?.id);
             const memberNames = otherMembers.map((m) => m.display_name || "Member").join(", ");
             const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
             const currentCoverUrl = localCoverMap[group.id] || group.cover_image_url || null;
             const hasCover = !!currentCoverUrl;
             const isUploading = uploadingGroupId === group.id;
+            const isDragging = editMode && dragIdx !== null && orderedVisibleGroups[dragIdx]?.id === group.id;
 
             return (
-              <motion.div
+              <div
                 key={group.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 + index * 0.06 }}
-                className="relative overflow-hidden rounded-2xl shadow-sm border border-border/60"
+                ref={(el) => { cardRefs.current[index] = el; }}
+                onPointerDown={(e) => { e.preventDefault(); handleCardPointerDown(index); }}
+                onPointerUp={() => handleCardPointerUp(group)}
+                className={`relative overflow-hidden rounded-2xl shadow-sm border border-border/60 select-none touch-none ${editMode ? "animate-nav-wiggle" : ""} ${isDragging ? "opacity-60 scale-[1.02]" : ""}`}
+                style={editMode ? { animationDelay: `${index * 0.05}s` } : undefined}
               >
-                <button
-                  onClick={() => onEnterGroup(group.id)}
-                  className="w-full flex items-center gap-0 text-left group relative"
-                >
+                <div className="w-full flex items-center gap-0 text-left group relative">
                   {/* Left content area */}
                   <div className={`flex-1 min-w-0 p-4 pr-2 bg-gradient-to-r ${gradient} min-h-[80px] flex flex-col justify-center`}>
-                    {/* Icon/avatar badge — uses uploaded photo if available */}
                     <div className="w-10 h-10 rounded-xl overflow-hidden border border-border/40 flex items-center justify-center text-xl mb-2 shadow-sm flex-shrink-0">
                       {hasCover ? (
                         <img src={currentCoverUrl!} alt="" className="w-full h-full object-cover" />
@@ -451,33 +596,32 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
                         <span className="text-4xl opacity-30">{group.emoji}</span>
                       </div>
                     )}
-                    {/* Soft fade from left */}
                     <div className={`absolute inset-y-0 left-0 w-8 bg-gradient-to-r ${gradient.split(" ")[0].replace("from-", "from-")} to-transparent`} />
-                    
-                    {/* Chevron */}
                     <div className="absolute right-2 top-1/2 -translate-y-1/2">
                       <ChevronRight size={16} className="text-muted-foreground/60 group-hover:text-primary transition-colors" />
                     </div>
                   </div>
-                </button>
+                </div>
 
-                {/* Camera upload button — translucent */}
-                <button
-                  onClick={(e) => triggerFileInput(group.id, e)}
-                  className="absolute bottom-2 right-8 w-7 h-7 rounded-full bg-card/50 backdrop-blur-md border border-border/30 flex items-center justify-center text-muted-foreground/60 hover:text-foreground/80 hover:bg-card/70 transition-all z-10"
-                  aria-label="Upload cover photo"
-                >
-                  {isUploading ? (
-                    <Loader2 size={11} className="animate-spin" />
-                  ) : (
-                    <Camera size={11} />
-                  )}
-                </button>
-              </motion.div>
+                {/* Camera upload button */}
+                {!editMode && (
+                  <button
+                    onClick={(e) => triggerFileInput(group.id, e)}
+                    className="absolute bottom-2 right-8 w-7 h-7 rounded-full bg-card/50 backdrop-blur-md border border-border/30 flex items-center justify-center text-muted-foreground/60 hover:text-foreground/80 hover:bg-card/70 transition-all z-10"
+                    aria-label="Upload cover photo"
+                  >
+                    {isUploading ? (
+                      <Loader2 size={11} className="animate-spin" />
+                    ) : (
+                      <Camera size={11} />
+                    )}
+                  </button>
+                )}
+              </div>
             );
           })}
 
-          {visibleGroups.length === 0 && (
+          {visualCalendarGroups.length === 0 && (
             <div className="text-center py-8">
               <p className="text-sm text-muted-foreground mb-3">No calendars yet</p>
               {onCreateGroup && (
