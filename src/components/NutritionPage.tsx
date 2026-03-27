@@ -69,7 +69,7 @@ const MEAL_TYPES = [
 ];
 
 const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
-  const { user, activeGroup, partner, profile } = useAuth();
+  const { user, activeGroup, partner, profile, groups } = useAuth();
   const { hasOther, otherName, filters: groupFilters, twoTabFilters } = useGroupContext();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
