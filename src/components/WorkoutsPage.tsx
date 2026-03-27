@@ -785,11 +785,14 @@ const WorkoutCard = ({
   onEditExercise: (workoutId: string, index: number, ex: { name: string; sets: number; reps: string }) => void;
   onDeleteExercise: (workoutId: string, index: number) => void;
   onLogWorkout: (workout: Workout) => void;
+  onUpdateCalories?: (id: string, cal: number) => void;
   readOnly?: boolean;
   progress?: number;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [cascadeConfirm, setCascadeConfirm] = useState<{ newDate: string; diffDays: number; followingCount: number } | null>(null);
+  const [editingCal, setEditingCal] = useState(false);
+  const [calInput, setCalInput] = useState(String(workout.cal));
 
   const fmtD = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
