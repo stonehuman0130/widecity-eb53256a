@@ -129,7 +129,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
         )}
       </AnimatePresence>
 
-      <GroupSelector />
+      
 
       {/* Filter chips */}
       <div className="flex gap-2 overflow-x-auto pb-1 mb-5 scrollbar-hide -mx-1 px-1">
