@@ -10,7 +10,7 @@ interface Props {
 
 const SpecialDayListCard = ({ day, now, onEdit, index = 0 }: Props) => {
   const label = getDisplayLabel(day, now);
-  const eventDate = new Date(day.event_date + "T00:00:00");
+  const eventDate = parseLocalDate(day.event_date);
   const hasPhoto = !!day.photo_url;
 
   const dateStr = day.event_type === "birthday" || day.count_direction === "until"
