@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useAppContext, Workout } from "@/context/AppContext";
-import { Droplets, Dumbbell, Trophy, Check, Flame, Heart, Apple, Sparkles } from "lucide-react";
+import { Droplets, Dumbbell, Trophy, Check, Flame, Heart, Apple, Sparkles, ShoppingCart } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 
