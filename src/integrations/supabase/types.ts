@@ -1012,6 +1012,7 @@ export type Database = {
           group_id: string | null
           icon: string
           id: string
+          inclusive_count: boolean
           is_featured: boolean
           notes: string | null
           photo_url: string | null
@@ -1031,6 +1032,7 @@ export type Database = {
           group_id?: string | null
           icon?: string
           id?: string
+          inclusive_count?: boolean
           is_featured?: boolean
           notes?: string | null
           photo_url?: string | null
@@ -1050,6 +1052,7 @@ export type Database = {
           group_id?: string | null
           icon?: string
           id?: string
+          inclusive_count?: boolean
           is_featured?: boolean
           notes?: string | null
           photo_url?: string | null

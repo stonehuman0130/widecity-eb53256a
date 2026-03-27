@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Pencil } from "lucide-react";
-import { SpecialDay, getDayCount, getDisplayLabel } from "./SpecialDayTypes";
+import { SpecialDay, getDayCount, getDisplayLabel, parseLocalDate } from "./SpecialDayTypes";
 
 interface Props {
   day: SpecialDay;
@@ -17,7 +17,7 @@ const PLACEHOLDER_GRADIENTS = [
 const SpecialDayHeroCard = ({ day, now, onEdit }: Props) => {
   const count = getDayCount(day, now);
   const label = getDisplayLabel(day, now);
-  const eventDate = new Date(day.event_date + "T00:00:00");
+  const eventDate = parseLocalDate(day.event_date);
   const hasPhoto = !!day.photo_url;
   const gradientIdx = day.title.length % PLACEHOLDER_GRADIENTS.length;
 
