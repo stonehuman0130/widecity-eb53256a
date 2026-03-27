@@ -904,9 +904,47 @@ const WorkoutCard = ({
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock size={11} /> {workout.duration}
                 </span>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Flame size={11} /> {workout.cal} cal
-                </span>
+                {!readOnly && onUpdateCalories ? (
+                  editingCal ? (
+                    <span className="flex items-center gap-0.5">
+                      <Flame size={11} className="text-muted-foreground" />
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={calInput}
+                        onChange={(e) => setCalInput(e.target.value)}
+                        onBlur={() => {
+                          const val = parseInt(calInput) || 0;
+                          onUpdateCalories(workout.id, val);
+                          setEditingCal(false);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const val = parseInt(calInput) || 0;
+                            onUpdateCalories(workout.id, val);
+                            setEditingCal(false);
+                          }
+                        }}
+                        autoFocus
+                        className="w-12 text-xs text-center bg-secondary rounded px-1 py-0.5 outline-none border border-primary text-foreground"
+                      />
+                      <span className="text-xs text-muted-foreground">cal</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => { setCalInput(String(workout.cal)); setEditingCal(true); }}
+                      className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+                      title="Tap to edit calories"
+                    >
+                      <Flame size={11} /> {workout.cal} cal
+                      <Pencil size={8} className="opacity-40" />
+                    </button>
+                  )
+                ) : (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Flame size={11} /> {workout.cal} cal
+                  </span>
+                )}
                 {workout.tag && (
                   <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{workout.tag}</span>
                 )}
