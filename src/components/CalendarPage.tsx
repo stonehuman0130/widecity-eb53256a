@@ -835,13 +835,10 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                     </span>
                     {dots && !isSelected && (
                       <div className="flex gap-[2px] absolute bottom-0">
-                        {Array.from(dots).slice(0, 3).map((gid, idx) => {
-                          const dotColor = gid === "__todo" ? TODO_COLOR : GROUP_COLORS[(gid === "__default" ? 0 : getGroupColorIndex(gid, groups)) % GROUP_COLORS.length];
-                          return (
+                        {dots.slice(0, 3).map((dot, idx) => (
                             <span key={idx} className="w-[4px] h-[4px] rounded-full"
-                              style={{ backgroundColor: dotColor }} />
-                          );
-                        })}
+                              style={{ backgroundColor: dot.color }} />
+                        ))}
                       </div>
                     )}
                   </button>
