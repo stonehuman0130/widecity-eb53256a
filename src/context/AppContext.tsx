@@ -1360,6 +1360,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       exercises: w.exercises || [],
       hidden_from_partner: w.hiddenFromPartner ?? false,
       group_id: w.groupId ?? null,
+      distance: w.distance || 0,
+      distance_unit: w.distanceUnit || 'km',
     }));
 
     const { data, error } = await supabase
