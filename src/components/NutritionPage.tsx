@@ -827,6 +827,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       if (parsed.title) setManualTitle(parsed.title);
       if (parsed.protein) setManualProtein(String(parsed.protein));
       if (parsed.calories) setManualCalories(String(parsed.calories));
+      if (parsed.carbs) setManualCarbs(String(parsed.carbs));
+      if (parsed.fat) setManualFat(String(parsed.fat));
+      if (parsed.fiber) setManualFiber(String(parsed.fiber));
       toast.success("Food analyzed from photo!");
     } catch (err) {
       console.error("Camera analysis error:", err);
