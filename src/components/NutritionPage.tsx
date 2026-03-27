@@ -1792,27 +1792,46 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               </div>
               <div className="px-5 flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
                 <div className="space-y-4 pb-4">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Daily Protein Goal (g)</label>
-                    <input type="number" value={goalProtein} onChange={e => setGoalProtein(e.target.value)}
-                      className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Track Calories</span>
-                    <button
-                      onClick={() => setGoalShowCal(!goalShowCal)}
-                      className={`w-12 h-7 rounded-full transition-colors relative ${goalShowCal ? "bg-primary" : "bg-secondary"}`}
-                    >
-                      <div className={`w-5 h-5 rounded-full bg-card shadow absolute top-1 transition-transform ${goalShowCal ? "translate-x-6" : "translate-x-1"}`} />
-                    </button>
-                  </div>
-                  {goalShowCal && (
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground mb-1 block">Daily Calorie Goal</label>
-                      <input type="number" value={goalCalories} onChange={e => setGoalCalories(e.target.value)} placeholder="2000"
-                        className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background" />
-                    </div>
-                  )}
+                  <p className="text-xs text-muted-foreground">Toggle trackers on/off and set daily goals.</p>
+                  {ALL_TRACKERS.map(tracker => {
+                    const isEnabled = goalEnabledTrackers.includes(tracker.key);
+                    const goalValue = tracker.key === "protein" ? goalProtein : tracker.key === "calories" ? goalCalories : tracker.key === "carbs" ? goalCarbs : tracker.key === "fat" ? goalFat : goalFiber;
+                    const setGoalValue = tracker.key === "protein" ? setGoalProtein : tracker.key === "calories" ? setGoalCalories : tracker.key === "carbs" ? setGoalCarbs : tracker.key === "fat" ? setGoalFat : setGoalFiber;
+                    return (
+                      <div key={tracker.key} className="bg-background rounded-xl border border-border p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tracker.color }} />
+                            <span className="text-sm font-semibold">{tracker.label}</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setGoalEnabledTrackers(prev =>
+                                prev.includes(tracker.key)
+                                  ? prev.filter(k => k !== tracker.key)
+                                  : [...prev, tracker.key]
+                              );
+                            }}
+                            className={`w-12 h-7 rounded-full transition-colors relative ${isEnabled ? "bg-primary" : "bg-secondary"}`}
+                          >
+                            <div className={`w-5 h-5 rounded-full bg-card shadow absolute top-1 transition-transform ${isEnabled ? "translate-x-6" : "translate-x-1"}`} />
+                          </button>
+                        </div>
+                        {isEnabled && (
+                          <div>
+                            <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Daily Goal ({tracker.unit})</label>
+                            <input
+                              type="number"
+                              value={goalValue}
+                              onChange={e => setGoalValue(e.target.value)}
+                              placeholder={String(tracker.defaultGoal)}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-card"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   <button onClick={saveGoals}
                     className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity">
                     Save Goals
