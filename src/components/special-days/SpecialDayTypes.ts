@@ -1,3 +1,6 @@
+export type EventType = "birthday" | "anniversary" | "first_met" | "wedding" | "holiday" | "custom";
+export type DisplayMode = "auto" | "countdown" | "days_since" | "days_together" | "annual_countdown";
+
 export interface SpecialDay {
   id: string;
   title: string;
@@ -12,7 +15,18 @@ export interface SpecialDay {
   category: string;
   notes: string | null;
   reminder_minutes: number | null;
+  event_type: EventType;
+  display_mode: DisplayMode;
 }
+
+export const EVENT_TYPE_OPTIONS: { value: EventType; label: string; icon: string; defaultDirection: "since" | "until"; defaultRepeats: boolean }[] = [
+  { value: "birthday", label: "Birthday", icon: "🎂", defaultDirection: "until", defaultRepeats: true },
+  { value: "anniversary", label: "Anniversary", icon: "💍", defaultDirection: "since", defaultRepeats: true },
+  { value: "first_met", label: "First Met", icon: "💕", defaultDirection: "since", defaultRepeats: false },
+  { value: "wedding", label: "Wedding", icon: "💒", defaultDirection: "since", defaultRepeats: true },
+  { value: "holiday", label: "Holiday", icon: "🎄", defaultDirection: "until", defaultRepeats: true },
+  { value: "custom", label: "Custom", icon: "⭐", defaultDirection: "until", defaultRepeats: false },
+];
 
 export const ICON_OPTIONS = ["❤️", "💍", "🎂", "🎉", "🏆", "⭐", "🌹", "💐", "🥂", "👶", "🎓", "✈️", "🏠", "💪", "🙏", "🎊"];
 
@@ -46,8 +60,28 @@ export function getNextOccurrence(dateStr: string, now: Date) {
   return daysBetween(now, nextYear);
 }
 
+export function getAge(dateStr: string, now: Date): number {
+  const d = new Date(dateStr + "T00:00:00");
+  let age = now.getFullYear() - d.getFullYear();
+  const thisYearBday = new Date(now.getFullYear(), d.getMonth(), d.getDate());
+  if (now < thisYearBday) age--;
+  return age;
+}
+
+export function getNextBirthdayAge(dateStr: string, now: Date): number {
+  const d = new Date(dateStr + "T00:00:00");
+  const thisYearBday = new Date(now.getFullYear(), d.getMonth(), d.getDate());
+  if (thisYearBday >= now) {
+    return now.getFullYear() - d.getFullYear();
+  }
+  return now.getFullYear() + 1 - d.getFullYear();
+}
+
 export function getDayCount(day: SpecialDay, now: Date) {
   const eventDate = new Date(day.event_date + "T00:00:00");
+  if (day.event_type === "birthday" || (day.repeats_yearly && day.count_direction === "until")) {
+    return getNextOccurrence(day.event_date, now);
+  }
   if (day.count_direction === "since") {
     return Math.max(0, daysBetween(eventDate, now));
   }
@@ -55,6 +89,51 @@ export function getDayCount(day: SpecialDay, now: Date) {
     return getNextOccurrence(day.event_date, now);
   }
   return Math.max(0, daysBetween(now, eventDate));
+}
+
+export function getDisplayLabel(day: SpecialDay, now: Date): { primary: string; secondary: string } {
+  const count = getDayCount(day, now);
+  const eventDate = new Date(day.event_date + "T00:00:00");
+
+  if (day.event_type === "birthday") {
+    if (count === 0) {
+      const age = getAge(day.event_date, now);
+      return { primary: "Today! 🎉", secondary: `Turns ${age} today` };
+    }
+    const nextAge = getNextBirthdayAge(day.event_date, now);
+    return {
+      primary: `${count.toLocaleString()} days to go`,
+      secondary: `Turning ${nextAge}`,
+    };
+  }
+
+  if (day.event_type === "anniversary" || day.event_type === "first_met" || day.event_type === "wedding") {
+    const daysSince = daysBetween(eventDate, now);
+    if (day.repeats_yearly) {
+      const nextOcc = getNextOccurrence(day.event_date, now);
+      if (nextOcc === 0) {
+        const years = now.getFullYear() - eventDate.getFullYear();
+        return { primary: "Today! 🎉", secondary: `${years} years together` };
+      }
+      return {
+        primary: `${daysSince.toLocaleString()} days together`,
+        secondary: `Next in ${nextOcc} days`,
+      };
+    }
+    return {
+      primary: `${daysSince.toLocaleString()} days together`,
+      secondary: "",
+    };
+  }
+
+  // Custom / Holiday / general
+  if (day.count_direction === "since") {
+    return { primary: `${count.toLocaleString()} days ago`, secondary: "" };
+  }
+  if (day.repeats_yearly) {
+    return { primary: `${count.toLocaleString()} days to go`, secondary: "Repeats yearly" };
+  }
+  return { primary: `${count.toLocaleString()} days to go`, secondary: "" };
 }
 
 export function getUpcomingMilestones(startDate: Date, now: Date) {
