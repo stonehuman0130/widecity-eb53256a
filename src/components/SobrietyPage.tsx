@@ -302,6 +302,37 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
     fetchData();
   };
 
+  const handleUpdateMoneyPerDay = async (catId: string, value: number) => {
+    const { error } = await supabase.from("sobriety_categories").update({ money_per_day: value } as any).eq("id", catId);
+    if (error) { toast.error("Failed to update"); return; }
+    toast.success("Money saved updated");
+    fetchData();
+  };
+
+  const handleAddPriorDays = async (cat: SobrietyCategory, days: number) => {
+    if (!user) return;
+    const startDate = parseISO(cat.start_date);
+    const rows: any[] = [];
+    for (let i = 1; i <= days; i++) {
+      const d = subDays(startDate, i);
+      const dateStr = format(d, "yyyy-MM-dd");
+      rows.push({
+        user_id: user.id,
+        category_id: cat.id,
+        check_date: dateStr,
+        stayed_on_track: true,
+      });
+    }
+    const newStart = format(subDays(startDate, days), "yyyy-MM-dd");
+    const [{ error: checkErr }, { error: catErr }] = await Promise.all([
+      supabase.from("sobriety_checkins").upsert(rows, { onConflict: "category_id,check_date" }),
+      supabase.from("sobriety_categories").update({ start_date: newStart } as any).eq("id", cat.id),
+    ]);
+    if (checkErr || catErr) { toast.error("Failed to add prior days"); return; }
+    toast.success(`Added ${days} prior sober days`);
+    fetchData();
+  };
+
   const isCheckedIn = useCallback((catId: string, date: string) => {
     return checkins.some(c => c.category_id === catId && c.check_date === date);
   }, [checkins]);
@@ -427,6 +458,8 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
           openCheckinFor={openCheckinFor}
           handleResetStreak={handleResetStreak}
           handleDeleteCategory={handleDeleteCategory}
+          onUpdateMoneyPerDay={handleUpdateMoneyPerDay}
+          onAddPriorDays={handleAddPriorDays}
         />
       ) : (
         /* Normal card list */
@@ -447,6 +480,8 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
               handleResetStreak={handleResetStreak}
               handleDeleteCategory={handleDeleteCategory}
               readOnly={readOnly}
+              onUpdateMoneyPerDay={handleUpdateMoneyPerDay}
+              onAddPriorDays={handleAddPriorDays}
             />
           ))}
         </div>
@@ -611,6 +646,7 @@ function SobrietyCategoryCard({
   cat, idx, getStreakInfo, getHeatmapData, getMissedDays, isCheckedIn,
   today, expandedCard, setExpandedCard, openCheckinFor,
   handleResetStreak, handleDeleteCategory, readOnly, ownerLabel,
+  onUpdateMoneyPerDay, onAddPriorDays,
 }: {
   cat: SobrietyCategory;
   idx: number;
@@ -626,7 +662,14 @@ function SobrietyCategoryCard({
   handleDeleteCategory: (id: string) => void;
   readOnly?: boolean;
   ownerLabel?: string;
+  onUpdateMoneyPerDay?: (catId: string, value: number) => void;
+  onAddPriorDays?: (cat: SobrietyCategory, days: number) => void;
 }) {
+  const [editingMoney, setEditingMoney] = useState(false);
+  const [moneyValue, setMoneyValue] = useState(String(cat.money_per_day || ""));
+  const [showPriorDays, setShowPriorDays] = useState(false);
+  const [priorDaysCount, setPriorDaysCount] = useState("3");
+
   const info = getStreakInfo(cat);
   const isExpanded = expandedCard === cat.id;
   const checkedToday = isCheckedIn(cat.id, today);
@@ -762,7 +805,103 @@ function SobrietyCategoryCard({
                     <p className="text-[10px] text-muted-foreground">Money Saved</p>
                   </div>
                 )}
+
+                {/* Edit Money Per Day */}
+                {!readOnly && (
+                  <div className="col-span-2">
+                    {editingMoney ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="$/day"
+                          value={moneyValue}
+                          onChange={e => setMoneyValue(e.target.value)}
+                          className="text-sm h-8 flex-1"
+                          autoFocus
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => {
+                            onUpdateMoneyPerDay?.(cat.id, parseFloat(moneyValue) || 0);
+                            setEditingMoney(false);
+                          }}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() => { setEditingMoney(false); setMoneyValue(String(cat.money_per_day || "")); }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setEditingMoney(true)}
+                        className="text-[11px] text-primary font-medium hover:underline flex items-center gap-1"
+                      >
+                        <DollarSign size={12} />
+                        {cat.money_per_day > 0 ? `Edit money saved ($${cat.money_per_day}/day)` : "Add money saved per day"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Add Prior Sober Days */}
+              {!readOnly && (
+                <div>
+                  {showPriorDays ? (
+                    <div className="bg-secondary/50 rounded-xl p-3 space-y-2">
+                      <p className="text-xs font-medium text-foreground">Add prior sober days</p>
+                      <p className="text-[10px] text-muted-foreground">Were you sober before creating this card? Add those days here.</p>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={priorDaysCount}
+                          onChange={e => setPriorDaysCount(e.target.value)}
+                          placeholder="Days"
+                          className="text-sm h-8 w-20"
+                        />
+                        <span className="text-xs text-muted-foreground">days before start</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs rounded-lg"
+                          onClick={() => {
+                            const count = parseInt(priorDaysCount) || 0;
+                            if (count > 0) {
+                              onAddPriorDays?.(cat, count);
+                              setShowPriorDays(false);
+                            }
+                          }}
+                        >
+                          Add {priorDaysCount || 0} days
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setShowPriorDays(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowPriorDays(true)}
+                      className="text-[11px] text-primary font-medium hover:underline flex items-center gap-1"
+                    >
+                      <Calendar size={12} />
+                      Add prior sober days
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Retroactive check-in for missed days */}
               {!readOnly && missedDays.length > 0 && (
@@ -839,7 +978,7 @@ function SobrietyCategoryCard({
 function TogetherSobrietyView({
   categories, checkins, getStreakInfo, getHeatmapData, getMissedDays, isCheckedIn,
   today, currentUserId, myName, partnerName, expandedCard, setExpandedCard,
-  openCheckinFor, handleResetStreak, handleDeleteCategory,
+  openCheckinFor, handleResetStreak, handleDeleteCategory, onUpdateMoneyPerDay, onAddPriorDays,
 }: {
   categories: SobrietyCategory[];
   checkins: SobrietyCheckin[];
@@ -856,6 +995,8 @@ function TogetherSobrietyView({
   openCheckinFor: (cat: SobrietyCategory, date: string) => void;
   handleResetStreak: (cat: SobrietyCategory) => void;
   handleDeleteCategory: (id: string) => void;
+  onUpdateMoneyPerDay?: (catId: string, value: number) => void;
+  onAddPriorDays?: (cat: SobrietyCategory, days: number) => void;
 }) {
   const myCategories = categories.filter(c => c.user_id === currentUserId);
   const partnerCategories = categories.filter(c => c.user_id !== currentUserId);
@@ -889,6 +1030,8 @@ function TogetherSobrietyView({
                 handleResetStreak={handleResetStreak}
                 handleDeleteCategory={handleDeleteCategory}
                 readOnly={false}
+                onUpdateMoneyPerDay={onUpdateMoneyPerDay}
+                onAddPriorDays={onAddPriorDays}
               />
             ))}
           </div>
