@@ -135,6 +135,7 @@ export function useGroupContext() {
     sharedLabel,
     filters,
     twoTabFilters,
+    workoutFilters,
     showGoogleCalendar,
   };
 }
