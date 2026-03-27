@@ -1368,12 +1368,7 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
           ))}
         </div>
       ) : !adding ? (
-        <button
-          onClick={() => !readOnly && setAdding(true)}
-          className="w-full py-4 text-sm text-muted-foreground text-center border border-dashed border-border rounded-xl hover:border-primary/30 hover:text-primary/60 transition-colors"
-        >
-          Tap + to add a to-do
-        </button>
+        <p className="text-sm text-muted-foreground py-2">No to-dos yet</p>
       ) : null}
 
     </section>
