@@ -759,7 +759,7 @@ const ExerciseDetailDialog = ({ exerciseName, onClose }: { exerciseName: string 
   useEffect(() => {
     if (!exerciseName) { setDetail(null); return; }
     setLoading(true);
-    supabase.functions.invoke("exercise-detail", { body: { exercise: exerciseName } })
+    supabase.functions.invoke("exercise-detail", { body: { exerciseName } })
       .then(({ data, error }) => {
         if (!error && data && !data.error) setDetail(data);
         else setDetail(null);
