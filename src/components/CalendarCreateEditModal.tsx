@@ -1,13 +1,15 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   X, Clock, MapPin, Bell, Repeat, Eye, AlignLeft, ChevronDown, ChevronUp,
-  CalendarDays, ListTodo, Globe, Palette, Trash2, Check, Search,
+  CalendarDays, ListTodo, Globe, Trash2, Check, Search,
 } from "lucide-react";
+import CalendarPickerSheet from "@/components/CalendarPickerSheet";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext, ScheduledEvent, Task } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -100,8 +102,39 @@ function fmtDate(d: Date) {
 const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props) => {
   const { addEvent, updateEvent, removeEvent, addTask, updateTask, removeTask,
     toggleTask, toggleEventCompletion } = useAppContext();
-  const { activeGroup } = useAuth();
+  const { user, activeGroup } = useAuth();
   const { filters: groupFilters } = useGroupContext();
+
+  // Load default calendar on open
+  const loadDefaultCalendar = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("calendars")
+      .select("id, name, color")
+      .eq("is_default", true)
+      .eq("is_visible", true)
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      setSelectedCalendarId(data.id);
+      setSelectedCalendarName(data.name);
+      setCalendarColor(data.color);
+    } else {
+      // Fallback: use first visible calendar
+      const { data: first } = await supabase
+        .from("calendars")
+        .select("id, name, color")
+        .eq("is_visible", true)
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (first) {
+        setSelectedCalendarId(first.id);
+        setSelectedCalendarName(first.name);
+        setCalendarColor(first.color);
+      }
+    }
+  }, [user]);
 
   const isEditing = !!editItem;
 
@@ -122,6 +155,9 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
   const [notificationMinutes, setNotificationMinutes] = useState(-1);
   const [visibility, setVisibility] = useState<"group" | "private">("group");
   const [calendarColor, setCalendarColor] = useState(CALENDAR_COLORS[0].value);
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
+  const [selectedCalendarName, setSelectedCalendarName] = useState<string>("Personal");
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
   // To-do specific
   const [todoDueDate, setTodoDueDate] = useState<Date | undefined>(undefined);
@@ -205,12 +241,15 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
       setNotificationMinutes(-1);
       setVisibility("group");
       setCalendarColor(CALENDAR_COLORS[0].value);
+      setSelectedCalendarId(null);
+      setSelectedCalendarName("Personal");
       setAssignee("me");
       setTodoDueDate(dd);
       setTodoPriorNotice(0);
       setTodoTag("Personal");
+      loadDefaultCalendar();
     }
-  }, [open, editItem, defaultDate]);
+  }, [open, editItem, defaultDate, loadDefaultCalendar]);
 
   const handleClose = () => {
     onClose();
@@ -542,6 +581,24 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
 
               <div className="h-px bg-border" />
 
+              {/* Calendar selector — prominent placement */}
+              <button
+                onClick={() => setShowCalendarPicker(true)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/50 transition-colors"
+              >
+                <div
+                  className="w-4 h-4 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: calendarColor }}
+                />
+                <div className="flex flex-col items-start flex-1 min-w-0">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Calendar</span>
+                  <span className="text-[14px] text-foreground truncate">{selectedCalendarName}</span>
+                </div>
+                <ChevronDown size={16} className="text-muted-foreground flex-shrink-0" />
+              </button>
+
+              <div className="h-px bg-border" />
+
               {/* More options toggle */}
               <button
                 onClick={() => setShowMoreOptions(!showMoreOptions)}
@@ -724,30 +781,6 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
                     </div>
                   </div>
 
-                  <div className="h-px bg-border mx-4" />
-
-                  {/* Calendar color */}
-                  <div className="px-4 py-3">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Palette size={18} className="text-muted-foreground" />
-                      <span className="text-[14px] text-foreground font-medium">Color</span>
-                    </div>
-                    <div className="flex gap-2 ml-[30px] flex-wrap">
-                      {CALENDAR_COLORS.map((c) => (
-                        <button
-                          key={c.value}
-                          onClick={() => setCalendarColor(c.value)}
-                          className={cn(
-                            "w-7 h-7 rounded-full flex items-center justify-center transition-all",
-                            calendarColor === c.value ? "ring-2 ring-offset-2 ring-offset-background" : ""
-                          )}
-                          style={{ backgroundColor: c.value, ...(calendarColor === c.value ? { ringColor: c.value } : {}) }}
-                        >
-                          {calendarColor === c.value && <Check size={14} className="text-white drop-shadow-sm" />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
                   <div className="h-px bg-border mx-4" />
 
@@ -985,6 +1018,20 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
           )}
         </div>
       </motion.div>
+
+      {/* ── Calendar Picker Sheet ── */}
+      <AnimatePresence>
+        <CalendarPickerSheet
+          open={showCalendarPicker}
+          onClose={() => setShowCalendarPicker(false)}
+          selectedCalendarId={selectedCalendarId}
+          onSelect={(id, color, name) => {
+            setSelectedCalendarId(id);
+            setCalendarColor(color);
+            setSelectedCalendarName(name);
+          }}
+        />
+      </AnimatePresence>
 
       {/* ── Timezone Picker Sheet ── */}
       <AnimatePresence>
