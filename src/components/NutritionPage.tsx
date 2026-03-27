@@ -901,6 +901,93 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 )}
               </div>
             )}
+
+            {/* ───── Quick Suggestions / Frequent Items ───── */}
+            {isViewingOwn && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Meal Ideas</h2>
+                </div>
+                <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-3">
+                  <button
+                    onClick={() => setMealIdeasTab("suggestions")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
+                      mealIdeasTab === "suggestions"
+                        ? "bg-card text-foreground shadow-card"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <Zap size={12} /> Quick Suggestions
+                  </button>
+                  <button
+                    onClick={() => setMealIdeasTab("frequent")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
+                      mealIdeasTab === "frequent"
+                        ? "bg-card text-foreground shadow-card"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <Clock size={12} /> Frequent Items
+                  </button>
+                </div>
+
+                {mealIdeasTab === "suggestions" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { title: "Greek Yogurt Bowl", protein: 20, calories: 250, meal_type: "breakfast" },
+                      { title: "Chicken Rice Bowl", protein: 35, calories: 450, meal_type: "lunch" },
+                      { title: "Turkey Lettuce Wraps", protein: 28, calories: 280, meal_type: "lunch" },
+                      { title: "Protein Smoothie", protein: 30, calories: 320, meal_type: "snack" },
+                      { title: "Salmon & Veggies", protein: 32, calories: 380, meal_type: "dinner" },
+                      { title: "Egg White Omelette", protein: 24, calories: 200, meal_type: "breakfast" },
+                    ].map((item, i) => (
+                      <button
+                        key={i}
+                        onClick={() => quickAddMeal(item)}
+                        className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
+                      >
+                        <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-bold text-primary">{item.protein}g</span>
+                          <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
+                        </div>
+                        <div className="flex items-center gap-1 mt-1.5">
+                          <Plus size={10} className="text-primary" />
+                          <span className="text-[9px] text-primary font-medium">Quick add</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    {frequentMeals.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {frequentMeals.map((item, i) => (
+                          <button
+                            key={i}
+                            onClick={() => quickAddMeal(item)}
+                            className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
+                          >
+                            <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-bold text-primary">{item.protein}g</span>
+                              <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
+                            </div>
+                            <div className="flex items-center gap-1 mt-1.5">
+                              <span className="text-[9px] text-muted-foreground">Added {item.count}×</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-card rounded-xl p-4 border border-dashed border-border text-center">
+                        <p className="text-xs text-muted-foreground">Add meals a few times and they'll appear here for quick re-adding.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <WeeklyCalendarView
