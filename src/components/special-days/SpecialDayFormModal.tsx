@@ -107,7 +107,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
       count_direction: direction,
       repeats_yearly: repeats,
       user_id: userId,
-      group_id: groupId,
+      group_id: selectedGroupId,
       photo_url: photoUrl || null,
       category: eventType === "first_met" || eventType === "wedding" ? "anniversary" : eventType,
       event_type: eventType,
