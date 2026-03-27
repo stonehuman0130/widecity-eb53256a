@@ -78,6 +78,8 @@ export interface Workout {
   hiddenFromPartner?: boolean;
   groupId?: string | null;
   ownerUserId?: string;
+  distance?: number;
+  distanceUnit?: string;
 }
 
 export interface GoogleCalendarEvent {
