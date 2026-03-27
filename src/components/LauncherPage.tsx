@@ -432,8 +432,8 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
                   <div className="relative w-[130px] h-[96px] flex-shrink-0 overflow-hidden">
                     {hasCover ? (
                       <img
-                        src={group.cover_image_url!}
-                        alt=""
+                        src={currentCoverUrl!}
+                        alt={`${group.name} cover`}
                         className="w-full h-full object-cover"
                       />
                     ) : (
