@@ -659,7 +659,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
       {/* Together View */}
       {isTogether && (
-        <div className="px-5 mb-3 mt-1">
+        <div className="mb-3 mt-1">
           <div className="grid grid-cols-2 gap-2.5">
             <div className="bg-card rounded-2xl p-3.5 shadow-card border border-border">
               <p className="text-xs font-semibold text-muted-foreground mb-1">{profile?.display_name || "Me"}</p>
