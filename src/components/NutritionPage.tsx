@@ -140,7 +140,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
   // Quick Suggestions / Frequent Items
   const [mealIdeasTab, setMealIdeasTab] = useState<"suggestions" | "frequent">("suggestions");
-  const [frequentMeals, setFrequentMeals] = useState<{ title: string; protein: number; calories: number; meal_type: string; count: number }[]>([]);
+  const [frequentMeals, setFrequentMeals] = useState<{ title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number }[]>([]);
 
   // Shopping list prompt after AI suggest add (queue for multiple meals)
   const [shopPrompt, setShopPrompt] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string } | null>(null);
