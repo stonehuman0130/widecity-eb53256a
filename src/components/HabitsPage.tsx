@@ -176,12 +176,25 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           <Droplets size={20} className="text-primary" /> Water Intake
         </h2>
         <div className="flex items-center gap-1">
+          {[2, 2.5, 3, 3.5, 4].map((g) => (
+            <button
+              key={g}
+              onClick={() => { setWaterGoal(g); setEditingWaterGoal(false); }}
+              className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                waterGoal === g && !editingWaterGoal ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+              }`}
+            >
+              {g}L
+            </button>
+          ))}
           {!editingWaterGoal ? (
             <button
               onClick={() => { setCustomGoalInput(String(waterGoal)); setEditingWaterGoal(true); }}
-              className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                ![2, 2.5, 3, 3.5, 4].includes(waterGoal) ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+              }`}
             >
-              {waterGoal}L goal
+              {![2, 2.5, 3, 3.5, 4].includes(waterGoal) ? `${waterGoal}L` : "Custom"}
             </button>
           ) : (
             <div className="flex items-center gap-1">
@@ -190,16 +203,16 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
                 value={customGoalInput}
                 onChange={(e) => setCustomGoalInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") saveCustomGoal(); if (e.key === "Escape") setEditingWaterGoal(false); }}
-                className="w-14 bg-secondary rounded-lg px-2 py-1 text-[11px] text-center outline-none text-foreground border border-border"
+                className="w-14 bg-secondary rounded-lg px-2 py-1 text-[10px] text-center outline-none text-foreground border border-border"
                 step="0.1"
                 min="0.5"
                 max="10"
                 autoFocus
               />
-              <span className="text-[11px] text-muted-foreground">L</span>
-              <button onClick={saveCustomGoal} className="text-[11px] text-primary font-semibold">Set</button>
+              <span className="text-[10px] text-muted-foreground">L</span>
+              <button onClick={saveCustomGoal} className="text-[10px] text-primary font-semibold">Set</button>
             </div>
-          )}
+          )
           <button
             onClick={toggleWaterVisibility}
             className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
