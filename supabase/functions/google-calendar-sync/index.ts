@@ -76,16 +76,13 @@ async function resolveUserId(
       const message = error?.message ?? "";
       const status = (error as { status?: number } | null)?.status;
 
-      if (
-        isDefinitelyInvalidTokenError(message) ||
-        status === 400 ||
-        status === 401 ||
-        status === 403
-      ) {
+      const retriable = isRetriableAuthError(message, status);
+
+      if (!retriable) {
         return { status: 401, error: "Invalid token" };
       }
 
-      if (attempt === 1 || !isRetriableAuthError(message, status)) {
+      if (attempt === 1) {
         return { status: 503, error: "Authentication temporarily unavailable" };
       }
 
