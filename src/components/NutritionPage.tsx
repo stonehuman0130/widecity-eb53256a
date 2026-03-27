@@ -775,7 +775,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 {isViewingOwn && (
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => setShowAddMeal({ mealType: "snack", date: dateStr })}
+                      onClick={() => { setShowAddMeal({ mealType: "snack", date: dateStr }); setAddMealPrivate(!activeGroup); setAddMealGroupIds(activeGroup ? [activeGroup.id] : []); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
                     >
                       <Plus size={12} /> Add
