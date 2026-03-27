@@ -517,7 +517,7 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
           partnerName={partnerName || "Partner"}
           expandedCard={expandedCard}
           setExpandedCard={setExpandedCard}
-          openCheckinFor={openCheckinFor}
+          onBatchCheckin={handleBatchCheckin}
           handleResetStreak={handleResetStreak}
           handleDeleteCategory={handleDeleteCategory}
           onUpdateMoneyPerDay={handleUpdateMoneyPerDay}
