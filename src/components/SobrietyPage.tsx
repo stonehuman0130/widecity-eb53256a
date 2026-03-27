@@ -978,7 +978,7 @@ function SobrietyCategoryCard({
 function TogetherSobrietyView({
   categories, checkins, getStreakInfo, getHeatmapData, getMissedDays, isCheckedIn,
   today, currentUserId, myName, partnerName, expandedCard, setExpandedCard,
-  openCheckinFor, handleResetStreak, handleDeleteCategory,
+  openCheckinFor, handleResetStreak, handleDeleteCategory, onUpdateMoneyPerDay, onAddPriorDays,
 }: {
   categories: SobrietyCategory[];
   checkins: SobrietyCheckin[];
@@ -995,6 +995,8 @@ function TogetherSobrietyView({
   openCheckinFor: (cat: SobrietyCategory, date: string) => void;
   handleResetStreak: (cat: SobrietyCategory) => void;
   handleDeleteCategory: (id: string) => void;
+  onUpdateMoneyPerDay?: (catId: string, value: number) => void;
+  onAddPriorDays?: (cat: SobrietyCategory, days: number) => void;
 }) {
   const myCategories = categories.filter(c => c.user_id === currentUserId);
   const partnerCategories = categories.filter(c => c.user_id !== currentUserId);
