@@ -49,6 +49,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   const [sectionVisible, setSectionVisible] = useState<Set<string>>(new Set());
   const [selectedSobrietyIds, setSelectedSobrietyIds] = useState<string[]>([]);
   const [selectedSpecialDayIds, setSelectedSpecialDayIds] = useState<string[]>([]);
+  const [selectedHabitSubIds, setSelectedHabitSubIds] = useState<string[]>([]);
   const {
     habits, filteredHabits, toggleHabit, addHabit, removeHabit, events, filteredEvents, tasks, filteredTasks, toggleTask, toggleEventCompletion, addTask, addEvent, removeEvent, removeTask, updateTask, rescheduleEvent,
     partnerHabits, partnerEvents, partnerTasks, filteredPartnerHabits, filteredPartnerEvents, filteredPartnerTasks, googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
@@ -65,19 +66,22 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     setSectionVisible(prefs.visible);
     setSelectedSobrietyIds(prefs.selectedSobrietyIds);
     setSelectedSpecialDayIds(prefs.selectedSpecialDayIds);
+    setSelectedHabitSubIds(prefs.selectedHabitSubIds);
   }, [activeGroup?.id]);
 
   const handleSaveSections = (
     order: string[],
     visible: Set<string>,
     sobrietyIds: string[],
-    specialDayIds: string[]
+    specialDayIds: string[],
+    habitSubIds: string[]
   ) => {
     setSectionOrder(order);
     setSectionVisible(visible);
     setSelectedSobrietyIds(sobrietyIds);
     setSelectedSpecialDayIds(specialDayIds);
-    saveSectionPrefs(activeGroup?.id ?? null, order, visible, sobrietyIds, specialDayIds);
+    setSelectedHabitSubIds(habitSubIds);
+    saveSectionPrefs(activeGroup?.id ?? null, order, visible, sobrietyIds, specialDayIds, habitSubIds);
   };
 
   const { listening, start: startListening, stop: stopListening, isSupported: speechSupported } = useSpeechToText({
@@ -784,24 +788,41 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
       ) : (
         <>
           {sectionOrder.filter((id) => sectionVisible.has(id)).map((sectionId) => {
-            // Handle dynamic habit sections (habit:xxx)
-            if (sectionId.startsWith("habit:")) {
-              const categoryKey = sectionId.replace("habit:", "");
-              const sectionMeta = habitSections.find((s) => s.key === categoryKey);
-              if (!sectionMeta) return null;
-              return (
-                <section key={sectionId} className="mb-6">
-                  <HomeHabitSectionWidget
-                    selectedDate={selectedDate}
-                    categoryKey={categoryKey}
-                    sectionLabel={(filter === "partner" || isSpecificMemberFilter) ? `${selectedMemberName}'s ${sectionMeta.label}` : sectionMeta.label}
-                    sectionIcon={sectionMeta.icon}
-                  />
-                </section>
-              );
-            }
-
             switch (sectionId) {
+              case "habits": {
+                // Render selected habit sub-items under the "Habits" parent
+                const subIds = selectedHabitSubIds.length > 0 ? selectedHabitSubIds : ["water", "habit:morning"];
+                return (
+                  <div key="habits">
+                    {subIds.map((subId) => {
+                      if (subId === "water") {
+                        return (
+                          <section key="water" className="mb-6">
+                            <HomeWaterWidget selectedDate={selectedDate} />
+                          </section>
+                        );
+                      }
+                      if (subId.startsWith("habit:")) {
+                        const categoryKey = subId.replace("habit:", "");
+                        const sectionMeta = habitSections.find((s) => s.key === categoryKey);
+                        if (!sectionMeta) return null;
+                        return (
+                          <section key={subId} className="mb-6">
+                            <HomeHabitSectionWidget
+                              selectedDate={selectedDate}
+                              categoryKey={categoryKey}
+                              sectionLabel={(filter === "partner" || isSpecificMemberFilter) ? `${selectedMemberName}'s ${sectionMeta.label}` : sectionMeta.label}
+                              sectionIcon={sectionMeta.icon}
+                            />
+                          </section>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                );
+              }
+
               case "scheduled":
                 return (
                   <section key={sectionId} className="mb-6">
@@ -811,13 +832,11 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                     </div>
                     {(allDayItems.length > 0 || allTimedItems.length > 0) ? (
                       <div className="space-y-3">
-                        {/* All-day items first */}
                         {allDayItems.map((item) => {
                           if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
                           if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
                           return <GCalEventCard key={`gcal-${item.data.id}`} event={item.data} onToggle={isViewingPartner ? undefined : toggleGcalCompletion} onHide={isViewingPartner ? undefined : hideGcalEvent} onDesignate={isViewingPartner ? undefined : designateGcalEvent} onCongrats={() => setCongratsType("task")} />;
                         })}
-                        {/* Timed items sorted by time */}
                         {allTimedItems.map((item) => {
                           if (item.kind === "task") return <TaskCard key={item.data.id} task={item.data} onToggle={isViewingPartner ? undefined : toggleTask} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
                           if (item.kind === "event") return <EventCard key={item.data.id} event={item.data} onToggle={isViewingPartner ? undefined : toggleEventCompletion} onRemove={isViewingPartner ? undefined : removeEvent} onToggleVisibility={isViewingPartner ? undefined : toggleEventVisibility} onReschedule={isViewingPartner ? undefined : rescheduleEvent} onCongrats={() => setCongratsType("task")} readOnly={isViewingPartner} />;
@@ -842,13 +861,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                     selectedDate={selectedDate}
                     memberFilters={groupFilters}
                   />
-                );
-
-              case "water":
-                return (
-                  <section key={sectionId} className="mb-6">
-                    <HomeWaterWidget selectedDate={selectedDate} />
-                  </section>
                 );
 
               case "nutrition":
@@ -893,6 +905,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         visible={sectionVisible}
         selectedSobrietyIds={selectedSobrietyIds}
         selectedSpecialDayIds={selectedSpecialDayIds}
+        selectedHabitSubIds={selectedHabitSubIds}
         onSave={handleSaveSections}
       />
       <AddItemModal open={showAddModal} onClose={() => setShowAddModal(false)} />
