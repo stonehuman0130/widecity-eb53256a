@@ -611,6 +611,7 @@ function SobrietyCategoryCard({
   cat, idx, getStreakInfo, getHeatmapData, getMissedDays, isCheckedIn,
   today, expandedCard, setExpandedCard, openCheckinFor,
   handleResetStreak, handleDeleteCategory, readOnly, ownerLabel,
+  onUpdateMoneyPerDay, onAddPriorDays,
 }: {
   cat: SobrietyCategory;
   idx: number;
@@ -626,7 +627,14 @@ function SobrietyCategoryCard({
   handleDeleteCategory: (id: string) => void;
   readOnly?: boolean;
   ownerLabel?: string;
+  onUpdateMoneyPerDay?: (catId: string, value: number) => void;
+  onAddPriorDays?: (cat: SobrietyCategory, days: number) => void;
 }) {
+  const [editingMoney, setEditingMoney] = useState(false);
+  const [moneyValue, setMoneyValue] = useState(String(cat.money_per_day || ""));
+  const [showPriorDays, setShowPriorDays] = useState(false);
+  const [priorDaysCount, setPriorDaysCount] = useState("3");
+
   const info = getStreakInfo(cat);
   const isExpanded = expandedCard === cat.id;
   const checkedToday = isCheckedIn(cat.id, today);
