@@ -600,7 +600,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       )}
 
       {/* Quick actions: Goals + Date Ranges */}
-      <div className="px-5 pb-2">
+      <div className="pb-2">
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
           <button
             onClick={() => setShowGoalSettings(true)}
