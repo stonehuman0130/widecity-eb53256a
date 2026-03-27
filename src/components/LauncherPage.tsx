@@ -133,14 +133,16 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
 
   const triggerFileInput = (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    pendingGroupIdRef.current = groupId;
     setUploadingGroupId(groupId);
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && uploadingGroupId) {
-      handleCoverUpload(uploadingGroupId, file);
+    const groupId = pendingGroupIdRef.current;
+    if (file && groupId) {
+      handleCoverUpload(groupId, file);
     }
     e.target.value = "";
   };
