@@ -359,6 +359,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             exercises: w.exercises || [],
             hiddenFromPartner: w.hidden_from_partner || false,
             groupId: w.group_id || null,
+            distance: Number(w.distance) || 0,
+            distanceUnit: w.distance_unit || 'km',
           })));
         }
 
