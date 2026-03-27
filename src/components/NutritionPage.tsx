@@ -1722,15 +1722,30 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                     className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background placeholder:text-muted-foreground"
                   />
                 </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
                     <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Protein (g)</label>
                     <input type="number" value={editProtein} onChange={e => setEditProtein(e.target.value)}
                       className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Calories</label>
                     <input type="number" value={editCalories} onChange={e => setEditCalories(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Carbs (g)</label>
+                    <input type="number" value={editCarbs} onChange={e => setEditCarbs(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Fat (g)</label>
+                    <input type="number" value={editFat} onChange={e => setEditFat(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Fiber (g)</label>
+                    <input type="number" value={editFiber} onChange={e => setEditFiber(e.target.value)}
                       className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
                   </div>
                 </div>
