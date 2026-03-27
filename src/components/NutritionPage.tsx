@@ -353,30 +353,89 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
-  // Log manual meal as planned (consumed=false)
+  // Log manual meal as planned (consumed=false) — now respects shared-with group selection
   const logManualMeal = async (mealType: string, targetDate?: string) => {
     if (!user || !manualTitle.trim()) return;
     const mealDate = targetDate || dateStr;
-    const { data, error } = await supabase.from("meal_logs").insert({
-      user_id: user.id,
-      group_id: groupId,
-      meal_date: mealDate,
-      meal_type: mealType,
-      title: manualTitle.trim(),
-      protein: parseInt(manualProtein) || 0,
-      calories: parseInt(manualCalories) || 0,
-      is_ai_generated: false,
-      consumed: false,
-    }).select().single();
 
-    if (!error && data) {
-      setMeals(prev => [...prev, data as MealLog]);
+    // Determine which group(s) to save to
+    const selectedGroupIds = addMealPrivate ? [null] : (addMealGroupIds.length > 0 ? addMealGroupIds : [groupId]);
+
+    let addedAny = false;
+    for (const gid of selectedGroupIds) {
+      const { data, error } = await supabase.from("meal_logs").insert({
+        user_id: user.id,
+        group_id: gid || null,
+        meal_date: mealDate,
+        meal_type: mealType,
+        title: manualTitle.trim(),
+        protein: parseInt(manualProtein) || 0,
+        calories: parseInt(manualCalories) || 0,
+        is_ai_generated: false,
+        consumed: false,
+      }).select().single();
+
+      if (!error && data) {
+        setMeals(prev => [...prev, data as MealLog]);
+        addedAny = true;
+      }
+    }
+
+    if (addedAny) {
       setShowAddMeal(null);
       setManualTitle("");
       setManualProtein("");
       setManualCalories("");
       setManualFoodText("");
+      setAddMealGroupIds([]);
+      setAddMealPrivate(false);
       toast.success("Meal added to plan!");
+    }
+  };
+
+  // Load frequent meals
+  useEffect(() => {
+    if (!user) return;
+    const loadFrequent = async () => {
+      const { data } = await supabase
+        .from("meal_logs")
+        .select("title, protein, calories, meal_type")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (!data) return;
+      const counts: Record<string, { title: string; protein: number; calories: number; meal_type: string; count: number }> = {};
+      for (const m of data) {
+        const key = m.title.toLowerCase().trim();
+        if (counts[key]) {
+          counts[key].count++;
+        } else {
+          counts[key] = { title: m.title, protein: m.protein, calories: m.calories || 0, meal_type: m.meal_type, count: 1 };
+        }
+      }
+      const sorted = Object.values(counts).filter(c => c.count >= 2).sort((a, b) => b.count - a.count).slice(0, 12);
+      setFrequentMeals(sorted);
+    };
+    loadFrequent();
+  }, [user, meals.length]); // re-fetch when meals change
+
+  // Quick add from suggestion/frequent
+  const quickAddMeal = async (item: { title: string; protein: number; calories: number; meal_type: string }) => {
+    if (!user) return;
+    const { data, error } = await supabase.from("meal_logs").insert({
+      user_id: user.id,
+      group_id: groupId,
+      meal_date: dateStr,
+      meal_type: item.meal_type || "snack",
+      title: item.title,
+      protein: item.protein || 0,
+      calories: item.calories || 0,
+      is_ai_generated: false,
+      consumed: false,
+    }).select().single();
+    if (!error && data) {
+      setMeals(prev => [...prev, data as MealLog]);
+      toast.success(`${item.title} added!`);
     }
   };
 
