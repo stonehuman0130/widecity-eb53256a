@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useAppContext } from "@/context/AppContext";
 import { useModalScrollLock } from "@/hooks/useModalScrollLock";
-import type { HabitSectionMeta } from "@/lib/habitSections";
 
 export interface HomeSection {
   id: string;
@@ -14,29 +13,24 @@ export interface HomeSection {
   locked?: boolean;
 }
 
-// Core fixed sections (non-habit)
 export const FIXED_SECTIONS: HomeSection[] = [
   { id: "scheduled", label: "Scheduled", icon: "🕐", locked: true },
   { id: "todo", label: "To Do List", icon: "✅", locked: true },
-  { id: "water", label: "Water Intake", icon: "💧" },
+  { id: "habits", label: "Habits", icon: "🔥" },
   { id: "nutrition", label: "Nutrition", icon: "🍎" },
   { id: "workout", label: "Today's Workout", icon: "💪" },
   { id: "sobriety", label: "Sobriety Tracker", icon: "🏆" },
   { id: "special-days", label: "Special Days", icon: "❤️" },
+  { id: "shopping", label: "Shopping List", icon: "🛒" },
 ];
 
-// Build dynamic ALL_SECTIONS based on user's habit sections
-export function buildAllSections(habitSections: HabitSectionMeta[]): HomeSection[] {
-  const habitHomeSections: HomeSection[] = habitSections.map((s) => ({
-    id: `habit:${s.key}`,
-    label: s.label,
-    icon: s.icon,
-  }));
-  return [...habitHomeSections, ...FIXED_SECTIONS];
+// Keep for backward compat — no longer adds dynamic habit sections at top level
+export function buildAllSections(): HomeSection[] {
+  return [...FIXED_SECTIONS];
 }
 
-export const DEFAULT_ORDER = ["habit:morning", "scheduled", "todo"];
-export const DEFAULT_VISIBLE = new Set(["habit:morning", "scheduled", "todo"]);
+export const DEFAULT_ORDER = ["habits", "scheduled", "todo"];
+export const DEFAULT_VISIBLE = new Set(["habits", "scheduled", "todo"]);
 
 function getStorageKey(groupId: string | null) {
   return `homeSections_${groupId || "personal"}`;
@@ -47,6 +41,7 @@ export interface SectionPrefs {
   visible: Set<string>;
   selectedSobrietyIds: string[];
   selectedSpecialDayIds: string[];
+  selectedHabitSubIds: string[];
 }
 
 export function loadSectionPrefs(groupId: string | null): SectionPrefs {
@@ -54,14 +49,22 @@ export function loadSectionPrefs(groupId: string | null): SectionPrefs {
     const raw = localStorage.getItem(getStorageKey(groupId));
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Migrate old IDs
       const migrateId = (id: string) => {
-        if (id === "morning-habits") return "habit:morning";
-        if (id === "other-habits") return "habit:other";
+        if (id === "morning-habits") return "habits";
+        if (id === "other-habits") return "habits";
         if (id === "justdoit") return "todo";
+        if (id === "water") return "habits";
+        if (id.startsWith("habit:")) return "habits";
         return id;
       };
-      const order = (parsed.order || DEFAULT_ORDER).map(migrateId);
+      let order = (parsed.order || DEFAULT_ORDER).map(migrateId);
+      // Deduplicate after migration
+      const seen = new Set<string>();
+      order = order.filter((id: string) => {
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
       const vis = new Set<string>((parsed.visible || DEFAULT_ORDER).map(migrateId));
       vis.add("scheduled");
       vis.add("todo");
@@ -70,10 +73,17 @@ export function loadSectionPrefs(groupId: string | null): SectionPrefs {
         visible: vis,
         selectedSobrietyIds: parsed.selectedSobrietyIds || [],
         selectedSpecialDayIds: parsed.selectedSpecialDayIds || [],
+        selectedHabitSubIds: parsed.selectedHabitSubIds || [],
       };
     }
   } catch {}
-  return { order: [...DEFAULT_ORDER], visible: new Set(DEFAULT_VISIBLE), selectedSobrietyIds: [], selectedSpecialDayIds: [] };
+  return {
+    order: [...DEFAULT_ORDER],
+    visible: new Set(DEFAULT_VISIBLE),
+    selectedSobrietyIds: [],
+    selectedSpecialDayIds: [],
+    selectedHabitSubIds: [],
+  };
 }
 
 export function saveSectionPrefs(
@@ -81,11 +91,12 @@ export function saveSectionPrefs(
   order: string[],
   visible: Set<string>,
   selectedSobrietyIds?: string[],
-  selectedSpecialDayIds?: string[]
+  selectedSpecialDayIds?: string[],
+  selectedHabitSubIds?: string[]
 ) {
   const vis = new Set(visible);
   vis.add("scheduled");
-  vis.add("justdoit");
+  vis.add("todo");
   const existing = loadSectionPrefs(groupId);
   localStorage.setItem(
     getStorageKey(groupId),
@@ -94,21 +105,13 @@ export function saveSectionPrefs(
       visible: Array.from(vis),
       selectedSobrietyIds: selectedSobrietyIds ?? existing.selectedSobrietyIds,
       selectedSpecialDayIds: selectedSpecialDayIds ?? existing.selectedSpecialDayIds,
+      selectedHabitSubIds: selectedHabitSubIds ?? existing.selectedHabitSubIds,
     })
   );
 }
 
-interface SobrietyOption {
-  id: string;
-  label: string;
-  icon: string;
-}
-
-interface SpecialDayOption {
-  id: string;
-  title: string;
-  icon: string;
-}
+interface SobrietyOption { id: string; label: string; icon: string; }
+interface SpecialDayOption { id: string; title: string; icon: string; }
 
 interface SortableSectionRowProps {
   id: string;
@@ -118,7 +121,6 @@ interface SortableSectionRowProps {
 
 const SortableSectionRow = ({ id, isVisible, children }: SortableSectionRowProps) => {
   const controls = useDragControls();
-
   return (
     <Reorder.Item
       value={id}
@@ -141,38 +143,66 @@ interface Props {
   visible: Set<string>;
   selectedSobrietyIds: string[];
   selectedSpecialDayIds: string[];
+  selectedHabitSubIds: string[];
   onSave: (
     order: string[],
     visible: Set<string>,
     selectedSobrietyIds: string[],
-    selectedSpecialDayIds: string[]
+    selectedSpecialDayIds: string[],
+    selectedHabitSubIds: string[]
   ) => void;
 }
 
 const HomeSectionCustomizer = ({
-  open,
-  onClose,
-  order,
-  visible,
-  selectedSobrietyIds,
-  selectedSpecialDayIds,
+  open, onClose, order, visible,
+  selectedSobrietyIds, selectedSpecialDayIds, selectedHabitSubIds,
   onSave,
 }: Props) => {
   const { user, activeGroup } = useAuth();
-  const { filteredHabits } = useAppContext();
+  const { filteredHabits, waterGoal } = useAppContext();
   useModalScrollLock(open);
+
   const [localOrder, setLocalOrder] = useState<string[]>([...order]);
   const [localVisible, setLocalVisible] = useState<Set<string>>(new Set(visible));
   const [localSobrietyIds, setLocalSobrietyIds] = useState<string[]>([...selectedSobrietyIds]);
   const [localSpecialDayIds, setLocalSpecialDayIds] = useState<string[]>([...selectedSpecialDayIds]);
+  const [localHabitSubIds, setLocalHabitSubIds] = useState<string[]>([...selectedHabitSubIds]);
   const [sobrietyOptions, setSobrietyOptions] = useState<SobrietyOption[]>([]);
   const [specialDayOptions, setSpecialDayOptions] = useState<SpecialDayOption[]>([]);
   const [sobrietyExpanded, setSobrietyExpanded] = useState(false);
   const [specialDaysExpanded, setSpecialDaysExpanded] = useState(false);
+  const [habitsExpanded, setHabitsExpanded] = useState(false);
 
-  // Build ALL_SECTIONS dynamically from user's habit sections (from context)
-  const { habitSections } = useAppContext();
-  const ALL_SECTIONS = buildAllSections(habitSections);
+  const ALL_SECTIONS = FIXED_SECTIONS;
+
+  // Build available habit sub-items based on actual user data
+  const waterEnabled = (() => {
+    const saved = localStorage.getItem("habits_show_water");
+    return saved !== null ? saved === "true" : true;
+  })();
+
+  const habitSubItems = (() => {
+    const items: { id: string; label: string; icon: string }[] = [];
+    if (waterEnabled) {
+      items.push({ id: "water", label: "Water Intake", icon: "💧" });
+    }
+    const categories = [
+      { key: "morning", label: "Morning", icon: "🌅" },
+      { key: "afternoon", label: "Afternoon", icon: "☀️" },
+      { key: "evening", label: "Evening", icon: "🌙" },
+      { key: "other", label: "Other", icon: "📋" },
+    ];
+    for (const cat of categories) {
+      const hasHabits = filteredHabits.some((h) => {
+        const hCat = (h.category || "other").toLowerCase();
+        return hCat === cat.key;
+      });
+      if (hasHabits) {
+        items.push({ id: `habit:${cat.key}`, label: cat.label, icon: cat.icon });
+      }
+    }
+    return items;
+  })();
 
   useEffect(() => {
     if (open) {
@@ -180,21 +210,15 @@ const HomeSectionCustomizer = ({
       setLocalVisible(new Set(visible));
       setLocalSobrietyIds([...selectedSobrietyIds]);
       setLocalSpecialDayIds([...selectedSpecialDayIds]);
+      setLocalHabitSubIds([...selectedHabitSubIds]);
     }
   }, [open]);
 
-  // Load sobriety categories + special days
   useEffect(() => {
     if (!open || !user) return;
-
     const load = async () => {
       let sobrietyQuery = supabase.from("sobriety_categories").select("id, label, icon").eq("user_id", user.id);
-      let specialDaysQuery = supabase
-        .from("special_days")
-        .select("id, title, icon")
-        .eq("user_id", user.id)
-        .order("event_date", { ascending: true });
-
+      let specialDaysQuery = supabase.from("special_days").select("id, title, icon").eq("user_id", user.id).order("event_date", { ascending: true });
       if (activeGroup) {
         sobrietyQuery = sobrietyQuery.eq("group_id", activeGroup.id);
         specialDaysQuery = specialDaysQuery.eq("group_id", activeGroup.id);
@@ -202,16 +226,10 @@ const HomeSectionCustomizer = ({
         sobrietyQuery = sobrietyQuery.is("group_id", null);
         specialDaysQuery = specialDaysQuery.is("group_id", null);
       }
-
-      const [{ data: sobrietyData }, { data: specialDaysData }] = await Promise.all([
-        sobrietyQuery,
-        specialDaysQuery,
-      ]);
-
+      const [{ data: sobrietyData }, { data: specialDaysData }] = await Promise.all([sobrietyQuery, specialDaysQuery]);
       if (sobrietyData) setSobrietyOptions(sobrietyData as SobrietyOption[]);
       if (specialDaysData) setSpecialDayOptions(specialDaysData as SpecialDayOption[]);
     };
-
     load();
   }, [open, user, activeGroup?.id]);
 
@@ -224,6 +242,13 @@ const HomeSectionCustomizer = ({
     return result;
   })();
 
+  const save = (
+    ord: string[], vis: Set<string>,
+    sobIds: string[], spIds: string[], habIds: string[]
+  ) => {
+    onSave(ord, vis, sobIds, spIds, habIds);
+  };
+
   const toggleVisible = (id: string) => {
     const section = ALL_SECTIONS.find((s) => s.id === id);
     if (section?.locked) return;
@@ -234,20 +259,37 @@ const HomeSectionCustomizer = ({
 
     let sobrietyIds = localSobrietyIds;
     let specialDayIds = localSpecialDayIds;
+    let habitIds = localHabitSubIds;
 
-    // If enabling sobriety and no trackers selected, select all
     if (id === "sobriety" && next.has("sobriety") && localSobrietyIds.length === 0 && sobrietyOptions.length > 0) {
       sobrietyIds = sobrietyOptions.map((o) => o.id);
       setLocalSobrietyIds(sobrietyIds);
     }
-
-    // If enabling special days and no days selected, select all
     if (id === "special-days" && next.has("special-days") && localSpecialDayIds.length === 0 && specialDayOptions.length > 0) {
       specialDayIds = specialDayOptions.map((o) => o.id);
       setLocalSpecialDayIds(specialDayIds);
     }
+    // If enabling habits and no sub-items selected, select all available
+    if (id === "habits" && next.has("habits") && localHabitSubIds.length === 0 && habitSubItems.length > 0) {
+      habitIds = habitSubItems.map((o) => o.id);
+      setLocalHabitSubIds(habitIds);
+    }
 
-    onSave(fullOrder, next, sobrietyIds, specialDayIds);
+    save(fullOrder, next, sobrietyIds, specialDayIds, habitIds);
+  };
+
+  const toggleHabitSub = (subId: string) => {
+    let next: string[];
+    if (localHabitSubIds.includes(subId)) {
+      next = localHabitSubIds.filter((id) => id !== subId);
+    } else {
+      next = [...localHabitSubIds, subId];
+    }
+    setLocalHabitSubIds(next);
+    const vis = new Set(localVisible);
+    if (next.length > 0) vis.add("habits");
+    setLocalVisible(vis);
+    save(fullOrder, vis, localSobrietyIds, localSpecialDayIds, next);
   };
 
   const toggleSobrietyTracker = (trackerId: string) => {
@@ -258,11 +300,10 @@ const HomeSectionCustomizer = ({
       next = [...localSobrietyIds, trackerId];
     }
     setLocalSobrietyIds(next);
-    // Auto-enable sobriety section if selecting a tracker
     const vis = new Set(localVisible);
     if (next.length > 0) vis.add("sobriety");
     setLocalVisible(vis);
-    onSave(fullOrder, vis, next, localSpecialDayIds);
+    save(fullOrder, vis, next, localSpecialDayIds, localHabitSubIds);
   };
 
   const toggleSpecialDay = (dayId: string) => {
@@ -272,14 +313,11 @@ const HomeSectionCustomizer = ({
     } else {
       next = [...localSpecialDayIds, dayId];
     }
-
     setLocalSpecialDayIds(next);
-
-    // Auto-enable special days section if selecting any day
     const vis = new Set(localVisible);
     if (next.length > 0) vis.add("special-days");
     setLocalVisible(vis);
-    onSave(fullOrder, vis, localSobrietyIds, next);
+    save(fullOrder, vis, localSobrietyIds, next, localHabitSubIds);
   };
 
   const handleReorder = (newOrder: string[]) => {
@@ -292,10 +330,39 @@ const HomeSectionCustomizer = ({
       });
       return result;
     })();
-    onSave(computedFull, localVisible, localSobrietyIds, localSpecialDayIds);
+    save(computedFull, localVisible, localSobrietyIds, localSpecialDayIds, localHabitSubIds);
   };
 
   if (!open) return null;
+
+  const renderSubItems = (
+    items: { id: string; label: string; icon: string }[],
+    selectedIds: string[],
+    onToggle: (id: string) => void,
+    labelKey: "label" | "title" = "label"
+  ) => (
+    <div className="px-3 pb-3 space-y-1.5 ml-11">
+      {items.map((opt) => {
+        const selected = selectedIds.includes(opt.id);
+        const displayLabel = labelKey === "title" ? (opt as any).title : opt.label;
+        return (
+          <button
+            key={opt.id}
+            onClick={() => onToggle(opt.id)}
+            className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors ${
+              selected
+                ? "bg-primary/10 border border-primary/20"
+                : "bg-secondary/50 border border-transparent"
+            }`}
+          >
+            <span className="text-sm">{opt.icon}</span>
+            <span className="flex-1 text-xs font-medium truncate">{displayLabel}</span>
+            {selected ? <Eye size={13} className="text-primary" /> : <EyeOff size={13} className="text-muted-foreground" />}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <AnimatePresence>
@@ -316,18 +383,18 @@ const HomeSectionCustomizer = ({
         >
           <div className="sticky top-0 z-10 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 border-b border-border px-5 pt-5 pb-3">
             <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold tracking-display">Customize Home</h3>
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground">
-              <X size={16} />
-            </button>
-          </div>
-          <p className="px-5 text-xs text-muted-foreground mb-4">
-            Toggle sections on/off and drag with the grip handle to reorder. Changes apply instantly.
-          </p>
+              <h3 className="text-lg font-bold tracking-display">Customize Home</h3>
+              <button onClick={onClose} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground">
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Toggle sections on/off and drag to reorder.
+            </p>
           </div>
 
           <div
-            className="flex-1 min-h-0 overflow-y-scroll px-5 pb-[max(env(safe-area-inset-bottom),1rem)] overscroll-y-contain"
+            className="flex-1 min-h-0 overflow-y-scroll px-5 pb-[max(env(safe-area-inset-bottom),1rem)] overscroll-y-contain pt-2"
             style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain" }}
           >
             <Reorder.Group
@@ -342,15 +409,28 @@ const HomeSectionCustomizer = ({
                 if (!section) return null;
                 const isVisible = localVisible.has(id);
                 const isLocked = section.locked;
+                const isHabits = id === "habits";
                 const isSobriety = id === "sobriety";
                 const isSpecialDays = id === "special-days";
 
+                const hasExpandable =
+                  (isHabits && habitSubItems.length > 0) ||
+                  (isSobriety && sobrietyOptions.length > 0) ||
+                  (isSpecialDays && specialDayOptions.length > 0);
+
+                const isExpanded =
+                  (isHabits && habitsExpanded) ||
+                  (isSobriety && sobrietyExpanded) ||
+                  (isSpecialDays && specialDaysExpanded);
+
+                const toggleExpand = () => {
+                  if (isHabits) setHabitsExpanded(!habitsExpanded);
+                  if (isSobriety) setSobrietyExpanded(!sobrietyExpanded);
+                  if (isSpecialDays) setSpecialDaysExpanded(!specialDaysExpanded);
+                };
+
                 return (
-                  <SortableSectionRow
-                    key={id}
-                    id={id}
-                    isVisible={isVisible}
-                  >
+                  <SortableSectionRow key={id} id={id} isVisible={isVisible}>
                     {(startDrag) => (
                       <>
                         <div className="flex items-center gap-2.5 px-3 py-3">
@@ -363,22 +443,12 @@ const HomeSectionCustomizer = ({
                           </button>
                           <span className="text-base">{section.icon}</span>
                           <span className="flex-1 text-sm font-semibold">{section.label}</span>
-                          {(isSobriety && isVisible && sobrietyOptions.length > 0) && (
+                          {hasExpandable && isVisible && (
                             <button
-                              onClick={() => setSobrietyExpanded(!sobrietyExpanded)}
+                              onClick={toggleExpand}
                               className="w-7 h-7 flex items-center justify-center text-muted-foreground"
-                              aria-label="Expand sobriety tracker selection"
                             >
-                              {sobrietyExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </button>
-                          )}
-                          {(isSpecialDays && isVisible && specialDayOptions.length > 0) && (
-                            <button
-                              onClick={() => setSpecialDaysExpanded(!specialDaysExpanded)}
-                              className="w-7 h-7 flex items-center justify-center text-muted-foreground"
-                              aria-label="Expand special days selection"
-                            >
-                              {specialDaysExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             </button>
                           )}
                           {isLocked ? (
@@ -395,32 +465,11 @@ const HomeSectionCustomizer = ({
                           )}
                         </div>
 
-                        {isSobriety && isVisible && sobrietyExpanded && sobrietyOptions.length > 0 && (
-                          <div className="px-3 pb-3 space-y-1.5 ml-11">
-                            {sobrietyOptions.map((opt) => {
-                              const selected = localSobrietyIds.includes(opt.id);
-                              return (
-                                <button
-                                  key={opt.id}
-                                  onClick={() => toggleSobrietyTracker(opt.id)}
-                                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors ${
-                                    selected
-                                      ? "bg-primary/10 border border-primary/20"
-                                      : "bg-secondary/50 border border-transparent"
-                                  }`}
-                                >
-                                  <span className="text-sm">{opt.icon}</span>
-                                  <span className="flex-1 text-xs font-medium">{opt.label}</span>
-                                  {selected ? (
-                                    <Eye size={13} className="text-primary" />
-                                  ) : (
-                                    <EyeOff size={13} className="text-muted-foreground" />
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                        {isHabits && isVisible && habitsExpanded && habitSubItems.length > 0 &&
+                          renderSubItems(habitSubItems, localHabitSubIds, toggleHabitSub)}
+
+                        {isSobriety && isVisible && sobrietyExpanded && sobrietyOptions.length > 0 &&
+                          renderSubItems(sobrietyOptions, localSobrietyIds, toggleSobrietyTracker)}
 
                         {isSpecialDays && isVisible && specialDaysExpanded && specialDayOptions.length > 0 && (
                           <div className="px-3 pb-3 space-y-1.5 ml-11">
@@ -438,11 +487,7 @@ const HomeSectionCustomizer = ({
                                 >
                                   <span className="text-sm">{opt.icon}</span>
                                   <span className="flex-1 text-xs font-medium truncate">{opt.title}</span>
-                                  {selected ? (
-                                    <Eye size={13} className="text-primary" />
-                                  ) : (
-                                    <EyeOff size={13} className="text-muted-foreground" />
-                                  )}
+                                  {selected ? <Eye size={13} className="text-primary" /> : <EyeOff size={13} className="text-muted-foreground" />}
                                 </button>
                               );
                             })}
