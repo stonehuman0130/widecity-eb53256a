@@ -27,6 +27,7 @@ export interface Group {
   emoji: string;
   invite_code: string;
   created_by: string;
+  cover_image_url?: string | null;
   members: GroupMember[];
 }
 
