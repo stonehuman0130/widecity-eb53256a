@@ -922,6 +922,13 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                   </section>
                 );
 
+              case "shopping":
+                return (
+                  <section key={sectionId} className="mb-6">
+                    <HomeShoppingWidget />
+                  </section>
+                );
+
               default:
                 return null;
             }
