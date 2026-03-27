@@ -475,28 +475,8 @@ const HomeSectionCustomizer = ({
                         {isSobriety && isVisible && sobrietyExpanded && sobrietyOptions.length > 0 &&
                           renderSubItems(sobrietyOptions, localSobrietyIds, toggleSobrietyTracker, reorderSobrietySubs)}
 
-                        {isSpecialDays && isVisible && specialDaysExpanded && specialDayOptions.length > 0 && (
-                          <div className="px-3 pb-3 space-y-1.5 ml-11">
-                            {specialDayOptions.map((opt) => {
-                              const selected = localSpecialDayIds.includes(opt.id);
-                              return (
-                                <button
-                                  key={opt.id}
-                                  onClick={() => toggleSpecialDay(opt.id)}
-                                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors ${
-                                    selected
-                                      ? "bg-primary/10 border border-primary/20"
-                                      : "bg-secondary/50 border border-transparent"
-                                  }`}
-                                >
-                                  <span className="text-sm">{opt.icon}</span>
-                                  <span className="flex-1 text-xs font-medium truncate">{opt.title}</span>
-                                  {selected ? <Eye size={13} className="text-primary" /> : <EyeOff size={13} className="text-muted-foreground" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                        {isSpecialDays && isVisible && specialDaysExpanded && specialDayOptions.length > 0 &&
+                          renderSubItems(specialDayOptions, localSpecialDayIds, toggleSpecialDay, reorderSpecialDaySubs, "title")}
                       </>
                     )}
                   </SortableSectionRow>
