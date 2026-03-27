@@ -442,6 +442,21 @@ const HomeSectionCustomizer = ({
     save(computedFull, localVisible, localSobrietyIds, localSpecialDayIds, localHabitSubIds);
   };
 
+  const reorderHabitSubs = (newOrder: string[]) => {
+    setLocalHabitSubIds(newOrder);
+    save(fullOrder, localVisible, localSobrietyIds, localSpecialDayIds, newOrder);
+  };
+
+  const reorderSobrietySubs = (newOrder: string[]) => {
+    setLocalSobrietyIds(newOrder);
+    save(fullOrder, localVisible, newOrder, localSpecialDayIds, localHabitSubIds);
+  };
+
+  const reorderSpecialDaySubs = (newOrder: string[]) => {
+    setLocalSpecialDayIds(newOrder);
+    save(fullOrder, localVisible, localSobrietyIds, newOrder, localHabitSubIds);
+  };
+
   if (!open) return null;
 
   const renderSubItems = (
