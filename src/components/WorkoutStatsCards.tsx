@@ -137,7 +137,7 @@ const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName }: Props) =
 
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "workouts", value: String(completedCount), sublabel: isViewingPartner ? partnerName || "Partner" : "Done", icon: "📈" },
+          { label: "workouts", value: String(completedCount), sublabel: isViewingPartner ? partnerName || "Partner" : `Done (${RANGE_LABELS[range]})`, icon: "📈" },
           { label: "calories", value: String(totalCal), sublabel: RANGE_LABELS[range], icon: "🔥" },
           { label: "calories", value: String(todayCal), sublabel: "Today", icon: "✅" },
         ].map((stat) => (
