@@ -16,7 +16,7 @@ const CATEGORY_FILTERS = [
 ];
 
 const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
-  const { user, activeGroup } = useAuth();
+  const { user, activeGroup, groups } = useAuth();
   const [days, setDays] = useState<SpecialDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
