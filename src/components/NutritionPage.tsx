@@ -243,6 +243,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     prep_steps?: string[];
     protein: number;
     calories: number;
+    carbs?: number;
+    fat?: number;
+    fiber?: number;
     is_ai_generated: boolean;
     ai_tags?: string[];
     consumed: boolean;
