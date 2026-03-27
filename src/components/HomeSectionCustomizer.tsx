@@ -113,6 +113,110 @@ export function saveSectionPrefs(
 interface SobrietyOption { id: string; label: string; icon: string; }
 interface SpecialDayOption { id: string; title: string; icon: string; }
 
+/* ── Draggable sub-items component ── */
+interface DraggableSubItemsProps {
+  items: { id: string; label?: string; title?: string; icon: string }[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  onReorder: (newOrder: string[]) => void;
+  labelKey: "label" | "title";
+}
+
+const DraggableSubItems = ({ items, selectedIds, onToggle, onReorder, labelKey }: DraggableSubItemsProps) => {
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const dragIdx = useRef<number | null>(null);
+  const [dragging, setDragging] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearLp = () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } };
+
+  const handlePointerDown = (idx: number) => {
+    clearLp();
+    longPressTimer.current = setTimeout(() => {
+      dragIdx.current = idx;
+      setDragging(idx);
+      if (navigator.vibrate) navigator.vibrate(20);
+    }, 400);
+  };
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (dragIdx.current === null) return;
+    const y = e.clientY;
+    for (let i = 0; i < rowRefs.current.length; i++) {
+      const el = rowRefs.current[i];
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (y >= rect.top && y <= rect.bottom) {
+        setOverIdx(i);
+        return;
+      }
+    }
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    clearLp();
+    if (dragIdx.current !== null && overIdx !== null && dragIdx.current !== overIdx) {
+      const arr = items.map((i) => i.id);
+      const [moved] = arr.splice(dragIdx.current, 1);
+      arr.splice(overIdx, 0, moved);
+      // Only reorder selected items in order, keep unselected at end
+      const selectedSet = new Set(selectedIds);
+      const reorderedSelected = arr.filter((id) => selectedSet.has(id));
+      onReorder(reorderedSelected);
+    }
+    dragIdx.current = null;
+    setDragging(null);
+    setOverIdx(null);
+  }, [items, overIdx, selectedIds, onReorder]);
+
+  return (
+    <div
+      className="px-3 pb-3 space-y-1.5 ml-11"
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+    >
+      {items.map((opt, idx) => {
+        const selected = selectedIds.includes(opt.id);
+        const displayLabel = labelKey === "title" ? (opt as any).title : opt.label;
+        const isDragging = dragging === idx;
+        const isOver = overIdx === idx && dragging !== null && dragging !== idx;
+        return (
+          <div
+            key={opt.id}
+            ref={(el) => { rowRefs.current[idx] = el; }}
+            className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all ${
+              selected
+                ? "bg-primary/10 border border-primary/20"
+                : "bg-secondary/50 border border-transparent"
+            } ${isDragging ? "opacity-50 scale-95" : ""} ${isOver ? "ring-2 ring-primary/30" : ""}`}
+          >
+            {selected && (
+              <button
+                onPointerDown={(e) => { e.preventDefault(); handlePointerDown(idx); }}
+                onPointerUp={handlePointerUp}
+                className="w-5 h-5 flex items-center justify-center text-muted-foreground touch-none cursor-grab active:cursor-grabbing"
+                aria-label={`Reorder ${displayLabel}`}
+              >
+                <GripVertical size={12} />
+              </button>
+            )}
+            <button
+              onClick={() => { if (dragging === null) onToggle(opt.id); }}
+              className="flex-1 flex items-center gap-2 min-w-0"
+            >
+              <span className="text-sm">{opt.icon}</span>
+              <span className="flex-1 text-xs font-medium truncate">{displayLabel}</span>
+              {selected ? <Eye size={13} className="text-primary" /> : <EyeOff size={13} className="text-muted-foreground" />}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 interface SortableSectionRowProps {
   id: string;
   isVisible: boolean;
