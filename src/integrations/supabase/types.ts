@@ -1004,6 +1004,7 @@ export type Database = {
       special_days: {
         Row: {
           category: string
+          context_group_id: string | null
           count_direction: string
           created_at: string
           display_mode: string
@@ -1018,12 +1019,14 @@ export type Database = {
           photo_url: string | null
           reminder_minutes: number | null
           repeats_yearly: boolean
+          shared_group_ids: string[]
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
           category?: string
+          context_group_id?: string | null
           count_direction?: string
           created_at?: string
           display_mode?: string
@@ -1038,12 +1041,14 @@ export type Database = {
           photo_url?: string | null
           reminder_minutes?: number | null
           repeats_yearly?: boolean
+          shared_group_ids?: string[]
           title: string
           updated_at?: string
           user_id: string
         }
         Update: {
           category?: string
+          context_group_id?: string | null
           count_direction?: string
           created_at?: string
           display_mode?: string
@@ -1058,6 +1063,7 @@ export type Database = {
           photo_url?: string | null
           reminder_minutes?: number | null
           repeats_yearly?: boolean
+          shared_group_ids?: string[]
           title?: string
           updated_at?: string
           user_id?: string
