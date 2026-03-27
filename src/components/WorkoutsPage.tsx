@@ -263,6 +263,14 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     }
   }, [workouts]);
 
+  const handleCaloriesSaved = useCallback((workoutId: string, cal: number) => {
+    updateWorkout(workoutId, { cal });
+    setWorkoutProgress(prev => ({
+      ...prev,
+      [workoutId]: { ...prev[workoutId], cal },
+    }));
+  }, [updateWorkout]);
+
   return (
     <div className="px-5 pb-24">
       {showCongrats && (
