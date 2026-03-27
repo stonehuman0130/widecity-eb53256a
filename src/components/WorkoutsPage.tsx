@@ -254,6 +254,10 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       ...prev,
       [workoutId]: { progress, cal },
     }));
+
+    // Single source of truth: always write recalculated calories to workout
+    updateWorkout(workoutId, { cal });
+
     // Auto-complete if 100% and not already done
     if (progress >= 100) {
       const w = workouts.find(w => w.id === workoutId);
@@ -261,7 +265,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         handleToggleWorkout(workoutId);
       }
     }
-  }, [workouts]);
+  }, [workouts, updateWorkout]);
 
   const handleCaloriesSaved = useCallback((workoutId: string, cal: number) => {
     updateWorkout(workoutId, { cal });
