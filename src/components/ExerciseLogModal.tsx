@@ -208,6 +208,9 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
       }));
       const { error } = await supabase.from("exercise_logs").insert(rows);
       if (error) throw error;
+      // Sync final calorie value back to the workout card
+      const finalCal = calOverride ?? estimateCalories(logs, workoutDuration, workoutTag);
+      if (onCaloriesSaved) onCaloriesSaved(finalCal);
       toast.success("Workout log saved!");
       onClose();
     } catch (e) {
