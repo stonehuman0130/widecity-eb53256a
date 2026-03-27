@@ -1050,19 +1050,7 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
         </div>
       </motion.div>
 
-      {/* ── Calendar Picker Sheet ── */}
-      <AnimatePresence>
-        <CalendarPickerSheet
-          open={showCalendarPicker}
-          onClose={() => setShowCalendarPicker(false)}
-          selectedCalendarId={selectedCalendarId}
-          onSelect={(id, color, name) => {
-            setSelectedCalendarId(id);
-            setCalendarColor(color);
-            setSelectedCalendarName(name);
-          }}
-        />
-      </AnimatePresence>
+
 
       {/* ── Timezone Picker Sheet ── */}
       <AnimatePresence>
