@@ -95,7 +95,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   // Exercise logging
   const [loggingWorkout, setLoggingWorkout] = useState<Workout | null>(null);
 
-  const isViewingPartner = viewFilter !== "mine";
+  const isViewingPartner = viewFilter !== "mine" && viewFilter !== "together";
+  const isTogetherView = viewFilter === "together";
   const today = todayStr();
 
   const dateRange = useMemo(() => {
