@@ -241,12 +241,15 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
       setNotificationMinutes(-1);
       setVisibility("group");
       setCalendarColor(CALENDAR_COLORS[0].value);
+      setSelectedCalendarId(null);
+      setSelectedCalendarName("Personal");
       setAssignee("me");
       setTodoDueDate(dd);
       setTodoPriorNotice(0);
       setTodoTag("Personal");
+      loadDefaultCalendar();
     }
-  }, [open, editItem, defaultDate]);
+  }, [open, editItem, defaultDate, loadDefaultCalendar]);
 
   const handleClose = () => {
     onClose();
