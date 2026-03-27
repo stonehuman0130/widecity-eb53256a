@@ -57,8 +57,10 @@ export const fmtDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 export function daysBetween(a: Date, b: Date) {
-  const msPerDay = 86400000;
-  return Math.floor((b.getTime() - a.getTime()) / msPerDay);
+  // Use UTC-normalised dates to avoid DST/timezone shifts
+  const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((utcB - utcA) / 86400000);
 }
 
 export function getNextOccurrence(dateStr: string, now: Date) {
