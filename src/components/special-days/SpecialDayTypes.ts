@@ -57,12 +57,20 @@ export const fmtDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 export function daysBetween(a: Date, b: Date) {
-  const msPerDay = 86400000;
-  return Math.floor((b.getTime() - a.getTime()) / msPerDay);
+  // Use UTC-normalised dates to avoid DST/timezone shifts
+  const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((utcB - utcA) / 86400000);
+}
+
+/** Parse a YYYY-MM-DD string into a local-midnight Date without UTC shift */
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
 export function getNextOccurrence(dateStr: string, now: Date) {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = parseLocalDate(dateStr);
   const thisYear = new Date(now.getFullYear(), d.getMonth(), d.getDate());
   if (thisYear >= now) return daysBetween(now, thisYear);
   const nextYear = new Date(now.getFullYear() + 1, d.getMonth(), d.getDate());
@@ -70,7 +78,7 @@ export function getNextOccurrence(dateStr: string, now: Date) {
 }
 
 export function getAge(dateStr: string, now: Date): number {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = parseLocalDate(dateStr);
   let age = now.getFullYear() - d.getFullYear();
   const thisYearBday = new Date(now.getFullYear(), d.getMonth(), d.getDate());
   if (now < thisYearBday) age--;
@@ -78,7 +86,7 @@ export function getAge(dateStr: string, now: Date): number {
 }
 
 export function getNextBirthdayAge(dateStr: string, now: Date): number {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = parseLocalDate(dateStr);
   const thisYearBday = new Date(now.getFullYear(), d.getMonth(), d.getDate());
   if (thisYearBday >= now) {
     return now.getFullYear() - d.getFullYear();
@@ -88,7 +96,7 @@ export function getNextBirthdayAge(dateStr: string, now: Date): number {
 
 /** Core day count — uses display_mode to decide what number to show */
 export function getDayCount(day: SpecialDay, now: Date): number {
-  const eventDate = new Date(day.event_date + "T00:00:00");
+  const eventDate = parseLocalDate(day.event_date);
   const mode = resolveDisplayMode(day);
 
   switch (mode) {
@@ -117,7 +125,7 @@ export function resolveDisplayMode(day: SpecialDay): DisplayMode {
 export function getDisplayLabel(day: SpecialDay, now: Date): { primary: string; secondary: string } {
   const mode = resolveDisplayMode(day);
   const count = getDayCount(day, now);
-  const eventDate = new Date(day.event_date + "T00:00:00");
+  const eventDate = parseLocalDate(day.event_date);
 
   // Birthday special handling
   if (day.event_type === "birthday" && mode === "annual_countdown") {
