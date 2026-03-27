@@ -420,9 +420,15 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
                 >
                   {/* Left content area */}
                   <div className={`flex-1 min-w-0 p-4 pr-2 bg-gradient-to-r ${gradient} min-h-[80px] flex flex-col justify-center`}>
-                    {/* Emoji badge */}
-                    <div className="w-10 h-10 rounded-xl bg-card/80 backdrop-blur-sm border border-border/40 flex items-center justify-center text-xl mb-2 shadow-sm">
-                      {group.emoji}
+                    {/* Icon/avatar badge — uses uploaded photo if available */}
+                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-border/40 flex items-center justify-center text-xl mb-2 shadow-sm flex-shrink-0">
+                      {hasCover ? (
+                        <img src={currentCoverUrl!} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-card/80 backdrop-blur-sm flex items-center justify-center">
+                          {group.emoji}
+                        </div>
+                      )}
                     </div>
                     <p className="text-[15px] font-semibold truncate text-foreground leading-tight">
                       {group.name}
@@ -455,16 +461,16 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
                   </div>
                 </button>
 
-                {/* Camera upload button */}
+                {/* Camera upload button — translucent */}
                 <button
                   onClick={(e) => triggerFileInput(group.id, e)}
-                  className="absolute bottom-2 right-8 w-7 h-7 rounded-full bg-card/90 backdrop-blur-sm border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-all shadow-sm z-10"
+                  className="absolute bottom-2 right-8 w-7 h-7 rounded-full bg-card/50 backdrop-blur-md border border-border/30 flex items-center justify-center text-muted-foreground/60 hover:text-foreground/80 hover:bg-card/70 transition-all z-10"
                   aria-label="Upload cover photo"
                 >
                   {isUploading ? (
-                    <Loader2 size={12} className="animate-spin" />
+                    <Loader2 size={11} className="animate-spin" />
                   ) : (
-                    <Camera size={12} />
+                    <Camera size={11} />
                   )}
                 </button>
               </motion.div>
