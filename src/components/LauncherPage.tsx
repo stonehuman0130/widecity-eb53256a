@@ -35,6 +35,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
   const [inviteState, setInviteState] = useState<InviteState>({ type: "idle" });
   const [fallbackGroups, setFallbackGroups] = useState<Group[]>([]);
   const [uploadingGroupId, setUploadingGroupId] = useState<string | null>(null);
+  const pendingGroupIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const now = new Date();
