@@ -507,19 +507,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
                   />
                 ))}
               </div>
-            ) : (
-              !isAdding && (
-                <button
-                  onClick={() => !isViewingPartner && setAddingToSection(section.key)}
-                  disabled={isViewingPartner}
-                  className="w-full py-3 text-[13px] text-muted-foreground/60 hover:text-muted-foreground transition-colors rounded-xl border border-dashed border-border/50 hover:border-border"
-                >
-                  {isViewingPartner
-                    ? `${partnerName} has no ${section.label.toLowerCase()} habits`
-                    : `+ Add a ${section.label.toLowerCase()} habit`}
-                </button>
-              )
-            )}
+            ) : null}
           </section>
         );
       })}
