@@ -42,6 +42,7 @@ export interface ScheduledEvent {
   hiddenFromPartner?: boolean;
   groupId?: string | null;
   ownerUserId?: string;
+  calendarId?: string | null;
 }
 
 export interface Task {
