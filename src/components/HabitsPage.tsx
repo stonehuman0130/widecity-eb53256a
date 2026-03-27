@@ -66,8 +66,15 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   const isViewingTogether = viewFilter === "together";
 
   const displayHabits = isViewingPartner ? filteredPartnerHabits : filteredHabits;
-  const totalCompleted = displayHabits.filter((h) => h.done).length;
-  const total = displayHabits.length;
+  const habitsDone = displayHabits.filter((h) => h.done).length;
+  const habitsTotal = displayHabits.length;
+
+  // Include water intake in progress if enabled
+  const waterCompleted = showWater && (isViewingPartner
+    ? partnerWaterIntake >= partnerWaterGoal
+    : waterIntake >= waterGoal);
+  const totalCompleted = habitsDone + (showWater ? (waterCompleted ? 1 : 0) : 0);
+  const total = habitsTotal + (showWater ? 1 : 0);
   const streakFn = isViewingPartner ? getPartnerHabitStreak : getHabitStreak;
 
   const myName = profile?.display_name || "Me";
@@ -297,10 +304,12 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   if (isViewingTogether && hasOther) {
     const myHabits = filteredHabits;
     const theirHabits = filteredPartnerHabits;
-    const myTotal = myHabits.length;
-    const myDone = myHabits.filter((h) => h.done).length;
-    const theirTotal = theirHabits.length;
-    const theirDone = theirHabits.filter((h) => h.done).length;
+    const myHabitsDone = myHabits.filter((h) => h.done).length;
+    const theirHabitsDone = theirHabits.filter((h) => h.done).length;
+    const myTotal = myHabits.length + (showWater ? 1 : 0);
+    const myDone = myHabitsDone + (showWater && waterIntake >= waterGoal ? 1 : 0);
+    const theirTotal = theirHabits.length + (showWater ? 1 : 0);
+    const theirDone = theirHabitsDone + (showWater && partnerWaterIntake >= partnerWaterGoal ? 1 : 0);
 
     return (
       <div className="px-5">
