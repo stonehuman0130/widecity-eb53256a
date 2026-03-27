@@ -31,7 +31,7 @@ interface Props {
   groupId: string | null;
   groups?: GroupOption[];
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
 }
 
 const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], onClose, onSaved }: Props) => {
@@ -157,7 +157,6 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
       event_date: date,
       count_direction: direction,
       repeats_yearly: repeats,
-      user_id: userId,
       group_id: selectedGroupIds.length > 0 ? selectedGroupIds[0] : null,
       shared_group_ids: selectedGroupIds,
       context_group_id: contextGroupId,
@@ -171,31 +170,58 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
       inclusive_count: inclusiveCount,
     };
 
-    if (pinAsHero) {
-      await supabase
-        .from("special_days")
-        .update({ is_featured: false } as any)
-        .eq("user_id", userId)
-        .neq("id", editingDay?.id || "");
-    }
+    try {
+      if (pinAsHero) {
+        const { error: clearFeaturedError } = await supabase
+          .from("special_days")
+          .update({ is_featured: false } as any)
+          .eq("user_id", userId)
+          .neq("id", editingDay?.id || "");
 
-    if (editingDay) {
-      await supabase.from("special_days").update(payload as any).eq("id", editingDay.id);
-      toast.success("Updated");
-    } else {
-      await supabase.from("special_days").insert(payload as any);
-      toast.success("Added");
+        if (clearFeaturedError) throw clearFeaturedError;
+      }
+
+      if (editingDay) {
+        const { data: updated, error: updateError } = await supabase
+          .from("special_days")
+          .update(payload as any)
+          .eq("id", editingDay.id)
+          .select("id")
+          .maybeSingle();
+
+        if (updateError || !updated) throw updateError || new Error("No matching event found to update.");
+        toast.success("Updated");
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from("special_days")
+          .insert({ ...payload, user_id: userId } as any)
+          .select("id")
+          .maybeSingle();
+
+        if (insertError || !inserted) throw insertError || new Error("Could not create event.");
+        toast.success("Added");
+      }
+
+      await Promise.resolve(onSaved());
+      onClose();
+    } catch (error) {
+      console.error("Failed to save special day", error);
+      toast.error("Couldn’t save changes. Please try again.");
     }
-    onSaved();
-    onClose();
   };
 
   const handleDelete = async () => {
     if (!editingDay) return;
-    await supabase.from("special_days").delete().eq("id", editingDay.id);
-    toast.success("Removed");
-    onSaved();
-    onClose();
+    try {
+      const { error } = await supabase.from("special_days").delete().eq("id", editingDay.id);
+      if (error) throw error;
+      toast.success("Removed");
+      await Promise.resolve(onSaved());
+      onClose();
+    } catch (error) {
+      console.error("Failed to delete special day", error);
+      toast.error("Couldn’t delete this moment. Please try again.");
+    }
   };
 
   // Live preview
@@ -614,7 +640,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
               <div className="flex-shrink-0 px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3 border-t border-border/30 bg-card/95 backdrop-blur-sm shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.08)]">
                 <button
                   onClick={handleSave}
-                  disabled={!title.trim() || !date}
+                  disabled={!title.trim() || !date || uploading}
                   className="w-full py-3.5 bg-primary text-primary-foreground rounded-2xl text-sm font-bold hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
                 >
                   {editingDay ? "Save Changes" : `Add ${typeLabel}`}
