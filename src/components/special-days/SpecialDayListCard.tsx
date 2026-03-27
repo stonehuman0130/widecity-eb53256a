@@ -46,6 +46,9 @@ const SpecialDayListCard = ({ day, now, onEdit, index = 0, groupName }: Props) =
         {label.secondary && (
           <p className="text-[10px] text-muted-foreground/60 mt-0.5">{label.secondary}</p>
         )}
+        {groupName && (
+          <p className="text-[9px] text-muted-foreground/50 mt-0.5 font-medium">📌 {groupName}</p>
+        )}
       </div>
     </motion.button>
   );
