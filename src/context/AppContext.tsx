@@ -42,6 +42,7 @@ export interface ScheduledEvent {
   hiddenFromPartner?: boolean;
   groupId?: string | null;
   ownerUserId?: string;
+  calendarId?: string | null;
 }
 
 export interface Task {
@@ -336,6 +337,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             updatedAt: e.updated_at ?? null,
             hiddenFromPartner: e.hidden_from_partner || false,
             groupId: e.group_id || null,
+            calendarId: e.calendar_id || null,
           })));
         }
 
@@ -1053,7 +1055,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         completed_at: null,
         completed_by: null,
         group_id: groupId,
-      })
+        calendar_id: event.calendarId || null,
+      } as any)
       .select()
       .single();
 
@@ -1072,6 +1075,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         endYear: event.endYear ?? event.year,
         endTime: event.endTime ?? (isAllDay ? "" : (event.time || "")),
         allDay: isAllDay,
+        calendarId: (data as any).calendar_id || event.calendarId || null,
       }]);
     }
   };

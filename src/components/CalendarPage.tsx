@@ -10,6 +10,7 @@ import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { formatTime } from "@/lib/formatTime";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -157,6 +158,14 @@ interface CalItem {
 const TODO_COLOR = "hsl(280 70% 55%)";
 const TODO_COLOR_CLASSES = { bg: "bg-violet-500", text: "text-violet-500", bgLight: "bg-violet-500/15", border: "border-violet-500/30" };
 
+// ── Calendar color map type ──
+interface CalendarRecord {
+  id: string;
+  color: string;
+  provider: string;
+  provider_calendar_id: string | null;
+}
+
 // ── Main Component ──────────────────────────────────────────
 
 const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
@@ -166,7 +175,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
     toggleEventCompletion,
   } = useAppContext();
-  const { activeGroup, groups } = useAuth();
+  const { user, activeGroup, groups } = useAuth();
   const { showGoogleCalendar } = useGroupContext();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -179,6 +188,37 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editingItem, setEditingItem] = useState<{ id: string; type: "event" | "task"; raw: ScheduledEvent | Task; isDueDateTask?: boolean; done?: boolean } | null>(null);
   const [showCalendarsManager, setShowCalendarsManager] = useState(false);
   const timeGridRef = useRef<HTMLDivElement>(null);
+
+  // ── Live calendar color map ──
+  const [calendarRecords, setCalendarRecords] = useState<CalendarRecord[]>([]);
+
+  const loadCalendars = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("calendars")
+      .select("id, color, provider, provider_calendar_id");
+    if (data) {
+      setCalendarRecords(data.map((c: any) => ({
+        id: c.id,
+        color: c.color,
+        provider: c.provider,
+        provider_calendar_id: c.provider_calendar_id,
+      })));
+    }
+  }, [user]);
+
+  useEffect(() => { loadCalendars(); }, [loadCalendars]);
+
+  // Build lookup maps: calendarId (uuid) → color, providerCalendarId → color
+  const calendarColorMap = useMemo(() => {
+    const byId = new Map<string, string>();
+    const byProvider = new Map<string, string>();
+    calendarRecords.forEach((c) => {
+      byId.set(c.id, c.color);
+      if (c.provider_calendar_id) byProvider.set(c.provider_calendar_id, c.color);
+    });
+    return { byId, byProvider };
+  }, [calendarRecords]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -440,18 +480,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         const seen = new Set<string>();
         const dotColors: { id: string; color: string }[] = [];
         items.forEach((it) => {
-          let color: string;
-          let key: string;
-          if (it.isDueDateTask) {
-            key = "__todo";
-            color = TODO_COLOR;
-          } else if (it.calendarColor) {
-            key = `cal-${it.calendarColor}`;
-            color = it.calendarColor;
-          } else {
-            key = it.groupId || "__default";
-            color = GROUP_COLORS[(key === "__default" ? 0 : getGroupColorIndex(it.groupId ?? null, groups)) % GROUP_COLORS.length];
-          }
+          const color = resolveItemColor(it, groups, calendarColorMap);
+          const key = it.isDueDateTask ? "__todo" : `color-${color}`;
           if (!seen.has(key)) {
             seen.add(key);
             dotColors.push({ id: key, color });
@@ -461,7 +491,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       }
     }
     return dots;
-  }, [daysInMonth, month, year, getItemsForDate, groups]);
+  }, [daysInMonth, month, year, getItemsForDate, groups, calendarColorMap]);
 
   // ── Navigation ────────────────────────────────────────
 
@@ -588,12 +618,31 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
   // ── Color helpers ─────────────────────────────────────
 
-  const getItemColor = useCallback((item: CalItem): string => {
+  const resolveColor = useCallback((item: CalItem): string => {
     if (item.isDueDateTask) return TODO_COLOR;
-    if (item.calendarColor) return item.calendarColor;
+    // For local events with calendar_id, look up from calendar map
+    if (item.type === "event") {
+      const raw = item.raw as ScheduledEvent;
+      if (raw.calendarId && calendarColorMap.byId.has(raw.calendarId)) {
+        return calendarColorMap.byId.get(raw.calendarId)!;
+      }
+    }
+    // For gcal events, look up by calendarId (provider_calendar_id)
+    if (item.type === "gcal") {
+      const raw = item.raw as GoogleCalendarEvent;
+      if (raw.calendarId && calendarColorMap.byProvider.has(raw.calendarId)) {
+        return calendarColorMap.byProvider.get(raw.calendarId)!;
+      }
+      // Fall back to embedded color
+      if (item.calendarColor) return item.calendarColor;
+    }
     const idx = getGroupColorIndex(item.groupId, groups);
     return GROUP_COLORS[idx % GROUP_COLORS.length];
-  }, [groups]);
+  }, [groups, calendarColorMap]);
+
+  const getItemColor = useCallback((item: CalItem): string => {
+    return resolveColor(item);
+  }, [resolveColor]);
 
   const getColorClasses = (groupId: string | null | undefined) =>
     GROUP_COLOR_CLASSES[getGroupColorIndex(groupId, groups)];
@@ -862,7 +911,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             {selectedDayItems.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">No events</p>
             ) : (
-              <EventList items={selectedDayItems} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} />
+              <EventList items={selectedDayItems} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} colorMap={calendarColorMap} />
             )}
           </div>
         </motion.div>
@@ -922,7 +971,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                       {items.length === 0 ? (
                         <p className="text-xs text-muted-foreground py-1">No events</p>
                       ) : (
-                        <EventList items={items} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} compact />
+                        <EventList items={items} groups={groups} getColorClasses={getColorClasses} onItemTap={setSelectedItem} compact colorMap={calendarColorMap} />
                       )}
                     </div>
                   </div>
@@ -958,6 +1007,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
               timeGridRef={timeGridRef}
               onItemTap={setSelectedItem}
               hideColumnHeaders
+              colorMap={calendarColorMap}
             />
           </motion.div>
         </div>
@@ -988,6 +1038,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
               groups={groups}
               timeGridRef={timeGridRef}
               onItemTap={setSelectedItem}
+              colorMap={calendarColorMap}
             />
           </motion.div>
         </div>
@@ -1012,7 +1063,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             <div className="space-y-1 max-h-[70vh] overflow-y-auto">
               {searchResults.map((r) => {
                 const group = getGroupName(r.item.groupId);
-                const searchItemColor = resolveItemColor(r.item, groups);
+                const searchItemColor = resolveItemColor(r.item, groups, calendarColorMap);
                 return (
                   <button key={r.item.id} onClick={() => {
                     const raw = r.item.raw;
@@ -1064,7 +1115,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       </button>
 
       {/* ── Calendars Manager ───────────────────────────── */}
-      <CalendarsManager open={showCalendarsManager} onClose={() => setShowCalendarsManager(false)} />
+      <CalendarsManager open={showCalendarsManager} onClose={() => { setShowCalendarsManager(false); loadCalendars(); }} />
     </div>
   );
 };
@@ -1130,22 +1181,49 @@ const DateStrip = ({
   );
 };
 
-// Helper to resolve the display color for a CalItem
-function resolveItemColor(item: CalItem, groups: Group[]): string {
+// Helper to resolve the display color for a CalItem (used by sub-components that don't have resolveColor)
+function resolveItemColor(item: CalItem, groups: Group[], colorMap?: { byId: Map<string, string>; byProvider: Map<string, string> }): string {
   if (item.isDueDateTask) return TODO_COLOR;
+  if (colorMap) {
+    if (item.type === "event") {
+      const raw = item.raw as ScheduledEvent;
+      if (raw.calendarId && colorMap.byId.has(raw.calendarId)) {
+        return colorMap.byId.get(raw.calendarId)!;
+      }
+    }
+    if (item.type === "gcal") {
+      const raw = item.raw as GoogleCalendarEvent;
+      if (raw.calendarId && colorMap.byProvider.has(raw.calendarId)) {
+        return colorMap.byProvider.get(raw.calendarId)!;
+      }
+    }
+  }
   if (item.calendarColor) return item.calendarColor;
   const idx = getGroupColorIndex(item.groupId, groups);
   return GROUP_COLORS[idx % GROUP_COLORS.length];
 }
 
+// Google badge icon (small inline SVG)
+const GoogleBadge = () => (
+  <span className="inline-flex items-center justify-center w-4 h-4 flex-shrink-0" title="From Google Calendar">
+    <svg viewBox="0 0 24 24" width="12" height="12">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  </span>
+);
+
 const EventList = ({
-  items, groups, getColorClasses, onItemTap, compact,
+  items, groups, getColorClasses, onItemTap, compact, colorMap,
 }: {
   items: CalItem[];
   groups: Group[];
   getColorClasses: (gid: string | null | undefined) => typeof GROUP_COLOR_CLASSES[0];
   onItemTap?: (item: CalItem) => void;
   compact?: boolean;
+  colorMap?: { byId: Map<string, string>; byProvider: Map<string, string> };
 }) => {
   const { activeGroup } = useAuth();
   const todoItems = items.filter((i) => i.isDueDateTask);
@@ -1179,7 +1257,7 @@ const EventList = ({
       {allDayItems.length > 0 && (
         <div className="py-0.5">
           {allDayItems.map((item) => {
-            const color = resolveItemColor(item, groups);
+            const color = resolveItemColor(item, groups, colorMap);
             const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
             return (
               <button key={item.id} onClick={() => onItemTap?.(item)}
@@ -1189,6 +1267,7 @@ const EventList = ({
                 <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
                   {item.title}
                 </span>
+                {item.type === "gcal" && <GoogleBadge />}
                 {item.isMultiDay && (
                   <span className="text-[10px] text-muted-foreground">multi-day</span>
                 )}
@@ -1203,7 +1282,7 @@ const EventList = ({
       )}
 
       {timedItems.map((item) => {
-        const color = resolveItemColor(item, groups);
+        const color = resolveItemColor(item, groups, colorMap);
         const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
         const displayTime = item.type === "gcal" && item.time
           ? new Date(item.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
@@ -1220,6 +1299,7 @@ const EventList = ({
             <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
               {item.title}
             </span>
+            {item.type === "gcal" && <GoogleBadge />}
             {group && (
               <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{group.emoji} {group.name}</span>
             )}
@@ -1234,7 +1314,7 @@ const EventList = ({
 // ── Time Grid View (Day / 3-Day) ──────────────────────────
 
 const TimeGridView = ({
-  dates, getItemsForDate, groups, timeGridRef, onItemTap, hideColumnHeaders,
+  dates, getItemsForDate, groups, timeGridRef, onItemTap, hideColumnHeaders, colorMap,
 }: {
   dates: Date[];
   getItemsForDate: (d: number, m: number, y: number) => CalItem[];
@@ -1242,6 +1322,7 @@ const TimeGridView = ({
   timeGridRef: React.RefObject<HTMLDivElement | null>;
   onItemTap?: (item: CalItem) => void;
   hideColumnHeaders?: boolean;
+  colorMap?: { byId: Map<string, string>; byProvider: Map<string, string> };
 }) => {
   const columns = dates.map((d) => ({
     date: d,
@@ -1317,7 +1398,7 @@ const TimeGridView = ({
           {columns.map((col, ci) => (
             <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
               {col.items.filter((it) => it.allDay && !it.isDueDateTask).map((it) => {
-                const color = resolveItemColor(it, groups);
+                const color = resolveItemColor(it, groups, colorMap);
                 return (
                   <button key={it.id} onClick={() => onItemTap?.(it)}
                     className="w-full text-left text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5 hover:opacity-80 active:opacity-60 transition-opacity"
@@ -1372,7 +1453,7 @@ const TimeGridView = ({
 
                 {/* Event blocks */}
                 {positioned.map(({ item, col: colIdx, totalCols }) => {
-                  const color = resolveItemColor(item, groups);
+                  const color = resolveItemColor(item, groups, colorMap);
                   const top = item.hour! * hourHeight;
                   const endH = item.endHour ?? item.hour! + 1;
                   const duration = Math.max(endH - item.hour!, 0.25);

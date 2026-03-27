@@ -287,6 +287,7 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
       allDay,
       description,
       user: assignee as "me" | "partner" | "both",
+      calendarId: selectedCalendarId || null,
     };
 
     if (isEditing && editItem?.type === "event") {
