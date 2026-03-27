@@ -35,6 +35,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
   const { user, profile, groups, joinGroup, refreshGroups } = useAuth();
   const [inviteState, setInviteState] = useState<InviteState>({ type: "idle" });
   const [fallbackGroups, setFallbackGroups] = useState<Group[]>([]);
+  const [localCoverMap, setLocalCoverMap] = useState<Record<string, string>>({});
   const [uploadingGroupId, setUploadingGroupId] = useState<string | null>(null);
   const pendingGroupIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
