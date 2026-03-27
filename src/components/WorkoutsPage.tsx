@@ -76,7 +76,7 @@ type ViewFilter = string; // "mine" | "partner" | "member:{userId}" | "together"
 
 const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const { workouts, filteredWorkouts, filteredPartnerWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, getPartnerWorkoutsForDate } = useAppContext();
-  const { partner } = useAuth();
+  const { partner, profile } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
   const [showCongrats, setShowCongrats] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayStr());
