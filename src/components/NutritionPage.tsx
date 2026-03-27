@@ -1221,9 +1221,10 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                             className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
                           >
                             <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] font-bold text-primary">{item.protein}g</span>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="text-[10px] font-bold text-primary">{item.protein}g P</span>
                               <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
+                              {item.carbs > 0 && <span className="text-[10px] text-muted-foreground">{item.carbs}g C</span>}
                             </div>
                             <div className="flex items-center gap-1 mt-1.5">
                               <span className="text-[9px] text-muted-foreground">Added {item.count}×</span>
