@@ -16,7 +16,7 @@ const CATEGORY_FILTERS = [
 ];
 
 const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
-  const { user, activeGroup } = useAuth();
+  const { user, activeGroup, groups } = useAuth();
   const [days, setDays] = useState<SpecialDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -28,15 +28,27 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
 
   const loadDays = async () => {
     if (!user) return;
-    let q = supabase.from("special_days").select("*").eq("user_id", user.id);
-    if (activeGroup) q = q.eq("group_id", activeGroup.id);
-    else q = q.is("group_id", null);
+    let q = supabase.from("special_days").select("*");
+    if (activeGroup) {
+      // Specific group: show all events in that group (own + shared)
+      q = q.eq("group_id", activeGroup.id);
+    } else {
+      // "All" view: show personal events + events from all user's groups
+      // RLS already limits to own rows + group member rows, so just filter by user
+      // We need: (user_id = me AND group_id IS NULL) OR (group_id IN user's groups)
+      const groupIds = groups.map((g) => g.id);
+      if (groupIds.length > 0) {
+        q = q.or(`and(user_id.eq.${user.id},group_id.is.null),group_id.in.(${groupIds.join(",")})`);
+      } else {
+        q = q.eq("user_id", user.id).is("group_id", null);
+      }
+    }
     const { data } = await q.order("event_date", { ascending: true });
     if (data) setDays(data as unknown as SpecialDay[]);
     setLoading(false);
   };
 
-  useEffect(() => { loadDays(); }, [user, activeGroup?.id]);
+  useEffect(() => { loadDays(); }, [user, activeGroup?.id, groups.length]);
 
   const now = useMemo(() => {
     const d = new Date();
@@ -259,7 +271,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
               </h3>
               <div className="space-y-2.5">
                 {otherDays.map((day, i) => (
-                  <SpecialDayListCard key={day.id} day={day} now={now} onEdit={openEdit} index={i} />
+                  <SpecialDayListCard key={day.id} day={day} now={now} onEdit={openEdit} index={i} groupName={!activeGroup ? groups.find(g => g.id === day.group_id)?.name : undefined} />
                 ))}
               </div>
             </div>
@@ -279,6 +291,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
         editingDay={editingDay}
         userId={user?.id || ""}
         groupId={activeGroup?.id || null}
+        groups={groups}
         onClose={() => setShowForm(false)}
         onSaved={loadDays}
       />

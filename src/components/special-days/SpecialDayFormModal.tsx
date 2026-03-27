@@ -18,16 +18,23 @@ import {
   resolveDisplayMode,
 } from "./SpecialDayTypes";
 
+interface GroupOption {
+  id: string;
+  name: string;
+  emoji: string;
+}
+
 interface Props {
   open: boolean;
   editingDay: SpecialDay | null;
   userId: string;
   groupId: string | null;
+  groups?: GroupOption[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSaved }: Props) => {
+const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], onClose, onSaved }: Props) => {
   useModalScrollLock(open);
 
   const getInitialEventType = (): EventType => {
@@ -59,6 +66,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
   const [pinAsHero, setPinAsHero] = useState(editingDay?.is_featured || false);
   const [displayMode, setDisplayMode] = useState<DisplayMode>(getInitialDisplayMode());
   const [inclusiveCount, setInclusiveCount] = useState(editingDay?.inclusive_count || false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(editingDay?.group_id ?? groupId);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const selectEventType = (type: EventType) => {
@@ -99,7 +107,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
       count_direction: direction,
       repeats_yearly: repeats,
       user_id: userId,
-      group_id: groupId,
+      group_id: selectedGroupId,
       photo_url: photoUrl || null,
       category: eventType === "first_met" || eventType === "wedding" ? "anniversary" : eventType,
       event_type: eventType,
@@ -308,6 +316,40 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSav
                       className="w-full px-3.5 py-2.5 rounded-xl bg-secondary/40 border border-border/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
+
+                  {/* ── Shared With / Visibility ── */}
+                  {groups.length > 0 && (
+                    <div>
+                      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+                        Shared With
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => setSelectedGroupId(null)}
+                          className={`px-3 py-2 rounded-xl text-[12px] font-semibold transition-all border ${
+                            selectedGroupId === null
+                              ? "bg-primary/10 text-primary border-primary/30"
+                              : "bg-secondary/40 text-muted-foreground border-border/30 hover:bg-secondary/50"
+                          }`}
+                        >
+                          🔒 Just me
+                        </button>
+                        {groups.map((g) => (
+                          <button
+                            key={g.id}
+                            onClick={() => setSelectedGroupId(g.id)}
+                            className={`px-3 py-2 rounded-xl text-[12px] font-semibold transition-all border ${
+                              selectedGroupId === g.id
+                                ? "bg-primary/10 text-primary border-primary/30"
+                                : "bg-secondary/40 text-muted-foreground border-border/30 hover:bg-secondary/50"
+                            }`}
+                          >
+                            {g.emoji} {g.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* ── 4. Day Count Style ── */}
                   {availableModes.length > 1 && (

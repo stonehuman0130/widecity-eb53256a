@@ -6,9 +6,10 @@ interface Props {
   now: Date;
   onEdit: (day: SpecialDay) => void;
   index?: number;
+  groupName?: string;
 }
 
-const SpecialDayListCard = ({ day, now, onEdit, index = 0 }: Props) => {
+const SpecialDayListCard = ({ day, now, onEdit, index = 0, groupName }: Props) => {
   const label = getDisplayLabel(day, now);
   const eventDate = parseLocalDate(day.event_date);
   const hasPhoto = !!day.photo_url;
@@ -44,6 +45,9 @@ const SpecialDayListCard = ({ day, now, onEdit, index = 0 }: Props) => {
         <p className="text-[12px] font-bold text-foreground/80 mt-0.5">{label.primary}</p>
         {label.secondary && (
           <p className="text-[10px] text-muted-foreground/60 mt-0.5">{label.secondary}</p>
+        )}
+        {groupName && (
+          <p className="text-[9px] text-muted-foreground/50 mt-0.5 font-medium">📌 {groupName}</p>
         )}
       </div>
     </motion.button>
