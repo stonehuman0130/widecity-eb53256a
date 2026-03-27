@@ -1372,8 +1372,7 @@ const TimeGridView = ({
 
                 {/* Event blocks */}
                 {positioned.map(({ item, col: colIdx, totalCols }) => {
-                  const colorIdx = getGroupColorIndex(item.groupId, groups);
-                  const color = item.type === "task" ? TODO_COLOR : GROUP_COLORS[colorIdx];
+                  const color = resolveItemColor(item, groups);
                   const top = item.hour! * hourHeight;
                   const endH = item.endHour ?? item.hour! + 1;
                   const duration = Math.max(endH - item.hour!, 0.25);
