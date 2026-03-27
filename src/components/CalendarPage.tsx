@@ -215,11 +215,13 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const calendarColorMap = useMemo(() => {
     const byId = new Map<string, string>();
     const byProvider = new Map<string, string>();
+    let defaultColor: string | null = null;
     calendarRecords.forEach((c) => {
       byId.set(c.id, c.color);
       if (c.provider_calendar_id) byProvider.set(c.provider_calendar_id, c.color);
+      if (c.is_default && c.provider === "local") defaultColor = c.color;
     });
-    return { byId, byProvider };
+    return { byId, byProvider, defaultColor };
   }, [calendarRecords]);
 
   const year = currentDate.getFullYear();
