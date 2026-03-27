@@ -621,7 +621,7 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
             );
           })}
 
-          {visibleGroups.length === 0 && (
+          {visualCalendarGroups.length === 0 && (
             <div className="text-center py-8">
               <p className="text-sm text-muted-foreground mb-3">No calendars yet</p>
               {onCreateGroup && (
