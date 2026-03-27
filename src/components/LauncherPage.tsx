@@ -102,30 +102,35 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
   const handleCoverUpload = async (groupId: string, file: File) => {
     setUploadingGroupId(groupId);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const filePath = `${groupId}/cover.${ext}`;
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("group-covers")
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { upsert: true, cacheControl: "60" });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("group-covers")
         .getPublicUrl(filePath);
 
-      const publicUrl = urlData.publicUrl + "?t=" + Date.now();
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-      // Update group record
-      await supabase
+      const { error: updateError } = await supabase
         .from("groups")
         .update({ cover_image_url: publicUrl })
         .eq("id", groupId);
 
+      if (updateError) throw updateError;
+
+      setLocalCoverMap((prev) => ({ ...prev, [groupId]: publicUrl }));
       await refreshGroups();
+
+      toast({
+        title: "Photo updated",
+        description: "Your launcher card image was uploaded successfully.",
+      });
     } catch (err: any) {
       console.error("Error uploading cover image:", err);
       toast({
