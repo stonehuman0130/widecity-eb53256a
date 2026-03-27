@@ -679,7 +679,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
       {/* AI insight */}
       {isViewingOwn && (
-        <div className="px-5 mb-3">
+        <div className="mb-3">
           <div className="bg-primary/5 rounded-xl px-4 py-3 border border-primary/10">
             <div className="flex items-start gap-2">
               <Sparkles size={14} className="text-primary mt-0.5 flex-shrink-0" />
