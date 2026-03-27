@@ -223,28 +223,48 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
         </div>
       </div>
 
-      <div className="bg-card rounded-xl p-5 border border-border shadow-card">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-2xl font-bold tracking-display">{waterIntake.toFixed(1)}L</span>
-          <span className="text-sm text-muted-foreground">/ {waterGoal}L</span>
-        </div>
+      <div className="bg-card rounded-xl p-5 border border-border shadow-card flex flex-col items-center">
+        {(() => {
+          const size = compact ? 120 : 140;
+          const strokeWidth = compact ? 8 : 10;
+          const radius = (size - strokeWidth) / 2;
+          const circumference = 2 * Math.PI * radius;
+          const percent = waterGoal > 0 ? Math.min(waterIntake / waterGoal, 1) : 0;
+          const offset = circumference * (1 - percent);
+          return (
+            <div className="relative mb-3" style={{ width: size, height: size }}>
+              <svg width={size} height={size} className="-rotate-90">
+                <circle
+                  cx={size / 2} cy={size / 2} r={radius}
+                  fill="none"
+                  className="stroke-secondary"
+                  strokeWidth={strokeWidth}
+                />
+                <circle
+                  cx={size / 2} cy={size / 2} r={radius}
+                  fill="none"
+                  className="stroke-primary"
+                  strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={offset}
+                  style={{ transition: "stroke-dashoffset 0.4s ease" }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-bold tracking-display leading-tight">{waterIntake.toFixed(1)}L</span>
+                <span className="text-[10px] text-muted-foreground">/ {waterGoal}L</span>
+                {waterIntake >= waterGoal && <span className="text-xs mt-0.5">🎉</span>}
+              </div>
+            </div>
+          );
+        })()}
 
-        <div className="h-2 bg-secondary rounded-full overflow-hidden mb-2">
-          <div
-            className="h-full bg-primary rounded-full transition-all"
-            style={{ width: `${Math.min((waterIntake / waterGoal) * 100, 100)}%` }}
-          />
-        </div>
+        <span className="text-xs font-semibold text-primary mb-3">
+          {waterIntake >= waterGoal ? "Goal reached!" : `${Math.round((waterIntake / waterGoal) * 100)}%`}
+        </span>
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-          <span>0L</span>
-          <span className="font-semibold text-primary">
-            {waterIntake >= waterGoal ? "🎉 Goal reached!" : `${Math.round((waterIntake / waterGoal) * 100)}%`}
-          </span>
-          <span>{waterGoal}L</span>
-        </div>
-
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full">
           {[0.25, 0.5].map((amt) => (
             <button
               key={amt}
