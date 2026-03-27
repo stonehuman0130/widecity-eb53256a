@@ -89,7 +89,8 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
   const [showAddDrawer, setShowAddDrawer] = useState(false);
   const [showCheckinDialog, setShowCheckinDialog] = useState(false);
   const [checkinCategory, setCheckinCategory] = useState<SobrietyCategory | null>(null);
-  const [checkinDate, setCheckinDate] = useState<string>("");
+  const [checkinDates, setCheckinDates] = useState<string[]>([]);
+  const [checkinIsMissed, setCheckinIsMissed] = useState(false);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [customLabel, setCustomLabel] = useState("");
   const [customIcon, setCustomIcon] = useState("🚫");
