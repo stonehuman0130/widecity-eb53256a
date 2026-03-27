@@ -547,6 +547,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                     onEditExercise={startEditExercise}
                     onDeleteExercise={deleteExercise}
                     onLogWorkout={setLoggingWorkout}
+                    onUpdateCalories={(id, cal) => updateWorkout(id, { cal })}
                     readOnly={isViewingPartner}
                     progress={workoutProgress[w.id]?.progress}
                   />
