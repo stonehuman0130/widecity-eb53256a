@@ -98,12 +98,19 @@ const SpecialDayHeroCard = ({ day, now, onEdit, isPrivate = false }: Props) => {
             </div>
           </div>
 
-          <button
-            onClick={() => onEdit(day)}
-            className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-white/15 backdrop-blur-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all"
-          >
-            <Pencil size={12} />
-          </button>
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+            {isPrivate && (
+              <div className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-lg flex items-center justify-center">
+                <Lock size={11} className="text-white/70" />
+              </div>
+            )}
+            <button
+              onClick={() => onEdit(day)}
+              className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all"
+            >
+              <Pencil size={12} />
+            </button>
+          </div>
         </div>
       </motion.div>
 
