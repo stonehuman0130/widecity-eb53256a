@@ -86,7 +86,7 @@ export function getAge(dateStr: string, now: Date): number {
 }
 
 export function getNextBirthdayAge(dateStr: string, now: Date): number {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = parseLocalDate(dateStr);
   const thisYearBday = new Date(now.getFullYear(), d.getMonth(), d.getDate());
   if (thisYearBday >= now) {
     return now.getFullYear() - d.getFullYear();
