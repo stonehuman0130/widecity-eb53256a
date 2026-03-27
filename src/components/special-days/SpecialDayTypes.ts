@@ -96,7 +96,7 @@ export function getNextBirthdayAge(dateStr: string, now: Date): number {
 
 /** Core day count — uses display_mode to decide what number to show */
 export function getDayCount(day: SpecialDay, now: Date): number {
-  const eventDate = new Date(day.event_date + "T00:00:00");
+  const eventDate = parseLocalDate(day.event_date);
   const mode = resolveDisplayMode(day);
 
   switch (mode) {
