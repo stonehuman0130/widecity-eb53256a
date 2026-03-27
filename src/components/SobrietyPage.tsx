@@ -770,7 +770,103 @@ function SobrietyCategoryCard({
                     <p className="text-[10px] text-muted-foreground">Money Saved</p>
                   </div>
                 )}
+
+                {/* Edit Money Per Day */}
+                {!readOnly && (
+                  <div className="col-span-2">
+                    {editingMoney ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="$/day"
+                          value={moneyValue}
+                          onChange={e => setMoneyValue(e.target.value)}
+                          className="text-sm h-8 flex-1"
+                          autoFocus
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => {
+                            onUpdateMoneyPerDay?.(cat.id, parseFloat(moneyValue) || 0);
+                            setEditingMoney(false);
+                          }}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() => { setEditingMoney(false); setMoneyValue(String(cat.money_per_day || "")); }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setEditingMoney(true)}
+                        className="text-[11px] text-primary font-medium hover:underline flex items-center gap-1"
+                      >
+                        <DollarSign size={12} />
+                        {cat.money_per_day > 0 ? `Edit money saved ($${cat.money_per_day}/day)` : "Add money saved per day"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Add Prior Sober Days */}
+              {!readOnly && (
+                <div>
+                  {showPriorDays ? (
+                    <div className="bg-secondary/50 rounded-xl p-3 space-y-2">
+                      <p className="text-xs font-medium text-foreground">Add prior sober days</p>
+                      <p className="text-[10px] text-muted-foreground">Were you sober before creating this card? Add those days here.</p>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={priorDaysCount}
+                          onChange={e => setPriorDaysCount(e.target.value)}
+                          placeholder="Days"
+                          className="text-sm h-8 w-20"
+                        />
+                        <span className="text-xs text-muted-foreground">days before start</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs rounded-lg"
+                          onClick={() => {
+                            const count = parseInt(priorDaysCount) || 0;
+                            if (count > 0) {
+                              onAddPriorDays?.(cat, count);
+                              setShowPriorDays(false);
+                            }
+                          }}
+                        >
+                          Add {priorDaysCount || 0} days
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setShowPriorDays(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowPriorDays(true)}
+                      className="text-[11px] text-primary font-medium hover:underline flex items-center gap-1"
+                    >
+                      <Calendar size={12} />
+                      Add prior sober days
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Retroactive check-in for missed days */}
               {!readOnly && missedDays.length > 0 && (
