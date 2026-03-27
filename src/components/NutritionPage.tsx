@@ -1079,8 +1079,8 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                               </p>
                             </div>
                             <div className="text-right flex-shrink-0 ml-2">
-                              <p className="text-xs font-bold text-primary">{meal.protein}g</p>
-                              <p className="text-[10px] text-muted-foreground">{meal.calories} kcal</p>
+                              <p className="text-xs font-bold text-primary">{meal.protein}g prot</p>
+                              <p className="text-[10px] text-muted-foreground">{meal.calories} kcal{meal.carbs ? ` · ${meal.carbs}g C` : ""}{meal.fat ? ` · ${meal.fat}g F` : ""}</p>
                             </div>
                           </div>
                         </button>
