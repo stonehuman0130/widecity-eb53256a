@@ -1322,6 +1322,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (updates.cal !== undefined) dbUpdates.cal = updates.cal;
     if (updates.tag !== undefined) dbUpdates.tag = updates.tag;
     if (updates.emoji !== undefined) dbUpdates.emoji = updates.emoji;
+    if (updates.distance !== undefined) dbUpdates.distance = updates.distance;
+    if (updates.distanceUnit !== undefined) dbUpdates.distance_unit = updates.distanceUnit;
     if (Object.keys(dbUpdates).length > 0) {
       await supabase.from("workouts").update(dbUpdates).eq("id", id);
     }
