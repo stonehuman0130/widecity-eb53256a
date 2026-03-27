@@ -12,6 +12,30 @@ interface LauncherPageProps {
 }
 
 const INVITE_CODE_REGEX = /^[A-Za-z0-9]{6,10}$/;
+const CALENDAR_ORDER_KEY = "myCalendarsOrder";
+const LONG_PRESS_MS = 500;
+
+function loadCalendarOrder(): string[] {
+  try {
+    const raw = localStorage.getItem(CALENDAR_ORDER_KEY);
+    if (raw) return JSON.parse(raw) as string[];
+  } catch {}
+  return [];
+}
+
+function saveCalendarOrder(order: string[]) {
+  localStorage.setItem(CALENDAR_ORDER_KEY, JSON.stringify(order));
+}
+
+function reconcileCalendarOrder(saved: string[], current: Group[]): string[] {
+  const currentIds = new Set(current.map((g) => g.id));
+  const ordered = saved.filter((id) => currentIds.has(id));
+  const orderedSet = new Set(ordered);
+  for (const g of current) {
+    if (!orderedSet.has(g.id)) ordered.push(g.id);
+  }
+  return ordered;
+}
 
 type InviteState =
   | { type: "idle" }
