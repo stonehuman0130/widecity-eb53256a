@@ -125,7 +125,7 @@ export function resolveDisplayMode(day: SpecialDay): DisplayMode {
 export function getDisplayLabel(day: SpecialDay, now: Date): { primary: string; secondary: string } {
   const mode = resolveDisplayMode(day);
   const count = getDayCount(day, now);
-  const eventDate = new Date(day.event_date + "T00:00:00");
+  const eventDate = parseLocalDate(day.event_date);
 
   // Birthday special handling
   if (day.event_type === "birthday" && mode === "annual_countdown") {
