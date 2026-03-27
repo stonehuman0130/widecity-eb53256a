@@ -158,6 +158,14 @@ interface CalItem {
 const TODO_COLOR = "hsl(280 70% 55%)";
 const TODO_COLOR_CLASSES = { bg: "bg-violet-500", text: "text-violet-500", bgLight: "bg-violet-500/15", border: "border-violet-500/30" };
 
+// ── Calendar color map type ──
+interface CalendarRecord {
+  id: string;
+  color: string;
+  provider: string;
+  provider_calendar_id: string | null;
+}
+
 // ── Main Component ──────────────────────────────────────────
 
 const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
@@ -167,7 +175,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     googleCalendarEvents, hideGcalEvent, toggleGcalCompletion, toggleEventVisibility, designateGcalEvent,
     toggleEventCompletion,
   } = useAppContext();
-  const { activeGroup, groups } = useAuth();
+  const { user, activeGroup, groups } = useAuth();
   const { showGoogleCalendar } = useGroupContext();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -180,6 +188,37 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editingItem, setEditingItem] = useState<{ id: string; type: "event" | "task"; raw: ScheduledEvent | Task; isDueDateTask?: boolean; done?: boolean } | null>(null);
   const [showCalendarsManager, setShowCalendarsManager] = useState(false);
   const timeGridRef = useRef<HTMLDivElement>(null);
+
+  // ── Live calendar color map ──
+  const [calendarRecords, setCalendarRecords] = useState<CalendarRecord[]>([]);
+
+  const loadCalendars = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("calendars")
+      .select("id, color, provider, provider_calendar_id");
+    if (data) {
+      setCalendarRecords(data.map((c: any) => ({
+        id: c.id,
+        color: c.color,
+        provider: c.provider,
+        provider_calendar_id: c.provider_calendar_id,
+      })));
+    }
+  }, [user]);
+
+  useEffect(() => { loadCalendars(); }, [loadCalendars]);
+
+  // Build lookup maps: calendarId (uuid) → color, providerCalendarId → color
+  const calendarColorMap = useMemo(() => {
+    const byId = new Map<string, string>();
+    const byProvider = new Map<string, string>();
+    calendarRecords.forEach((c) => {
+      byId.set(c.id, c.color);
+      if (c.provider_calendar_id) byProvider.set(c.provider_calendar_id, c.color);
+    });
+    return { byId, byProvider };
+  }, [calendarRecords]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
