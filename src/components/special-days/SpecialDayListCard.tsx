@@ -1,6 +1,5 @@
 import { motion } from "framer-motion";
-import { Heart } from "lucide-react";
-import { SpecialDay, getDayCount, CATEGORY_OPTIONS } from "./SpecialDayTypes";
+import { SpecialDay, getDisplayLabel } from "./SpecialDayTypes";
 
 interface Props {
   day: SpecialDay;
@@ -10,17 +9,13 @@ interface Props {
 }
 
 const SpecialDayListCard = ({ day, now, onEdit, index = 0 }: Props) => {
-  const count = getDayCount(day, now);
+  const label = getDisplayLabel(day, now);
   const eventDate = new Date(day.event_date + "T00:00:00");
   const hasPhoto = !!day.photo_url;
 
-  const dateStr = day.count_direction === "until"
+  const dateStr = day.event_type === "birthday" || day.count_direction === "until"
     ? eventDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : eventDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-  const countLabel = day.count_direction === "since"
-    ? `${count.toLocaleString()} days ago`
-    : `${count.toLocaleString()} days to go`;
 
   return (
     <motion.button
@@ -30,11 +25,8 @@ const SpecialDayListCard = ({ day, now, onEdit, index = 0 }: Props) => {
       onClick={() => onEdit(day)}
       className="w-full flex items-center gap-3 bg-card/60 backdrop-blur-sm rounded-2xl p-3 border border-border/30 shadow-sm hover:shadow-md hover:bg-card/80 transition-all text-left active:scale-[0.98]"
     >
-      {/* Left icon area — small category icon like reference */}
       <div className="flex-shrink-0 flex items-center gap-2.5">
         <span className="text-lg opacity-60">{day.icon}</span>
-
-        {/* Thumbnail */}
         <div className="w-[52px] h-[52px] rounded-xl overflow-hidden flex-shrink-0 bg-secondary/40 border border-border/20">
           {hasPhoto ? (
             <img src={day.photo_url!} alt="" className="w-full h-full object-cover" />
@@ -46,11 +38,13 @@ const SpecialDayListCard = ({ day, now, onEdit, index = 0 }: Props) => {
         </div>
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-bold text-foreground truncate leading-tight">{day.title}</p>
         <p className="text-[11px] text-muted-foreground/70 mt-0.5">{dateStr}</p>
-        <p className="text-[12px] font-bold text-foreground/80 mt-0.5">{countLabel}</p>
+        <p className="text-[12px] font-bold text-foreground/80 mt-0.5">{label.primary}</p>
+        {label.secondary && (
+          <p className="text-[10px] text-muted-foreground/60 mt-0.5">{label.secondary}</p>
+        )}
       </div>
     </motion.button>
   );

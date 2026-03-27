@@ -57,12 +57,16 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
 
   const heroDay = useMemo(() => {
     if (filteredDays.length === 0) return null;
+    // Pinned / featured first
     const featured = filteredDays.find((d) => d.is_featured);
     if (featured) return featured;
-    const upcoming = filteredDays
-      .filter((d) => d.count_direction === "until")
-      .sort((a, b) => getDayCount(a, now) - getDayCount(b, now));
-    return upcoming[0] || filteredDays[0];
+    // Nearest upcoming recurring event
+    const recurring = filteredDays
+      .filter((d) => d.repeats_yearly || d.count_direction === "until" || d.event_type === "birthday")
+      .map((d) => ({ day: d, count: getDayCount(d, now) }))
+      .sort((a, b) => a.count - b.count);
+    if (recurring.length > 0) return recurring[0].day;
+    return filteredDays[0];
   }, [filteredDays, now]);
 
   const otherDays = useMemo(
@@ -82,7 +86,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
 
   return (
     <div className="px-4 pt-5 pb-8 max-w-md mx-auto">
-      {/* Header — matching reference: title left, icons right */}
+      {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
           <h1 className="text-[22px] font-extrabold tracking-tight text-foreground leading-tight">
@@ -109,7 +113,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
         </div>
       </div>
 
-      {/* Search bar */}
+      {/* Search */}
       <AnimatePresence>
         {showSearch && (
           <motion.div
@@ -129,9 +133,10 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
         )}
       </AnimatePresence>
 
+      {/* Group selector — single bar */}
       <GroupSelector />
 
-      {/* Filter chips — luxury pill style matching reference */}
+      {/* Filter chips — single row */}
       <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide -mx-1 px-1">
         {FILTER_CHIPS.map((chip) => (
           <button
@@ -192,7 +197,6 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
             </div>
           )}
 
-          {/* Bottom CTA — soft frosted pill */}
           <button
             onClick={openAdd}
             className="mt-5 w-full py-3.5 rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm text-[13px] font-semibold text-muted-foreground hover:text-foreground hover:border-border/60 hover:bg-card/80 transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
