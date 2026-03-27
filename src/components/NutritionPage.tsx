@@ -1407,13 +1407,29 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               </div>
               <div className="px-5 pb-6 space-y-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
                 <div className="bg-background rounded-xl border border-border p-3">
-                  <p className="text-sm font-semibold">{aiConfirmSelection.suggestion.title}</p>
-                  <p className="text-[10px] text-muted-foreground capitalize">
-                    {aiConfirmSelection.suggestion.meal_type} · {aiConfirmSelection.suggestion.protein || 0}g P · {aiConfirmSelection.suggestion.calories || 0} kcal
-                    {aiConfirmSelection.suggestion.carbs ? ` · ${aiConfirmSelection.suggestion.carbs}g C` : ""}
-                    {aiConfirmSelection.suggestion.fat ? ` · ${aiConfirmSelection.suggestion.fat}g F` : ""}
-                    {aiConfirmSelection.suggestion.fiber ? ` · ${aiConfirmSelection.suggestion.fiber}g Fi` : ""}
-                  </p>
+                  <p className="text-sm font-semibold mb-2">{aiConfirmSelection.suggestion.title}</p>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    <div className="bg-primary/10 rounded-lg px-2 py-1.5 text-center">
+                      <p className="text-xs font-bold text-primary">{aiConfirmSelection.suggestion.protein || 0}g</p>
+                      <p className="text-[8px] text-muted-foreground">Protein</p>
+                    </div>
+                    <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                      <p className="text-xs font-bold">{aiConfirmSelection.suggestion.calories || 0}</p>
+                      <p className="text-[8px] text-muted-foreground">Cal</p>
+                    </div>
+                    <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                      <p className="text-xs font-bold">{aiConfirmSelection.suggestion.carbs || 0}g</p>
+                      <p className="text-[8px] text-muted-foreground">Carbs</p>
+                    </div>
+                    <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                      <p className="text-xs font-bold">{aiConfirmSelection.suggestion.fat || 0}g</p>
+                      <p className="text-[8px] text-muted-foreground">Fat</p>
+                    </div>
+                    <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                      <p className="text-xs font-bold">{aiConfirmSelection.suggestion.fiber || 0}g</p>
+                      <p className="text-[8px] text-muted-foreground">Fiber</p>
+                    </div>
+                  </div>
                 </div>
 
                 <SharedWithSelector
