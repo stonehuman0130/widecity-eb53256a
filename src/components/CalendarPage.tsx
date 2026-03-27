@@ -1063,7 +1063,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             <div className="space-y-1 max-h-[70vh] overflow-y-auto">
               {searchResults.map((r) => {
                 const group = getGroupName(r.item.groupId);
-                const searchItemColor = resolveItemColor(r.item, groups);
+                const searchItemColor = resolveItemColor(r.item, groups, calendarColorMap);
                 return (
                   <button key={r.item.id} onClick={() => {
                     const raw = r.item.raw;
