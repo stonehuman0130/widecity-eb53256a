@@ -546,6 +546,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           exercises={loggingWorkout.exercises || []}
           scheduledDate={loggingWorkout.scheduledDate}
           readOnly={isViewingPartner}
+          onProgressUpdate={(progress, cal) => handleProgressUpdate(loggingWorkout.id, progress, cal)}
         />
       )}
     </div>
