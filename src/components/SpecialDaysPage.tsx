@@ -48,7 +48,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
     setLoading(false);
   };
 
-  useEffect(() => { loadDays(); }, [user, activeGroup?.id]);
+  useEffect(() => { loadDays(); }, [user, activeGroup?.id, groups.length]);
 
   const now = useMemo(() => {
     const d = new Date();
