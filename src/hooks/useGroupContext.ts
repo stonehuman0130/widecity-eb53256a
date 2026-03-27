@@ -76,7 +76,7 @@ export function useGroupContext() {
     return result;
   }, [hasOther, otherMembers, sharedLabel]);
 
-  // Two-tab filter for habits/workouts: Mine / OtherName's (or per-member)
+  // Two-tab filter for habits: Mine / OtherName's (or per-member)
   const twoTabFilters: MemberFilter[] = useMemo(() => {
     const result: MemberFilter[] = [{ id: "mine", label: "Mine" }];
     if (!hasOther) return result;
@@ -100,6 +100,31 @@ export function useGroupContext() {
     return result;
   }, [hasOther, otherMembers]);
 
+  // Workout filters: Mine / OtherName's / Together
+  const workoutFilters: MemberFilter[] = useMemo(() => {
+    const result: MemberFilter[] = [{ id: "mine", label: "Mine" }];
+    if (!hasOther) return result;
+
+    if (otherMembers.length === 1) {
+      result.push({
+        id: "partner",
+        label: `${otherMembers[0].display_name || "Partner"}'s`,
+        userId: otherMembers[0].user_id,
+      });
+    } else {
+      for (const member of otherMembers) {
+        const name = member.display_name || "Member";
+        result.push({
+          id: `member:${member.user_id}`,
+          label: name,
+          userId: member.user_id,
+        });
+      }
+    }
+    result.push({ id: "together", label: "Together" });
+    return result;
+  }, [hasOther, otherMembers]);
+
   // Google Calendar should be shown in both "All" and specific group views
   const showGoogleCalendar = true;
 
@@ -110,6 +135,7 @@ export function useGroupContext() {
     sharedLabel,
     filters,
     twoTabFilters,
+    workoutFilters,
     showGoogleCalendar,
   };
 }

@@ -72,11 +72,11 @@ function detectManagementIntent(prompt: string): { type: "delete"; filter: "all"
   return { type: "delete", filter: "all" };
 }
 
-type ViewFilter = string; // "mine" | "partner" | "member:{userId}"
+type ViewFilter = string; // "mine" | "partner" | "member:{userId}" | "together"
 
 const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) => {
   const { workouts, filteredWorkouts, filteredPartnerWorkouts, toggleWorkout, removeWorkout, removeWorkoutsByFilter, updateWorkout, setWorkouts, addWorkouts, rescheduleWorkout, rescheduleWorkoutCascade, getPartnerWorkoutsForDate } = useAppContext();
-  const { partner } = useAuth();
+  const { partner, profile } = useAuth();
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
   const [showCongrats, setShowCongrats] = useState(false);
   const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -95,7 +95,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   // Exercise logging
   const [loggingWorkout, setLoggingWorkout] = useState<Workout | null>(null);
 
-  const isViewingPartner = viewFilter !== "mine";
+  const isViewingPartner = viewFilter !== "mine" && viewFilter !== "together";
+  const isTogetherView = viewFilter === "together";
   const today = todayStr();
 
   const dateRange = useMemo(() => {
@@ -242,7 +243,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     toast.success("Exercise removed");
   };
 
-  const { twoTabFilters, hasOther, otherName } = useGroupContext();
+  const { twoTabFilters, workoutFilters, hasOther, otherName, otherMembers } = useGroupContext();
   const partnerName = otherName;
 
   // Track workout progress from exercise logs
@@ -327,7 +328,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       {/* Mine / Member Toggle */}
       {hasOther && (
         <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5 overflow-x-auto scrollbar-hide">
-          {twoTabFilters.map((f) => (
+          {workoutFilters.map((f) => (
             <button
               key={f.id}
               onClick={() => setViewFilter(f.id)}
@@ -342,39 +343,331 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       )}
 
 
-      {/* Stats */}
-      <WorkoutStatsCards workouts={activeWorkouts} isViewingPartner={isViewingPartner} partnerName={partnerName} />
+      {/* Together View */}
+      {isTogetherView ? (
+        <TogetherView
+          myWorkouts={filteredWorkouts}
+          partnerWorkouts={filteredPartnerWorkouts}
+          myName={profile?.display_name || "Me"}
+          partnerName={partnerName || "Partner"}
+          selectedDate={selectedDate}
+          today={today}
+          dateRange={dateRange}
+          onSelectDate={setSelectedDate}
+          getPartnerWorkoutsForDate={getPartnerWorkoutsForDate}
+          onSelectExercise={setSelectedExercise}
+          workoutProgress={workoutProgress}
+        />
+      ) : (
+        <>
+          {/* Stats */}
+          <WorkoutStatsCards workouts={activeWorkouts} isViewingPartner={isViewingPartner} partnerName={partnerName} />
 
-      {/* Missed Workouts Banner */}
-      {missedWorkouts.length > 0 && selectedDate === today && !isViewingPartner && (
-        <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 mb-5">
-          <h3 className="text-sm font-semibold text-destructive flex items-center gap-2 mb-3">
-            <AlertTriangle size={14} />
-            {missedWorkouts.length} Missed Workout{missedWorkouts.length > 1 ? "s" : ""}
-          </h3>
-          <div className="space-y-2">
-            {missedWorkouts.map((w) => (
-              <div key={w.id} className="flex items-center gap-3 bg-card rounded-lg p-3 border border-border">
-                <span className="text-xl">{w.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{w.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Was: {new Date(w.scheduledDate! + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                  </p>
-                </div>
-                <div className="flex gap-1.5">
-                  <button onClick={() => handleReschedule(w.id, today)} className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium flex items-center gap-1">
-                    <RotateCcw size={10} /> Today
-                  </button>
-                  <button onClick={() => handleReschedule(w.id, getNextDay(today))} className="px-2.5 py-1.5 rounded-lg bg-secondary text-foreground text-xs font-medium flex items-center gap-1">
-                    <ArrowRight size={10} /> Tomorrow
-                  </button>
-                </div>
+          {/* Missed Workouts Banner */}
+          {missedWorkouts.length > 0 && selectedDate === today && !isViewingPartner && (
+            <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 mb-5">
+              <h3 className="text-sm font-semibold text-destructive flex items-center gap-2 mb-3">
+                <AlertTriangle size={14} />
+                {missedWorkouts.length} Missed Workout{missedWorkouts.length > 1 ? "s" : ""}
+              </h3>
+              <div className="space-y-2">
+                {missedWorkouts.map((w) => (
+                  <div key={w.id} className="flex items-center gap-3 bg-card rounded-lg p-3 border border-border">
+                    <span className="text-xl">{w.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{w.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Was: {new Date(w.scheduledDate! + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => handleReschedule(w.id, today)} className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium flex items-center gap-1">
+                        <RotateCcw size={10} /> Today
+                      </button>
+                      <button onClick={() => handleReschedule(w.id, getNextDay(today))} className="px-2.5 py-1.5 rounded-lg bg-secondary text-foreground text-xs font-medium flex items-center gap-1">
+                        <ArrowRight size={10} /> Tomorrow
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* Date selector strip */}
+          <div className="mb-5 -mx-5">
+            <div
+              className="flex gap-2 px-5 pb-2 overflow-x-auto scrollbar-hide"
+              style={{ WebkitOverflowScrolling: "touch" }}
+              ref={(el) => {
+                if (el) {
+                  const selectedEl = el.querySelector('[data-selected="true"]');
+                  if (selectedEl) {
+                    selectedEl.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+                  }
+                }
+              }}
+            >
+              {dateRange.map((date) => {
+                const d = new Date(date + "T00:00:00");
+                const dayNum = d.getDate();
+                const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+                const isSelected = date === selectedDate;
+                const isT = date === today;
+                const hasWorkouts = isViewingPartner
+                  ? getPartnerWorkoutsForDate(date).length > 0
+                  : filteredWorkouts.some((w) => w.scheduledDate === date || w.completedDate === date);
+
+                return (
+                  <button
+                    key={date}
+                    data-selected={isSelected}
+                    onClick={() => setSelectedDate(date)}
+                    className={`flex flex-col items-center min-w-[48px] flex-shrink-0 py-2 px-1 rounded-xl border transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-transparent text-muted-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    <span className="text-[10px] font-medium">{dayName}</span>
+                    <span className={`text-base font-bold ${isT && !isSelected ? "text-primary" : ""}`}>{dayNum}</span>
+                    {hasWorkouts && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Quick Add Activities */}
+          {!isViewingPartner && (
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold">Quick Add</h3>
+                <button onClick={() => setShowManualAdd(!showManualAdd)} className="text-xs text-primary font-semibold flex items-center gap-1">
+                  <Plus size={12} /> Custom
+                </button>
+              </div>
+
+              {showManualAdd && (
+                <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
+                  <input value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="Activity name..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground" />
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
+                      <input type="number" value={customDuration} onChange={(e) => setCustomDuration(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
+                      <input type="number" value={customCal} onChange={(e) => setCustomCal(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
+                    </div>
+                  </div>
+                  <button onClick={addCustomActivity} disabled={!customTitle.trim()} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
+                    Add Activity
+                  </button>
+                </div>
+              )}
+
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                {MANUAL_ACTIVITIES.map((activity) => (
+                  <button
+                    key={activity.title}
+                    onClick={() => addManualActivity(activity)}
+                    className="flex flex-col items-center min-w-[72px] p-3 rounded-xl bg-card border border-border hover:border-primary/50 transition-all active:scale-[0.97]"
+                  >
+                    <span className="text-2xl mb-1">{activity.emoji}</span>
+                    <span className="text-[11px] font-medium text-center">{activity.title}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Workout Section */}
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <CalIcon size={14} className="text-muted-foreground" />
+                {isViewingPartner
+                  ? `${partnerName}'s Workouts`
+                  : selectedDate === today
+                    ? "Today's Workouts"
+                    : selectedDate > today
+                      ? "Upcoming Workout"
+                      : `Workout for ${new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
+              </h3>
+              <div className="flex items-center gap-2">
+                {!isViewingPartner && (
+                  <WorkoutAiSuggest
+                    selectedDate={selectedDate}
+                    recentWorkouts={filteredWorkouts}
+                    onAddWorkout={addWorkouts}
+                  />
+                )}
+                {/* Copy partner's plan button */}
+                {isViewingPartner && dateWorkouts.length > 0 && (
+                  <button
+                    onClick={copyPartnerWorkouts}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
+                  >
+                    <Copy size={12} /> Copy to Mine
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {dateWorkouts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                {isViewingPartner
+                  ? `${partnerName} has no workouts on this day`
+                  : selectedDate === today
+                    ? "No workouts today. Generate a plan or add one above."
+                    : "No workouts scheduled for this day."}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {dateWorkouts.map((w) => (
+                  <WorkoutCard
+                    key={w.id}
+                    workout={w}
+                    onToggle={handleToggleWorkout}
+                    onRemove={removeWorkout}
+                    onReschedule={handleReschedule}
+                    onRescheduleCascade={rescheduleWorkoutCascade}
+                    allWorkouts={filteredWorkouts}
+                    onSelectExercise={setSelectedExercise}
+                    onEditExercise={startEditExercise}
+                    onDeleteExercise={deleteExercise}
+                    onLogWorkout={setLoggingWorkout}
+                    readOnly={isViewingPartner}
+                    progress={workoutProgress[w.id]?.progress}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {/* Exercise Detail Dialog */}
+      <ExerciseDetailDialog
+        exerciseName={selectedExercise}
+        onClose={() => setSelectedExercise(null)}
+      />
+
+      {/* Exercise Log Modal */}
+      {loggingWorkout && (
+        <ExerciseLogModal
+          open={!!loggingWorkout}
+          onClose={() => setLoggingWorkout(null)}
+          workoutId={loggingWorkout.id}
+          workoutTitle={loggingWorkout.title}
+          workoutEmoji={loggingWorkout.emoji}
+          exercises={loggingWorkout.exercises || []}
+          scheduledDate={loggingWorkout.scheduledDate}
+          readOnly={isViewingPartner || isTogetherView}
+          onProgressUpdate={(progress, cal) => handleProgressUpdate(loggingWorkout.id, progress, cal)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Together View component
+const TogetherView = ({
+  myWorkouts,
+  partnerWorkouts,
+  myName,
+  partnerName,
+  selectedDate,
+  today,
+  dateRange,
+  onSelectDate,
+  getPartnerWorkoutsForDate,
+  onSelectExercise,
+  workoutProgress,
+}: {
+  myWorkouts: Workout[];
+  partnerWorkouts: Workout[];
+  myName: string;
+  partnerName: string;
+  selectedDate: string;
+  today: string;
+  dateRange: string[];
+  onSelectDate: (date: string) => void;
+  getPartnerWorkoutsForDate: (date: string) => Workout[];
+  onSelectExercise: (name: string) => void;
+  workoutProgress: Record<string, { progress: number; cal: number }>;
+}) => {
+  const allWorkouts = useMemo(() => [...myWorkouts, ...partnerWorkouts], [myWorkouts, partnerWorkouts]);
+
+  const myDateWorkouts = useMemo(
+    () => myWorkouts.filter((w) => w.scheduledDate === selectedDate || w.completedDate === selectedDate),
+    [myWorkouts, selectedDate]
+  );
+  const partnerDateWorkouts = useMemo(
+    () => getPartnerWorkoutsForDate(selectedDate),
+    [getPartnerWorkoutsForDate, selectedDate]
+  );
+
+  const hasWorkoutsOnDate = (date: string) =>
+    myWorkouts.some((w) => w.scheduledDate === date || w.completedDate === date) ||
+    getPartnerWorkoutsForDate(date).length > 0;
+
+  const MiniWorkoutCard = ({ workout }: { workout: Workout }) => {
+    const progress = workoutProgress[workout.id]?.progress || 0;
+    return (
+      <div className={`flex items-center gap-3 p-3 rounded-xl border bg-card ${workout.done ? "border-habit-green/50" : "border-border"}`}>
+        <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0">
+          <svg className="absolute inset-0 w-7 h-7 -rotate-90" viewBox="0 0 28 28">
+            <circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" className="text-muted-foreground/20" strokeWidth="2" />
+            {progress > 0 && !workout.done && (
+              <circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" className="text-habit-green" strokeWidth="2"
+                strokeDasharray={`${(progress / 100) * 69.12} 69.12`} strokeLinecap="round" />
+            )}
+          </svg>
+          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center z-10 ${
+            workout.done ? "bg-habit-green border-habit-green" : "border-transparent"
+          }`}>
+            {workout.done && <Check size={12} className="text-primary-foreground" />}
           </div>
         </div>
-      )}
+        <span className="text-lg">{workout.emoji}</span>
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-medium truncate ${workout.done ? "line-through text-muted-foreground" : ""}`}>{workout.title}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+              <Clock size={10} /> {workout.duration}
+            </span>
+            <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+              <Flame size={10} /> {workout.cal} cal
+            </span>
+            {workout.tag && (
+              <span className="text-[10px] font-semibold text-tag-work-text bg-tag-work px-1.5 py-0.5 rounded">{workout.tag}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* Combined stats for both users */}
+      <div className="space-y-4 mb-5">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[hsl(var(--user-a))]" /> {myName}
+          </p>
+          <WorkoutStatsCards workouts={myWorkouts} label={myName} />
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[hsl(var(--user-b))]" /> {partnerName}
+          </p>
+          <WorkoutStatsCards workouts={partnerWorkouts} label={partnerName} />
+        </div>
+      </div>
 
       {/* Date selector strip */}
       <div className="mb-5 -mx-5">
@@ -396,15 +689,13 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
             const isSelected = date === selectedDate;
             const isT = date === today;
-            const hasWorkouts = isViewingPartner
-              ? getPartnerWorkoutsForDate(date).length > 0
-              : filteredWorkouts.some((w) => w.scheduledDate === date || w.completedDate === date);
+            const hasW = hasWorkoutsOnDate(date);
 
             return (
               <button
                 key={date}
                 data-selected={isSelected}
-                onClick={() => setSelectedDate(date)}
+                onClick={() => onSelectDate(date)}
                 className={`flex flex-col items-center min-w-[48px] flex-shrink-0 py-2 px-1 rounded-xl border transition-all ${
                   isSelected
                     ? "border-primary bg-primary/10 text-primary"
@@ -413,143 +704,48 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
               >
                 <span className="text-[10px] font-medium">{dayName}</span>
                 <span className={`text-base font-bold ${isT && !isSelected ? "text-primary" : ""}`}>{dayNum}</span>
-                {hasWorkouts && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" />}
+                {hasW && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" />}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Quick Add Activities */}
-      {!isViewingPartner && (
-        <div className="mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">Quick Add</h3>
-            <button onClick={() => setShowManualAdd(!showManualAdd)} className="text-xs text-primary font-semibold flex items-center gap-1">
-              <Plus size={12} /> Custom
-            </button>
-          </div>
-
-          {showManualAdd && (
-            <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
-              <input value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="Activity name..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground" />
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
-                  <input type="number" value={customDuration} onChange={(e) => setCustomDuration(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
-                </div>
-                <div className="flex-1">
-                  <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
-                  <input type="number" value={customCal} onChange={(e) => setCustomCal(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
-                </div>
-              </div>
-              <button onClick={addCustomActivity} disabled={!customTitle.trim()} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
-                Add Activity
-              </button>
+      {/* Side-by-side workout lists */}
+      <div className="space-y-5">
+        {/* My workouts */}
+        <section>
+          <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--user-a))]" />
+            {myName}'s Workouts
+            <span className="text-muted-foreground text-xs">({myDateWorkouts.length})</span>
+          </h3>
+          {myDateWorkouts.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">No workouts on this day</p>
+          ) : (
+            <div className="space-y-2">
+              {myDateWorkouts.map((w) => <MiniWorkoutCard key={w.id} workout={w} />)}
             </div>
           )}
+        </section>
 
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {MANUAL_ACTIVITIES.map((activity) => (
-              <button
-                key={activity.title}
-                onClick={() => addManualActivity(activity)}
-                className="flex flex-col items-center min-w-[72px] p-3 rounded-xl bg-card border border-border hover:border-primary/50 transition-all active:scale-[0.97]"
-              >
-                <span className="text-2xl mb-1">{activity.emoji}</span>
-                <span className="text-[11px] font-medium text-center">{activity.title}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Workout Section */}
-      <section className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <CalIcon size={14} className="text-muted-foreground" />
-            {isViewingPartner
-              ? `${partnerName}'s Workouts`
-              : selectedDate === today
-                ? "Today's Workouts"
-                : selectedDate > today
-                  ? "Upcoming Workout"
-                  : `Workout for ${new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
-            <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
+        {/* Partner workouts */}
+        <section>
+          <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--user-b))]" />
+            {partnerName}'s Workouts
+            <span className="text-muted-foreground text-xs">({partnerDateWorkouts.length})</span>
           </h3>
-          <div className="flex items-center gap-2">
-            {!isViewingPartner && (
-              <WorkoutAiSuggest
-                selectedDate={selectedDate}
-                recentWorkouts={filteredWorkouts}
-                onAddWorkout={addWorkouts}
-              />
-            )}
-            {/* Copy partner's plan button */}
-            {isViewingPartner && dateWorkouts.length > 0 && (
-              <button
-                onClick={copyPartnerWorkouts}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
-              >
-                <Copy size={12} /> Copy to Mine
-              </button>
-            )}
-          </div>
-        </div>
-
-        {dateWorkouts.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">
-            {isViewingPartner
-              ? `${partnerName} has no workouts on this day`
-              : selectedDate === today
-                ? "No workouts today. Generate a plan or add one above."
-                : "No workouts scheduled for this day."}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {dateWorkouts.map((w) => (
-              <WorkoutCard
-                key={w.id}
-                workout={w}
-                onToggle={handleToggleWorkout}
-                onRemove={removeWorkout}
-                onReschedule={handleReschedule}
-                onRescheduleCascade={rescheduleWorkoutCascade}
-                allWorkouts={filteredWorkouts}
-                onSelectExercise={setSelectedExercise}
-                onEditExercise={startEditExercise}
-                onDeleteExercise={deleteExercise}
-                onLogWorkout={setLoggingWorkout}
-                readOnly={isViewingPartner}
-                progress={workoutProgress[w.id]?.progress}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Exercise Detail Dialog */}
-      <ExerciseDetailDialog
-        exerciseName={selectedExercise}
-        onClose={() => setSelectedExercise(null)}
-      />
-
-      {/* Exercise Log Modal */}
-      {loggingWorkout && (
-        <ExerciseLogModal
-          open={!!loggingWorkout}
-          onClose={() => setLoggingWorkout(null)}
-          workoutId={loggingWorkout.id}
-          workoutTitle={loggingWorkout.title}
-          workoutEmoji={loggingWorkout.emoji}
-          exercises={loggingWorkout.exercises || []}
-          scheduledDate={loggingWorkout.scheduledDate}
-          readOnly={isViewingPartner}
-          onProgressUpdate={(progress, cal) => handleProgressUpdate(loggingWorkout.id, progress, cal)}
-        />
-      )}
-    </div>
+          {partnerDateWorkouts.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">No workouts on this day</p>
+          ) : (
+            <div className="space-y-2">
+              {partnerDateWorkouts.map((w) => <MiniWorkoutCard key={w.id} workout={w} />)}
+            </div>
+          )}
+        </section>
+      </div>
+    </>
   );
 };
 

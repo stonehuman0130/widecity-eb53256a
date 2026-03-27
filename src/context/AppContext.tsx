@@ -78,6 +78,8 @@ export interface Workout {
   hiddenFromPartner?: boolean;
   groupId?: string | null;
   ownerUserId?: string;
+  distance?: number;
+  distanceUnit?: string;
 }
 
 export interface GoogleCalendarEvent {
@@ -357,6 +359,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             exercises: w.exercises || [],
             hiddenFromPartner: w.hidden_from_partner || false,
             groupId: w.group_id || null,
+            distance: Number(w.distance) || 0,
+            distanceUnit: w.distance_unit || 'km',
           })));
         }
 
@@ -687,6 +691,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               hiddenFromPartner: w.hidden_from_partner || false,
               groupId: w.group_id || null,
               ownerUserId: otherUserId,
+              distance: Number(w.distance) || 0,
+              distanceUnit: w.distance_unit || 'km',
             })));
           }
 
@@ -1316,6 +1322,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (updates.cal !== undefined) dbUpdates.cal = updates.cal;
     if (updates.tag !== undefined) dbUpdates.tag = updates.tag;
     if (updates.emoji !== undefined) dbUpdates.emoji = updates.emoji;
+    if (updates.distance !== undefined) dbUpdates.distance = updates.distance;
+    if (updates.distanceUnit !== undefined) dbUpdates.distance_unit = updates.distanceUnit;
     if (Object.keys(dbUpdates).length > 0) {
       await supabase.from("workouts").update(dbUpdates).eq("id", id);
     }
@@ -1352,6 +1360,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       exercises: w.exercises || [],
       hidden_from_partner: w.hiddenFromPartner ?? false,
       group_id: w.groupId ?? null,
+      distance: w.distance || 0,
+      distance_unit: w.distanceUnit || 'km',
     }));
 
     const { data, error } = await supabase
@@ -1378,6 +1388,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       exercises: w.exercises || [],
       hiddenFromPartner: w.hidden_from_partner || false,
       groupId: w.group_id || null,
+      distance: Number(w.distance) || 0,
+      distanceUnit: w.distance_unit || 'km',
     }));
 
     setWorkoutsState((prev) => [
