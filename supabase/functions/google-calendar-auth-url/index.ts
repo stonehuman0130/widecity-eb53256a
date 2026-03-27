@@ -82,17 +82,21 @@ Deno.serve(async (req) => {
   const scope = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events";
   const state = encodeState({ user_id: user.id, group_id: groupId });
 
-  const authUrl =
-    `https://accounts.google.com/o/oauth2/v2/auth?` +
-    new URLSearchParams({
-      client_id: GOOGLE_CLIENT_ID,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      scope,
-      access_type: "offline",
-      prompt: "consent select_account",
-      state,
-    }).toString();
+  const authParams = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope,
+    access_type: "offline",
+    prompt: "consent select_account",
+    state,
+  });
+
+  if (user.email) {
+    authParams.set("login_hint", user.email);
+  }
+
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${authParams.toString()}`;
 
   return new Response(JSON.stringify({ url: authUrl }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
