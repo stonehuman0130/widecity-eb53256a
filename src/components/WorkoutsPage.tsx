@@ -243,7 +243,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     toast.success("Exercise removed");
   };
 
-  const { twoTabFilters, hasOther, otherName } = useGroupContext();
+  const { twoTabFilters, workoutFilters, hasOther, otherName, otherMembers } = useGroupContext();
   const partnerName = otherName;
 
   // Track workout progress from exercise logs
