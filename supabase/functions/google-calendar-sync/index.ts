@@ -21,7 +21,7 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const isDefinitelyInvalidTokenError = (message?: string) => {
   if (!message) return false;
-  return /invalid|jwt|expired|signature|malformed/i.test(message);
+  return /invalid|jwt|expired|signature|malformed|session.not.found|not.found/i.test(message);
 };
 
 async function resolveUserId(
