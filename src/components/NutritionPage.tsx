@@ -1311,8 +1311,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                         <p className="text-[10px] text-muted-foreground capitalize">{s.meal_type}</p>
                       </div>
                       <div className="text-right flex-shrink-0 ml-3">
-                        <p className="text-sm font-bold text-primary">{s.protein}g</p>
+                        <p className="text-sm font-bold text-primary">{s.protein}g P</p>
                         <p className="text-[10px] text-muted-foreground">{s.calories} kcal</p>
+                        {(s.carbs || s.fat || s.fiber) && (
+                          <p className="text-[9px] text-muted-foreground">{s.carbs || 0}C · {s.fat || 0}F · {s.fiber || 0}Fi</p>
+                        )}
                       </div>
                     </div>
                     {s.ingredients && s.ingredients.length > 0 && (
