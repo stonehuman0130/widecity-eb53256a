@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useAppContext, Workout } from "@/context/AppContext";
-import { Droplets, Dumbbell, Trophy, Check, Flame, Heart, Apple, Sparkles } from "lucide-react";
+import { Droplets, Dumbbell, Trophy, Check, Flame, Heart, Apple, Sparkles, ShoppingCart } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 
@@ -590,6 +590,70 @@ export const HomeNutritionWidget = ({ selectedDate }: { selectedDate: Date }) =>
                 <Sparkles size={10} className="text-primary flex-shrink-0" />
                 <span className="flex-1 text-[11px] font-medium truncate">{s.title}</span>
                 <span className="text-[10px] font-bold text-primary">{s.protein}g</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/** Compact shopping list widget for Home page */
+export const HomeShoppingWidget = () => {
+  const { user, activeGroup } = useAuth();
+  const [items, setItems] = useState<{ id: string; name: string; checked: boolean }[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const groupId = activeGroup?.id || null;
+
+      // Get the user's shopping lists
+      let listsQuery = supabase
+        .from("shopping_lists")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (groupId) listsQuery = listsQuery.eq("group_id", groupId);
+      else listsQuery = listsQuery.is("group_id", null);
+
+      const { data: lists } = await listsQuery;
+      if (!lists || lists.length === 0) {
+        setItems([]);
+        return;
+      }
+
+      const listIds = lists.map((l) => l.id);
+      const { data: listItems } = await supabase
+        .from("shopping_list_items")
+        .select("id, name, checked")
+        .in("list_id", listIds)
+        .eq("checked", false)
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+      setItems((listItems as any[]) || []);
+    };
+    load();
+  }, [user, activeGroup?.id]);
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">
+        <ShoppingCart size={18} className="text-primary" /> Shopping List
+      </h2>
+      <div className="bg-card rounded-xl p-4 shadow-card border border-border">
+        {items.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No unchecked items</p>
+        ) : (
+          <div className="space-y-1.5">
+            {items.map((item) => (
+              <div key={item.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-secondary/40">
+                <span className="w-4 h-4 rounded border-2 border-muted flex-shrink-0" />
+                <span className="flex-1 text-xs font-medium truncate">{item.name}</span>
               </div>
             ))}
           </div>
