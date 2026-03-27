@@ -445,8 +445,23 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const consumedMeals = useMemo(() => todayMeals.filter(m => m.consumed), [todayMeals]);
   const totalProtein = useMemo(() => consumedMeals.reduce((s, m) => s + m.protein, 0), [consumedMeals]);
   const totalCalories = useMemo(() => consumedMeals.reduce((s, m) => s + (m.calories || 0), 0), [consumedMeals]);
-  const proteinPercent = goals.protein_goal > 0 ? Math.min((totalProtein / goals.protein_goal) * 100, 100) : 0;
+  const totalCarbs = useMemo(() => consumedMeals.reduce((s, m) => s + (m.carbs || 0), 0), [consumedMeals]);
+  const totalFat = useMemo(() => consumedMeals.reduce((s, m) => s + (m.fat || 0), 0), [consumedMeals]);
+  const totalFiber = useMemo(() => consumedMeals.reduce((s, m) => s + (m.fiber || 0), 0), [consumedMeals]);
 
+  const trackerTotals: Record<TrackerKey, number> = { protein: totalProtein, calories: totalCalories, carbs: totalCarbs, fat: totalFat, fiber: totalFiber };
+  const trackerGoals: Record<TrackerKey, number | null> = {
+    protein: goals.protein_goal,
+    calories: goals.calorie_goal,
+    carbs: goals.carbs_goal,
+    fat: goals.fat_goal,
+    fiber: goals.fiber_goal,
+  };
+
+  const enabledTrackers = goals.enabled_trackers || ["protein", "calories"];
+  const orderedTrackers = (goals.tracker_order || ALL_TRACKERS.map(t => t.key)).filter((k: TrackerKey) => enabledTrackers.includes(k));
+
+  const proteinPercent = goals.protein_goal > 0 ? Math.min((totalProtein / goals.protein_goal) * 100, 100) : 0;
   const caloriePercent = goals.show_calories && goals.calorie_goal ? Math.min((totalCalories / goals.calorie_goal) * 100, 100) : 0;
 
   const viewTabs = useMemo(() => {
