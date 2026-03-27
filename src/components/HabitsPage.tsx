@@ -264,28 +264,11 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
             </span>
           </>
         ) : (
-          <div className="w-full mb-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-2xl font-bold tracking-display">{waterIntake.toFixed(1)}L</span>
-              <span className="text-sm text-muted-foreground">/ {waterGoal}L</span>
-            </div>
-            <div className="h-3 bg-secondary rounded-full overflow-hidden mb-2">
-              <div
-                className="h-full bg-primary rounded-full"
-                style={{
-                  width: `${Math.min((waterIntake / waterGoal) * 100, 100)}%`,
-                  transition: "width 0.35s cubic-bezier(.4,0,.2,1)",
-                }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>0L</span>
-              <span className="font-semibold text-primary">
-                {waterIntake >= waterGoal ? "🎉 Goal reached!" : `${Math.round((waterIntake / waterGoal) * 100)}%`}
-              </span>
-              <span>{waterGoal}L</span>
-            </div>
-          </div>
+          <DraggableWaterBar
+            intake={waterIntake}
+            goal={waterGoal}
+            onIntakeChange={setWaterIntake}
+          />
         )}
 
         <div className="flex gap-2 w-full">
