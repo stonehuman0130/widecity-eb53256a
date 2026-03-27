@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import GroupBadge from "@/components/GroupBadge";
-import { Plus, Flame, Check, Bell, Users, MoreVertical, Trash2, Settings, Pencil, FolderPlus } from "lucide-react";
+import { Plus, Flame, Check, Bell, Users, Settings, Trash2, MoreVertical, Droplets, ChevronDown, Eye, EyeOff } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +11,14 @@ import HabitDateViewer from "@/components/HabitDateViewer";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
-import type { HabitSectionMeta } from "@/lib/habitSections";
+
+// ── Fixed default sections ──
+const DEFAULT_SECTIONS = [
+  { key: "morning", label: "Morning", icon: "🌅" },
+  { key: "afternoon", label: "Afternoon", icon: "☀️" },
+  { key: "evening", label: "Evening", icon: "🌙" },
+  { key: "other", label: "Other", icon: "📋" },
+];
 
 const todayStr = () => {
   const d = new Date();
@@ -26,7 +33,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     toggleHabit, addHabit, removeHabit, addSharedHabit,
     getHabitStreak, getPartnerHabitStreak,
     waterIntake, waterGoal, partnerWaterIntake, partnerWaterGoal,
-    habitSections, addHabitSection, renameHabitSection, deleteHabitSection,
+    setWaterIntake, setWaterGoal, resetWater,
   } = useAppContext();
   const { user, partner, profile, activeGroup } = useAuth();
   const [newHabitLabel, setNewHabitLabel] = useState("");
@@ -35,33 +42,18 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   const [showCongrats, setShowCongrats] = useState(false);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("mine");
 
-  // Section management state
-  const [showAddSection, setShowAddSection] = useState(false);
-  const [newSectionName, setNewSectionName] = useState("");
-  const [newSectionForEveryone, setNewSectionForEveryone] = useState(false);
-  const [renamingSection, setRenamingSection] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [sectionMenuOpen, setSectionMenuOpen] = useState<string | null>(null);
+  // Water visibility
+  const [showWater, setShowWater] = useState(() => {
+    const saved = localStorage.getItem("habits_show_water");
+    return saved !== null ? saved === "true" : true;
+  });
+
+  // Custom water goal
+  const [editingWaterGoal, setEditingWaterGoal] = useState(false);
+  const [customGoalInput, setCustomGoalInput] = useState("");
 
   const groupId = activeGroup?.id ?? null;
   const { hasOther, otherName } = useGroupContext();
-
-  // Derive active sections from DB sections + discovered habit categories
-  const activeSections = useMemo(() => {
-    const storedSections = habitSections;
-    const habitCategories = new Set(filteredHabits.map((h) => h.category));
-
-    const result: HabitSectionMeta[] = [...storedSections];
-    const knownKeys = new Set(storedSections.map((s) => s.key));
-
-    habitCategories.forEach((cat) => {
-      if (!knownKeys.has(cat)) {
-        result.push({ key: cat, label: cat.charAt(0).toUpperCase() + cat.slice(1), icon: "📋" });
-      }
-    });
-
-    return result;
-  }, [habitSections, filteredHabits]);
 
   const isViewingPartner = viewFilter === "partner";
   const isViewingTogether = viewFilter === "together";
@@ -82,6 +74,25 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     }
     return tabs;
   }, [hasOther, partnerName]);
+
+  // Toggle water visibility
+  const toggleWaterVisibility = () => {
+    const next = !showWater;
+    setShowWater(next);
+    localStorage.setItem("habits_show_water", String(next));
+  };
+
+  // Custom water goal save
+  const saveCustomGoal = () => {
+    const val = parseFloat(customGoalInput);
+    if (!isNaN(val) && val >= 0.5 && val <= 10) {
+      setWaterGoal(val);
+      toast.success(`Water goal set to ${val}L`);
+    } else {
+      toast.error("Enter a value between 0.5 and 10");
+    }
+    setEditingWaterGoal(false);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -143,34 +154,103 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     }
   };
 
-  const handleAddSection = async () => {
-    if (!newSectionName.trim()) return;
-    await addHabitSection(newSectionName.trim(), "📋", newSectionForEveryone && !!groupId);
-    setNewSectionName("");
-    setShowAddSection(false);
-    setNewSectionForEveryone(false);
-    toast.success(`Section "${newSectionName.trim()}" created${newSectionForEveryone && groupId ? " for everyone" : ""}`);
+  // Map habits to default sections — normalize category keys
+  const normalizeKey = (key: string) => key.toLowerCase().replace(/[\s_-]+/g, "").replace(/habits$/, "");
+
+  const getSectionHabits = (sectionKey: string, habitsList: typeof displayHabits) => {
+    return habitsList.filter((h) => {
+      const norm = normalizeKey(h.category);
+      if (sectionKey === "other") {
+        // "other" catches everything that doesn't match morning/afternoon/evening
+        return norm !== "morning" && norm !== "afternoon" && norm !== "evening";
+      }
+      return norm === sectionKey;
+    });
   };
 
-  const handleRenameSection = async (oldKey: string) => {
-    if (!renameValue.trim()) return;
-    await renameHabitSection(oldKey, renameValue.trim());
-    setRenamingSection(null);
-    setRenameValue("");
-    toast.success("Section renamed");
-  };
+  // ── Water Section Component ──
+  const WaterSection = ({ compact }: { compact?: boolean }) => (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold tracking-display flex items-center gap-2">
+          <Droplets size={20} className="text-primary" /> Water Intake
+        </h2>
+        <div className="flex items-center gap-1">
+          {!editingWaterGoal ? (
+            <button
+              onClick={() => { setCustomGoalInput(String(waterGoal)); setEditingWaterGoal(true); }}
+              className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {waterGoal}L goal
+            </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                value={customGoalInput}
+                onChange={(e) => setCustomGoalInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveCustomGoal(); if (e.key === "Escape") setEditingWaterGoal(false); }}
+                className="w-14 bg-secondary rounded-lg px-2 py-1 text-[11px] text-center outline-none text-foreground border border-border"
+                step="0.1"
+                min="0.5"
+                max="10"
+                autoFocus
+              />
+              <span className="text-[11px] text-muted-foreground">L</span>
+              <button onClick={saveCustomGoal} className="text-[11px] text-primary font-semibold">Set</button>
+            </div>
+          )}
+          <button
+            onClick={toggleWaterVisibility}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            title="Hide water intake"
+          >
+            <EyeOff size={14} />
+          </button>
+        </div>
+      </div>
 
-  const handleDeleteSection = async (key: string) => {
-    const sectionHabits = displayHabits.filter((h) => h.category === key);
-    if (sectionHabits.length > 0) {
-      const confirmed = window.confirm(
-        `This will delete ${sectionHabits.length} habit(s) in this section for you only. Others in the group keep theirs. Are you sure?`
-      );
-      if (!confirmed) return;
-    }
-    await deleteHabitSection(key);
-    toast.success("Section deleted (only for you)");
-  };
+      <div className="bg-card rounded-xl p-5 border border-border shadow-card">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-2xl font-bold tracking-display">{waterIntake.toFixed(1)}L</span>
+          <span className="text-sm text-muted-foreground">/ {waterGoal}L</span>
+        </div>
+
+        <div className="h-2 bg-secondary rounded-full overflow-hidden mb-2">
+          <div
+            className="h-full bg-primary rounded-full transition-all"
+            style={{ width: `${Math.min((waterIntake / waterGoal) * 100, 100)}%` }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+          <span>0L</span>
+          <span className="font-semibold text-primary">
+            {waterIntake >= waterGoal ? "🎉 Goal reached!" : `${Math.round((waterIntake / waterGoal) * 100)}%`}
+          </span>
+          <span>{waterGoal}L</span>
+        </div>
+
+        <div className="flex gap-2">
+          {[0.25, 0.5].map((amt) => (
+            <button
+              key={amt}
+              onClick={() => setWaterIntake(Math.min(waterIntake + amt, waterGoal + 1))}
+              className="flex-1 py-2 bg-primary/10 text-primary rounded-lg text-xs font-bold active:scale-[0.97] transition-transform"
+            >
+              +{amt * 1000}ml
+            </button>
+          ))}
+          <button
+            onClick={resetWater}
+            className="py-2 px-3 bg-secondary text-muted-foreground rounded-lg text-xs font-medium active:scale-[0.97] transition-transform"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+    </section>
+  );
 
   // ── TOGETHER VIEW ──
   if (isViewingTogether && hasOther) {
@@ -180,33 +260,6 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
     const myDone = myHabits.filter((h) => h.done).length;
     const theirTotal = theirHabits.length;
     const theirDone = theirHabits.filter((h) => h.done).length;
-
-    // Normalize keys for cross-user matching: "morning-habits" and "morning" → same bucket
-    const normalizeKey = (key: string) => key.toLowerCase().replace(/[\s_-]+/g, "").replace(/habits$/, "");
-
-    // Build unified section groups: merge categories that normalize to the same key
-    type UnifiedSection = { label: string; icon: string; myKeys: string[]; theirKeys: string[] };
-    const unifiedMap = new Map<string, UnifiedSection>();
-
-    for (const cat of new Set(myHabits.map((h) => h.category))) {
-      const norm = normalizeKey(cat);
-      if (!unifiedMap.has(norm)) {
-        const meta = activeSections.find((s) => s.key === cat);
-        unifiedMap.set(norm, { label: meta?.label || cat, icon: meta?.icon || "📋", myKeys: [], theirKeys: [] });
-      }
-      unifiedMap.get(norm)!.myKeys.push(cat);
-    }
-
-    for (const cat of new Set(theirHabits.map((h) => h.category))) {
-      const norm = normalizeKey(cat);
-      if (!unifiedMap.has(norm)) {
-        const meta = activeSections.find((s) => s.key === cat);
-        unifiedMap.set(norm, { label: meta?.label || cat, icon: meta?.icon || "📋", myKeys: [], theirKeys: [] });
-      }
-      unifiedMap.get(norm)!.theirKeys.push(cat);
-    }
-
-    const unifiedSections = Array.from(unifiedMap.values());
 
     return (
       <div className="px-5">
@@ -261,21 +314,24 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
         </div>
 
         {/* Water gauges side by side */}
-        <section className="mb-6">
-          <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">💧 Water Intake</h2>
-          <div className="bg-card rounded-xl p-5 border border-border shadow-card flex justify-around">
-            <WaterGaugeCircle intake={waterIntake} goal={waterGoal} label={myName} />
-            <WaterGaugeCircle intake={partnerWaterIntake} goal={partnerWaterGoal} label={partnerName} />
-          </div>
-        </section>
+        {showWater && (
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">💧 Water Intake</h2>
+            <div className="bg-card rounded-xl p-5 border border-border shadow-card flex justify-around">
+              <WaterGaugeCircle intake={waterIntake} goal={waterGoal} label={myName} />
+              <WaterGaugeCircle intake={partnerWaterIntake} goal={partnerWaterGoal} label={partnerName} />
+            </div>
+          </section>
+        )}
 
-        {/* Dynamic habit sections side-by-side — unified across users */}
-        {unifiedSections.map((section, idx) => {
-          const mySection = myHabits.filter((h) => section.myKeys.includes(h.category));
-          const theirSection = theirHabits.filter((h) => section.theirKeys.includes(h.category));
+        {/* Habit sections side-by-side */}
+        {DEFAULT_SECTIONS.map((section) => {
+          const mySection = getSectionHabits(section.key, myHabits);
+          const theirSection = getSectionHabits(section.key, theirHabits);
+          if (mySection.length === 0 && theirSection.length === 0) return null;
 
           return (
-            <section key={idx} className="mb-6">
+            <section key={section.key} className="mb-6">
               <h2 className="text-lg font-semibold tracking-display mb-3">{section.icon} {section.label}</h2>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -317,15 +373,6 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
           <p className="text-sm text-muted-foreground mt-0.5">Build a better routine, one day at a time</p>
         </div>
         <div className="flex items-center gap-1 mt-1">
-          {!isViewingPartner && (
-            <button
-              onClick={() => setShowAddSection(true)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              aria-label="Add section"
-            >
-              <FolderPlus size={16} />
-            </button>
-          )}
           {onOpenSettings && (
             <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" aria-label="Settings">
               <Settings size={18} />
@@ -374,9 +421,9 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
         </p>
       </div>
 
-      {/* Water Slider */}
-      {!isViewingPartner && <WaterSlider />}
-      {isViewingPartner && (
+      {/* Water Intake (optional) */}
+      {showWater && !isViewingPartner && <WaterSection />}
+      {showWater && isViewingPartner && (
         <section className="mb-6">
           <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">💧 {partnerName}'s Water Intake</h2>
           <div className="bg-card rounded-xl p-5 border border-border shadow-card flex justify-center">
@@ -385,126 +432,49 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
         </section>
       )}
 
+      {/* Show water toggle when hidden */}
+      {!showWater && !isViewingPartner && (
+        <button
+          onClick={toggleWaterVisibility}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 px-1 transition-colors"
+        >
+          <Eye size={14} />
+          <span>Show Water Intake</span>
+        </button>
+      )}
+
       {/* Past Date Viewer */}
       {!isViewingPartner && <HabitDateViewer />}
 
-      {/* Add Section Card */}
-      {showAddSection && (
-        <div className="bg-card rounded-xl p-4 border border-border shadow-card mb-4">
-          <p className="text-sm font-semibold mb-2">New Section</p>
-          <input
-            value={newSectionName}
-            onChange={(e) => setNewSectionName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddSection()}
-            placeholder="e.g. Evening Routine, Supplements..."
-            className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground mb-2"
-            autoFocus
-          />
-          {activeGroup && (
-            <div className="flex gap-2 mb-2">
-              <button
-                onClick={() => setNewSectionForEveryone(false)}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
-                  !newSectionForEveryone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                }`}
-              >
-                Just Me
-              </button>
-              <button
-                onClick={() => setNewSectionForEveryone(true)}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1 ${
-                  newSectionForEveryone ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                }`}
-              >
-                <Users size={12} /> Everyone
-              </button>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <button onClick={handleAddSection} className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
-              Create
-            </button>
-            <button onClick={() => { setShowAddSection(false); setNewSectionName(""); setNewSectionForEveryone(false); }} className="px-4 py-2 bg-secondary text-muted-foreground rounded-lg text-sm font-medium">
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Dynamic Habit Sections */}
-      {activeSections.map((section) => {
-        const sectionHabits = displayHabits.filter((h) => h.category === section.key);
+      {/* Fixed Habit Sections */}
+      {DEFAULT_SECTIONS.map((section) => {
+        const sectionHabits = getSectionHabits(section.key, displayHabits);
         const sectionCompleted = sectionHabits.filter((h) => h.done).length;
+        const isAdding = addingToSection === section.key;
 
         return (
-          <section key={section.key} className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                {renamingSection === section.key ? (
-                  <div className="flex items-center gap-2 flex-1">
-                    <input
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleRenameSection(section.key);
-                        if (e.key === "Escape") { setRenamingSection(null); setRenameValue(""); }
-                      }}
-                      className="flex-1 bg-secondary rounded-lg px-2 py-1 text-sm outline-none"
-                      autoFocus
-                    />
-                    <button onClick={() => handleRenameSection(section.key)} className="text-xs text-primary font-semibold">Save</button>
-                    <button onClick={() => { setRenamingSection(null); setRenameValue(""); }} className="text-xs text-muted-foreground">Cancel</button>
-                  </div>
-                ) : (
-                  <h2 className="text-lg font-semibold tracking-display">{section.icon} {section.label}</h2>
+          <section key={section.key} className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-base font-semibold tracking-display flex items-center gap-1.5">
+                <span>{section.icon}</span>
+                <span>{section.label}</span>
+                {sectionHabits.length > 0 && (
+                  <span className="text-[11px] text-muted-foreground font-normal ml-1">
+                    {sectionCompleted}/{sectionHabits.length}
+                  </span>
                 )}
-              </div>
-              <div className="flex items-center gap-1">
-                {!isViewingPartner && renamingSection !== section.key && (
-                  <>
-                    <button
-                      onClick={() => setAddingToSection(addingToSection === section.key ? null : section.key)}
-                      className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground"
-                    >
-                      <Plus size={16} />
-                    </button>
-                    <div className="relative">
-                      <button
-                        onClick={() => setSectionMenuOpen(sectionMenuOpen === section.key ? null : section.key)}
-                        className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-                      {sectionMenuOpen === section.key && (
-                        <>
-                          <button className="fixed inset-0 z-40 cursor-default" onClick={() => setSectionMenuOpen(null)} />
-                          <div className="absolute right-0 top-8 z-50 min-w-[140px] overflow-hidden rounded-xl border border-border bg-card shadow-card">
-                            <button
-                              onClick={() => {
-                                setRenamingSection(section.key);
-                                setRenameValue(section.label);
-                                setSectionMenuOpen(null);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-secondary"
-                            >
-                              <Pencil size={14} /> Rename
-                            </button>
-                            <button
-                              onClick={() => { handleDeleteSection(section.key); setSectionMenuOpen(null); }}
-                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 size={14} /> Delete Section
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              </h2>
+              {!isViewingPartner && (
+                <button
+                  onClick={() => setAddingToSection(isAdding ? null : section.key)}
+                  className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <Plus size={14} />
+                </button>
+              )}
             </div>
 
-            {addingToSection === section.key && !isViewingPartner && (
+            {isAdding && !isViewingPartner && (
               <AddHabitForm
                 value={newHabitLabel}
                 onChange={setNewHabitLabel}
@@ -512,61 +482,41 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
                 assignTo={assignTo}
                 setAssignTo={setAssignTo}
                 hasPartner={!!partner}
-                placeholder={`New ${section.label.toLowerCase()} habit...`}
+                placeholder={`Add ${section.label.toLowerCase()} habit...`}
               />
             )}
 
-            <div className="space-y-2">
-              {sectionHabits.map((habit) => (
-                <HabitRow
-                  key={habit.id}
-                  habit={habit}
-                  onToggle={handleToggle}
-                  onDelete={isViewingPartner ? undefined : (id) => { removeHabit(id); toast.success("Habit deleted"); }}
-                  streak={streakFn(habit.id)}
-                  isViewingPartner={isViewingPartner}
-                  onNudge={isViewingPartner && partner ? () => sendNudge(habit.label, habit.id) : undefined}
-                  nudgeLabel={isViewingPartner && partner ? `Nudge ${partner.display_name}` : undefined}
-                />
-              ))}
-              {sectionHabits.length === 0 && (
-                <p className="text-sm text-muted-foreground py-2">
-                  {isViewingPartner ? `${partnerName} has no habits here` : "No habits in this section yet"}
-                </p>
-              )}
-            </div>
-            {sectionHabits.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                {sectionCompleted}/{sectionHabits.length} completed
-              </p>
+            {sectionHabits.length > 0 ? (
+              <div className="space-y-1.5">
+                {sectionHabits.map((habit) => (
+                  <HabitRow
+                    key={habit.id}
+                    habit={habit}
+                    onToggle={handleToggle}
+                    onDelete={isViewingPartner ? undefined : (id) => { removeHabit(id); toast.success("Habit deleted"); }}
+                    streak={streakFn(habit.id)}
+                    isViewingPartner={isViewingPartner}
+                    onNudge={isViewingPartner && partner ? () => sendNudge(habit.label, habit.id) : undefined}
+                    nudgeLabel={isViewingPartner && partner ? `Nudge ${partner.display_name}` : undefined}
+                  />
+                ))}
+              </div>
+            ) : (
+              !isAdding && (
+                <button
+                  onClick={() => !isViewingPartner && setAddingToSection(section.key)}
+                  disabled={isViewingPartner}
+                  className="w-full py-3 text-[13px] text-muted-foreground/60 hover:text-muted-foreground transition-colors rounded-xl border border-dashed border-border/50 hover:border-border"
+                >
+                  {isViewingPartner
+                    ? `${partnerName} has no ${section.label.toLowerCase()} habits`
+                    : `+ Add a ${section.label.toLowerCase()} habit`}
+                </button>
+              )
             )}
           </section>
         );
       })}
-
-      {/* Add Section button at bottom */}
-      {!isViewingPartner && !showAddSection && activeSections.length > 0 && (
-        <button
-          onClick={() => setShowAddSection(true)}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all mb-6"
-        >
-          <FolderPlus size={16} />
-          <span className="text-sm font-medium">Add Section</span>
-        </button>
-      )}
-
-      {/* Show empty state if no sections at all */}
-      {activeSections.length === 0 && !isViewingPartner && (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground mb-3">No habit sections yet</p>
-          <button
-            onClick={() => setShowAddSection(true)}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
-          >
-            Create Your First Section
-          </button>
-        </div>
-      )}
     </div>
   );
 };
