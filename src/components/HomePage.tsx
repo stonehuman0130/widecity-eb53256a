@@ -790,11 +790,15 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
           {sectionOrder.filter((id) => sectionVisible.has(id)).map((sectionId) => {
             switch (sectionId) {
               case "habits": {
-                // Render selected habit sub-items under the "Habits" parent
-                const subIds = selectedHabitSubIds.length > 0 ? selectedHabitSubIds : ["water", "habit:morning"];
+                const HABIT_SECTION_META: Record<string, { label: string; icon: string }> = {
+                  morning: { label: "Morning", icon: "🌅" },
+                  afternoon: { label: "Afternoon", icon: "☀️" },
+                  evening: { label: "Evening", icon: "🌙" },
+                  other: { label: "Other", icon: "📋" },
+                };
                 return (
                   <div key="habits">
-                    {subIds.map((subId) => {
+                    {selectedHabitSubIds.map((subId) => {
                       if (subId === "water") {
                         return (
                           <section key="water" className="mb-6">
@@ -804,15 +808,15 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
                       }
                       if (subId.startsWith("habit:")) {
                         const categoryKey = subId.replace("habit:", "");
-                        const sectionMeta = habitSections.find((s) => s.key === categoryKey);
-                        if (!sectionMeta) return null;
+                        const meta = HABIT_SECTION_META[categoryKey];
+                        if (!meta) return null;
                         return (
                           <section key={subId} className="mb-6">
                             <HomeHabitSectionWidget
                               selectedDate={selectedDate}
                               categoryKey={categoryKey}
-                              sectionLabel={(filter === "partner" || isSpecificMemberFilter) ? `${selectedMemberName}'s ${sectionMeta.label}` : sectionMeta.label}
-                              sectionIcon={sectionMeta.icon}
+                              sectionLabel={(filter === "partner" || isSpecificMemberFilter) ? `${selectedMemberName}'s ${meta.label}` : meta.label}
+                              sectionIcon={meta.icon}
                             />
                           </section>
                         );
