@@ -626,7 +626,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
       {/* Date nav (single day) */}
       {dateRange === "today" && (
-        <div className="flex items-center justify-between px-5 py-1">
+        <div className="flex items-center justify-between py-1">
           <button onClick={() => changeDate(-1)} className="p-2 rounded-full hover:bg-secondary"><ChevronLeft size={18} /></button>
           <button onClick={() => setSelectedDate(new Date())} className={`text-sm font-semibold px-3 py-1.5 rounded-full transition-colors ${isToday ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}>
             {isToday ? "Today" : dateLabel}
