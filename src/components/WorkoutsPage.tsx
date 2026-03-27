@@ -248,6 +248,23 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const { twoTabFilters, hasOther, otherName } = useGroupContext();
   const partnerName = otherName;
 
+  // Track workout progress from exercise logs
+  const [workoutProgress, setWorkoutProgress] = useState<Record<string, { progress: number; cal: number }>>({});
+
+  const handleProgressUpdate = useCallback((workoutId: string, progress: number, cal: number) => {
+    setWorkoutProgress(prev => ({
+      ...prev,
+      [workoutId]: { progress, cal },
+    }));
+    // Auto-complete if 100% and not already done
+    if (progress >= 100) {
+      const w = workouts.find(w => w.id === workoutId);
+      if (w && !w.done) {
+        handleToggleWorkout(workoutId);
+      }
+    }
+  }, [workouts]);
+
   return (
     <div className="px-5 pb-24">
       {showCongrats && (
