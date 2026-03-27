@@ -129,25 +129,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
         )}
       </AnimatePresence>
 
-      
-
-      {/* Filter chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 mb-5 scrollbar-hide -mx-1 px-1">
-        {FILTER_CHIPS.map((chip) => (
-          <button
-            key={chip.value}
-            onClick={() => setFilter(chip.value)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
-              filter === chip.value
-                ? "bg-card shadow-sm border border-border/50 text-foreground"
-                : "bg-secondary/40 text-muted-foreground hover:bg-secondary/60 border border-transparent"
-            }`}
-          >
-            <span className="text-sm">{chip.icon}</span>
-            {chip.label}
-          </button>
-        ))}
-      </div>
+      <GroupSelector />
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
