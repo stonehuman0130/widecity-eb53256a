@@ -495,7 +495,10 @@ export const HomeHabitSectionWidget = ({ selectedDate, categoryKey, sectionLabel
   const dateStr = fmtDate(selectedDate);
   const isToday = dateStr === fmtDate(new Date());
 
-  const sectionHabits = filteredHabits.filter((h) => h.category === categoryKey);
+  const sectionHabits = filteredHabits.filter((h) => {
+    const cat = (h.category || "other").toLowerCase();
+    return cat === categoryKey || cat === `${categoryKey}-habits`;
+  });
 
   if (sectionHabits.length === 0) {
     return (
