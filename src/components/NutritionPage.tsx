@@ -650,6 +650,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     setEditTitle(meal.title);
     setEditProtein(String(meal.protein));
     setEditCalories(String(meal.calories || 0));
+    setEditCarbs(String(meal.carbs || 0));
+    setEditFat(String(meal.fat || 0));
+    setEditFiber(String(meal.fiber || 0));
     setEditMealType(meal.meal_type);
     setDetailMeal(null);
     setMealMenuOpen(null);
@@ -661,6 +664,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       title: editTitle.trim(),
       protein: parseInt(editProtein) || 0,
       calories: parseInt(editCalories) || 0,
+      carbs: parseInt(editCarbs) || 0,
+      fat: parseInt(editFat) || 0,
+      fiber: parseInt(editFiber) || 0,
       meal_type: editMealType,
     };
     const { error } = await supabase.from("meal_logs").update(updates).eq("id", editingMeal.id);
