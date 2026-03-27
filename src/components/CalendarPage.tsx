@@ -1214,13 +1214,14 @@ const GoogleBadge = () => (
 );
 
 const EventList = ({
-  items, groups, getColorClasses, onItemTap, compact,
+  items, groups, getColorClasses, onItemTap, compact, colorMap,
 }: {
   items: CalItem[];
   groups: Group[];
   getColorClasses: (gid: string | null | undefined) => typeof GROUP_COLOR_CLASSES[0];
   onItemTap?: (item: CalItem) => void;
   compact?: boolean;
+  colorMap?: { byId: Map<string, string>; byProvider: Map<string, string> };
 }) => {
   const { activeGroup } = useAuth();
   const todoItems = items.filter((i) => i.isDueDateTask);
@@ -1254,7 +1255,7 @@ const EventList = ({
       {allDayItems.length > 0 && (
         <div className="py-0.5">
           {allDayItems.map((item) => {
-            const color = resolveItemColor(item, groups);
+            const color = resolveItemColor(item, groups, colorMap);
             const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
             return (
               <button key={item.id} onClick={() => onItemTap?.(item)}
@@ -1264,6 +1265,7 @@ const EventList = ({
                 <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
                   {item.title}
                 </span>
+                {item.type === "gcal" && <GoogleBadge />}
                 {item.isMultiDay && (
                   <span className="text-[10px] text-muted-foreground">multi-day</span>
                 )}
@@ -1278,7 +1280,7 @@ const EventList = ({
       )}
 
       {timedItems.map((item) => {
-        const color = resolveItemColor(item, groups);
+        const color = resolveItemColor(item, groups, colorMap);
         const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
         const displayTime = item.type === "gcal" && item.time
           ? new Date(item.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
@@ -1295,6 +1297,7 @@ const EventList = ({
             <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
               {item.title}
             </span>
+            {item.type === "gcal" && <GoogleBadge />}
             {group && (
               <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{group.emoji} {group.name}</span>
             )}
