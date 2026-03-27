@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { Pencil } from "lucide-react";
+import { Pencil, Lock } from "lucide-react";
 import { SpecialDay, getDayCount, getDisplayLabel, parseLocalDate } from "./SpecialDayTypes";
 
 interface Props {
   day: SpecialDay;
   now: Date;
   onEdit: (day: SpecialDay) => void;
+  isPrivate?: boolean;
 }
 
 const PLACEHOLDER_GRADIENTS = [

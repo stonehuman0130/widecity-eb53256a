@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Camera, Trash2, ChevronRight, Pin } from "lucide-react";
+import { X, Camera, Trash2, ChevronRight, Pin, Lock, Users, Check } from "lucide-react";
 import { useModalScrollLock } from "@/hooks/useModalScrollLock";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -50,6 +50,15 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
     return EVENT_TYPE_OPTIONS.find((o) => o.value === et)?.defaultDisplayMode || "countdown";
   };
 
+  const getInitialSharedGroupIds = (): string[] => {
+    if (editingDay?.shared_group_ids && editingDay.shared_group_ids.length > 0) {
+      return editingDay.shared_group_ids;
+    }
+    // For new events, if user is in a group context, pre-select that group
+    if (!editingDay && groupId) return [groupId];
+    return [];
+  };
+
   const [step, setStep] = useState(editingDay ? 2 : 1);
   const [eventType, setEventType] = useState<EventType>(getInitialEventType());
   const [title, setTitle] = useState(editingDay?.title || "");
@@ -66,7 +75,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
   const [pinAsHero, setPinAsHero] = useState(editingDay?.is_featured || false);
   const [displayMode, setDisplayMode] = useState<DisplayMode>(getInitialDisplayMode());
   const [inclusiveCount, setInclusiveCount] = useState(editingDay?.inclusive_count || false);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(editingDay?.group_id ?? groupId);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>(getInitialSharedGroupIds());
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Reset all form state when the modal opens or the edited card changes
@@ -91,7 +100,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
     setPinAsHero(editingDay?.is_featured || false);
     setDisplayMode(dm as DisplayMode);
     setInclusiveCount(editingDay?.inclusive_count || false);
-    setSelectedGroupId(editingDay?.group_id ?? groupId);
+    setSelectedGroupIds(getInitialSharedGroupIds());
   }, [open, editingDay?.id]);
 
   const selectEventType = (type: EventType) => {
@@ -103,6 +112,18 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
     setDisplayMode(opt.defaultDisplayMode);
     setStep(2);
   };
+
+  const toggleGroupSelection = (gId: string) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(gId) ? prev.filter((id) => id !== gId) : [...prev, gId]
+    );
+  };
+
+  const selectJustMe = () => {
+    setSelectedGroupIds([]);
+  };
+
+  const isJustMe = selectedGroupIds.length === 0;
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -125,14 +146,21 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
     if (!title.trim()) { toast.error("Please enter a title"); return; }
     if (!date) { toast.error("Please select a date"); return; }
 
-    const payload = {
+    // Determine context_group_id: the active group when creating, or preserved from editing
+    const contextGroupId = editingDay
+      ? (editingDay.context_group_id ?? groupId)
+      : groupId;
+
+    const payload: Record<string, unknown> = {
       title: title.trim(),
       icon,
       event_date: date,
       count_direction: direction,
       repeats_yearly: repeats,
       user_id: userId,
-      group_id: selectedGroupId,
+      group_id: selectedGroupIds.length > 0 ? selectedGroupIds[0] : null,
+      shared_group_ids: selectedGroupIds,
+      context_group_id: contextGroupId,
       photo_url: photoUrl || null,
       category: eventType === "first_met" || eventType === "wedding" ? "anniversary" : eventType,
       event_type: eventType,
@@ -146,16 +174,16 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
     if (pinAsHero) {
       await supabase
         .from("special_days")
-        .update({ is_featured: false })
+        .update({ is_featured: false } as any)
         .eq("user_id", userId)
         .neq("id", editingDay?.id || "");
     }
 
     if (editingDay) {
-      await supabase.from("special_days").update(payload).eq("id", editingDay.id);
+      await supabase.from("special_days").update(payload as any).eq("id", editingDay.id);
       toast.success("Updated");
     } else {
-      await supabase.from("special_days").insert(payload);
+      await supabase.from("special_days").insert(payload as any);
       toast.success("Added");
     }
     onSaved();
@@ -289,8 +317,11 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
                           <div className="w-full h-full flex items-center justify-center text-xl">{icon}</div>
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-foreground truncate">{title || "Your Moment"}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[13px] font-bold text-foreground truncate">{title || "Your Moment"}</p>
+                          {isJustMe && <Lock size={10} className="text-muted-foreground/50 flex-shrink-0" />}
+                        </div>
                         <p className="text-[12px] font-bold text-primary">
                           {previewCount === 0 ? "Today! 🎉" : previewLabel.primary}
                         </p>
@@ -342,7 +373,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
                     />
                   </div>
 
-                  {/* ── Shared With / Visibility ── */}
+                  {/* ── Shared With / Visibility (multi-select) ── */}
                   {groups.length > 0 && (
                     <div>
                       <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
@@ -350,29 +381,41 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
                       </label>
                       <div className="flex flex-wrap gap-1.5">
                         <button
-                          onClick={() => setSelectedGroupId(null)}
-                          className={`px-3 py-2 rounded-xl text-[12px] font-semibold transition-all border ${
-                            selectedGroupId === null
+                          onClick={selectJustMe}
+                          className={`px-3 py-2 rounded-xl text-[12px] font-semibold transition-all border flex items-center gap-1.5 ${
+                            isJustMe
                               ? "bg-primary/10 text-primary border-primary/30"
                               : "bg-secondary/40 text-muted-foreground border-border/30 hover:bg-secondary/50"
                           }`}
                         >
-                          🔒 Just me
+                          <Lock size={11} /> Just me
                         </button>
-                        {groups.map((g) => (
-                          <button
-                            key={g.id}
-                            onClick={() => setSelectedGroupId(g.id)}
-                            className={`px-3 py-2 rounded-xl text-[12px] font-semibold transition-all border ${
-                              selectedGroupId === g.id
-                                ? "bg-primary/10 text-primary border-primary/30"
-                                : "bg-secondary/40 text-muted-foreground border-border/30 hover:bg-secondary/50"
-                            }`}
-                          >
-                            {g.emoji} {g.name}
-                          </button>
-                        ))}
+                        {groups.map((g) => {
+                          const isSelected = selectedGroupIds.includes(g.id);
+                          return (
+                            <button
+                              key={g.id}
+                              onClick={() => toggleGroupSelection(g.id)}
+                              className={`px-3 py-2 rounded-xl text-[12px] font-semibold transition-all border flex items-center gap-1.5 ${
+                                isSelected
+                                  ? "bg-primary/10 text-primary border-primary/30"
+                                  : "bg-secondary/40 text-muted-foreground border-border/30 hover:bg-secondary/50"
+                              }`}
+                            >
+                              {isSelected && <Check size={11} />}
+                              {g.emoji} {g.name}
+                            </button>
+                          );
+                        })}
                       </div>
+                      {/* Contextual hint */}
+                      <p className="text-[10px] text-muted-foreground/50 mt-1.5 leading-snug">
+                        {isJustMe
+                          ? "Visible only to you. Will appear in your current group view privately."
+                          : selectedGroupIds.length === 1
+                            ? "Shared with all members of this group."
+                            : `Shared across ${selectedGroupIds.length} groups. All members can view & edit.`}
+                      </p>
                     </div>
                   )}
 

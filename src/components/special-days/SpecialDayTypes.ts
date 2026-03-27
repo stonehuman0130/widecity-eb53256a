@@ -18,6 +18,8 @@ export interface SpecialDay {
   event_type: EventType;
   display_mode: DisplayMode;
   inclusive_count?: boolean;
+  shared_group_ids?: string[];
+  context_group_id?: string | null;
 }
 
 export const EVENT_TYPE_OPTIONS: { value: EventType; label: string; icon: string; defaultDirection: "since" | "until"; defaultRepeats: boolean; defaultDisplayMode: DisplayMode }[] = [

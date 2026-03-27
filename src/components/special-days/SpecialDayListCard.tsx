@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Lock } from "lucide-react";
 import { SpecialDay, getDisplayLabel, parseLocalDate } from "./SpecialDayTypes";
 
 interface Props {
@@ -7,9 +8,10 @@ interface Props {
   onEdit: (day: SpecialDay) => void;
   index?: number;
   groupName?: string;
+  isPrivate?: boolean;
 }
 
-const SpecialDayListCard = ({ day, now, onEdit, index = 0, groupName }: Props) => {
+const SpecialDayListCard = ({ day, now, onEdit, index = 0, groupName, isPrivate = false }: Props) => {
   const label = getDisplayLabel(day, now);
   const eventDate = parseLocalDate(day.event_date);
   const hasPhoto = !!day.photo_url;
@@ -40,7 +42,12 @@ const SpecialDayListCard = ({ day, now, onEdit, index = 0, groupName }: Props) =
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-bold text-foreground truncate leading-tight">{day.title}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[13px] font-bold text-foreground truncate leading-tight">{day.title}</p>
+          {isPrivate && (
+            <Lock size={10} className="text-muted-foreground/40 flex-shrink-0" />
+          )}
+        </div>
         <p className="text-[11px] text-muted-foreground/70 mt-0.5">{dateStr}</p>
         <p className="text-[12px] font-bold text-foreground/80 mt-0.5">{label.primary}</p>
         {label.secondary && (
