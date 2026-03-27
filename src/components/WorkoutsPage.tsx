@@ -565,6 +565,7 @@ const WorkoutCard = ({
   onDeleteExercise,
   onLogWorkout,
   readOnly,
+  progress,
 }: {
   workout: Workout;
   onToggle: (id: string) => void;
@@ -577,6 +578,7 @@ const WorkoutCard = ({
   onDeleteExercise: (workoutId: string, index: number) => void;
   onLogWorkout: (workout: Workout) => void;
   readOnly?: boolean;
+  progress?: number;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [cascadeConfirm, setCascadeConfirm] = useState<{ newDate: string; diffDays: number; followingCount: number } | null>(null);
