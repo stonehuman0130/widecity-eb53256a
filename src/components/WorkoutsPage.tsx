@@ -573,6 +573,182 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   );
 };
 
+// Together View component
+const TogetherView = ({
+  myWorkouts,
+  partnerWorkouts,
+  myName,
+  partnerName,
+  selectedDate,
+  today,
+  dateRange,
+  onSelectDate,
+  getPartnerWorkoutsForDate,
+  onSelectExercise,
+  workoutProgress,
+}: {
+  myWorkouts: Workout[];
+  partnerWorkouts: Workout[];
+  myName: string;
+  partnerName: string;
+  selectedDate: string;
+  today: string;
+  dateRange: string[];
+  onSelectDate: (date: string) => void;
+  getPartnerWorkoutsForDate: (date: string) => Workout[];
+  onSelectExercise: (name: string) => void;
+  workoutProgress: Record<string, { progress: number; cal: number }>;
+}) => {
+  const allWorkouts = useMemo(() => [...myWorkouts, ...partnerWorkouts], [myWorkouts, partnerWorkouts]);
+
+  const myDateWorkouts = useMemo(
+    () => myWorkouts.filter((w) => w.scheduledDate === selectedDate || w.completedDate === selectedDate),
+    [myWorkouts, selectedDate]
+  );
+  const partnerDateWorkouts = useMemo(
+    () => getPartnerWorkoutsForDate(selectedDate),
+    [getPartnerWorkoutsForDate, selectedDate]
+  );
+
+  const hasWorkoutsOnDate = (date: string) =>
+    myWorkouts.some((w) => w.scheduledDate === date || w.completedDate === date) ||
+    getPartnerWorkoutsForDate(date).length > 0;
+
+  const MiniWorkoutCard = ({ workout }: { workout: Workout }) => {
+    const progress = workoutProgress[workout.id]?.progress || 0;
+    return (
+      <div className={`flex items-center gap-3 p-3 rounded-xl border bg-card ${workout.done ? "border-habit-green/50" : "border-border"}`}>
+        <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0">
+          <svg className="absolute inset-0 w-7 h-7 -rotate-90" viewBox="0 0 28 28">
+            <circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" className="text-muted-foreground/20" strokeWidth="2" />
+            {progress > 0 && !workout.done && (
+              <circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" className="text-habit-green" strokeWidth="2"
+                strokeDasharray={`${(progress / 100) * 69.12} 69.12`} strokeLinecap="round" />
+            )}
+          </svg>
+          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center z-10 ${
+            workout.done ? "bg-habit-green border-habit-green" : "border-transparent"
+          }`}>
+            {workout.done && <Check size={12} className="text-primary-foreground" />}
+          </div>
+        </div>
+        <span className="text-lg">{workout.emoji}</span>
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-medium truncate ${workout.done ? "line-through text-muted-foreground" : ""}`}>{workout.title}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+              <Clock size={10} /> {workout.duration}
+            </span>
+            <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+              <Flame size={10} /> {workout.cal} cal
+            </span>
+            {workout.tag && (
+              <span className="text-[10px] font-semibold text-tag-work-text bg-tag-work px-1.5 py-0.5 rounded">{workout.tag}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* Combined stats for both users */}
+      <div className="space-y-4 mb-5">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[hsl(var(--user-a))]" /> {myName}
+          </p>
+          <WorkoutStatsCards workouts={myWorkouts} label={myName} />
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[hsl(var(--user-b))]" /> {partnerName}
+          </p>
+          <WorkoutStatsCards workouts={partnerWorkouts} label={partnerName} />
+        </div>
+      </div>
+
+      {/* Date selector strip */}
+      <div className="mb-5 -mx-5">
+        <div
+          className="flex gap-2 px-5 pb-2 overflow-x-auto scrollbar-hide"
+          style={{ WebkitOverflowScrolling: "touch" }}
+          ref={(el) => {
+            if (el) {
+              const selectedEl = el.querySelector('[data-selected="true"]');
+              if (selectedEl) {
+                selectedEl.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+              }
+            }
+          }}
+        >
+          {dateRange.map((date) => {
+            const d = new Date(date + "T00:00:00");
+            const dayNum = d.getDate();
+            const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+            const isSelected = date === selectedDate;
+            const isT = date === today;
+            const hasW = hasWorkoutsOnDate(date);
+
+            return (
+              <button
+                key={date}
+                data-selected={isSelected}
+                onClick={() => onSelectDate(date)}
+                className={`flex flex-col items-center min-w-[48px] flex-shrink-0 py-2 px-1 rounded-xl border transition-all ${
+                  isSelected
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-transparent text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                <span className="text-[10px] font-medium">{dayName}</span>
+                <span className={`text-base font-bold ${isT && !isSelected ? "text-primary" : ""}`}>{dayNum}</span>
+                {hasW && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Side-by-side workout lists */}
+      <div className="space-y-5">
+        {/* My workouts */}
+        <section>
+          <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--user-a))]" />
+            {myName}'s Workouts
+            <span className="text-muted-foreground text-xs">({myDateWorkouts.length})</span>
+          </h3>
+          {myDateWorkouts.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">No workouts on this day</p>
+          ) : (
+            <div className="space-y-2">
+              {myDateWorkouts.map((w) => <MiniWorkoutCard key={w.id} workout={w} />)}
+            </div>
+          )}
+        </section>
+
+        {/* Partner workouts */}
+        <section>
+          <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-[hsl(var(--user-b))]" />
+            {partnerName}'s Workouts
+            <span className="text-muted-foreground text-xs">({partnerDateWorkouts.length})</span>
+          </h3>
+          {partnerDateWorkouts.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">No workouts on this day</p>
+          ) : (
+            <div className="space-y-2">
+              {partnerDateWorkouts.map((w) => <MiniWorkoutCard key={w.id} workout={w} />)}
+            </div>
+          )}
+        </section>
+      </div>
+    </>
+  );
+};
+
 const WorkoutCard = ({
   workout,
   onToggle,
