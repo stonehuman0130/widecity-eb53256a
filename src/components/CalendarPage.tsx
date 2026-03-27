@@ -1130,7 +1130,13 @@ const DateStrip = ({
   );
 };
 
-// ── Event List Component ──────────────────────────────────
+// Helper to resolve the display color for a CalItem
+function resolveItemColor(item: CalItem, groups: Group[]): string {
+  if (item.isDueDateTask) return TODO_COLOR;
+  if (item.calendarColor) return item.calendarColor;
+  const idx = getGroupColorIndex(item.groupId, groups);
+  return GROUP_COLORS[idx % GROUP_COLORS.length];
+}
 
 const EventList = ({
   items, groups, getColorClasses, onItemTap, compact,
@@ -1155,8 +1161,8 @@ const EventList = ({
             return (
               <button key={item.id} onClick={() => onItemTap?.(item)}
                 className="w-full flex items-center gap-2.5 py-1.5 px-1 text-left hover:bg-secondary/50 rounded-lg transition-colors active:bg-secondary">
-                <span className={`w-[3px] h-5 rounded-full ${TODO_COLOR_CLASSES.bg} flex-shrink-0`} />
-                <span className="text-[11px] text-violet-500 w-12 flex-shrink-0 font-medium">to-do</span>
+                <span className="w-[3px] h-5 rounded-full flex-shrink-0" style={{ backgroundColor: TODO_COLOR }} />
+                <span className="text-[11px] w-12 flex-shrink-0 font-medium" style={{ color: TODO_COLOR }}>to-do</span>
                 <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
                   {item.title}
                 </span>
@@ -1173,12 +1179,12 @@ const EventList = ({
       {allDayItems.length > 0 && (
         <div className="py-0.5">
           {allDayItems.map((item) => {
-            const colors = getColorClasses(item.groupId);
+            const color = resolveItemColor(item, groups);
             const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
             return (
               <button key={item.id} onClick={() => onItemTap?.(item)}
                 className="w-full flex items-center gap-2.5 py-1.5 px-1 text-left hover:bg-secondary/50 rounded-lg transition-colors active:bg-secondary">
-                <span className={`w-[3px] h-5 rounded-full ${colors.bg} flex-shrink-0`} />
+                <span className="w-[3px] h-5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                 <span className="text-[11px] text-muted-foreground w-12 flex-shrink-0">all-day</span>
                 <span className={`text-[13px] font-medium flex-1 truncate ${item.done ? "line-through opacity-40" : "text-foreground"}`}>
                   {item.title}
@@ -1197,7 +1203,7 @@ const EventList = ({
       )}
 
       {timedItems.map((item) => {
-        const colors = getColorClasses(item.groupId);
+        const color = resolveItemColor(item, groups);
         const group = !activeGroup && item.groupId ? groups.find((g) => g.id === item.groupId) : null;
         const displayTime = item.type === "gcal" && item.time
           ? new Date(item.time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
@@ -1207,7 +1213,7 @@ const EventList = ({
         return (
           <button key={item.id} onClick={() => onItemTap?.(item)}
             className="w-full flex items-center gap-2.5 py-2 px-1 text-left hover:bg-secondary/50 rounded-lg transition-colors active:bg-secondary">
-            <span className={`w-[3px] h-5 rounded-full ${colors.bg} flex-shrink-0`} />
+            <span className="w-[3px] h-5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
             <span className="text-[11px] text-muted-foreground w-16 flex-shrink-0 tabular-nums">
               {displayTime}{displayEndTime && displayEndTime !== displayTime ? `–${displayEndTime}` : ""}
             </span>
