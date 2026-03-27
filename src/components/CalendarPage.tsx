@@ -628,12 +628,31 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
   // ── Color helpers ─────────────────────────────────────
 
-  const getItemColor = useCallback((item: CalItem): string => {
+  const resolveColor = useCallback((item: CalItem): string => {
     if (item.isDueDateTask) return TODO_COLOR;
-    if (item.calendarColor) return item.calendarColor;
+    // For local events with calendar_id, look up from calendar map
+    if (item.type === "event") {
+      const raw = item.raw as ScheduledEvent;
+      if (raw.calendarId && calendarColorMap.byId.has(raw.calendarId)) {
+        return calendarColorMap.byId.get(raw.calendarId)!;
+      }
+    }
+    // For gcal events, look up by calendarId (provider_calendar_id)
+    if (item.type === "gcal") {
+      const raw = item.raw as GoogleCalendarEvent;
+      if (raw.calendarId && calendarColorMap.byProvider.has(raw.calendarId)) {
+        return calendarColorMap.byProvider.get(raw.calendarId)!;
+      }
+      // Fall back to embedded color
+      if (item.calendarColor) return item.calendarColor;
+    }
     const idx = getGroupColorIndex(item.groupId, groups);
     return GROUP_COLORS[idx % GROUP_COLORS.length];
-  }, [groups]);
+  }, [groups, calendarColorMap]);
+
+  const getItemColor = useCallback((item: CalItem): string => {
+    return resolveColor(item);
+  }, [resolveColor]);
 
   const getColorClasses = (groupId: string | null | undefined) =>
     GROUP_COLOR_CLASSES[getGroupColorIndex(groupId, groups)];
