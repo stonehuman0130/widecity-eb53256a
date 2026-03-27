@@ -500,18 +500,7 @@ export const HomeHabitSectionWidget = ({ selectedDate, categoryKey, sectionLabel
     return cat === categoryKey || cat === `${categoryKey}-habits`;
   });
 
-  if (sectionHabits.length === 0) {
-    return (
-      <div>
-        <h2 className="text-lg font-semibold tracking-display mb-3 flex items-center gap-2">
-          {sectionIcon} {sectionLabel}
-        </h2>
-        <div className="bg-card rounded-xl p-4 shadow-card border border-border">
-          <p className="text-xs text-muted-foreground">No habits in this section yet</p>
-        </div>
-      </div>
-    );
-  }
+  if (sectionHabits.length === 0) return null;
 
   return (
     <div>
