@@ -122,7 +122,6 @@ const DraggableWaterGauge = ({
             filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.2))",
             cursor: "grab",
           }}
-          transform={`rotate(-90 ${center} ${center})`}
         />
       </svg>
       {/* Center label */}
