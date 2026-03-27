@@ -25,11 +25,11 @@ const DraggableWaterGauge = ({
   const offset = circumference * (1 - percent);
   const center = size / 2;
 
-  // Angle for the handle: 0% = top (−90°), 100% = top (270°)
-  const angle = percent * 360 - 90;
-  const rad = (angle * Math.PI) / 180;
-  const handleX = center + radius * Math.cos(rad);
-  const handleY = center + radius * Math.sin(rad);
+  // Handle position: progress starts at top (12 o'clock = -90° in standard coords)
+  const angleDeg = percent * 360 - 90;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  const handleX = center + radius * Math.cos(angleRad);
+  const handleY = center + radius * Math.sin(angleRad);
 
   const angleToValue = useCallback(
     (clientX: number, clientY: number) => {
