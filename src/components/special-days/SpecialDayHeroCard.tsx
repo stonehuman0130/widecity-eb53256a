@@ -15,7 +15,7 @@ const PLACEHOLDER_GRADIENTS = [
   "linear-gradient(135deg, hsl(210 20% 88%), hsl(220 18% 82%), hsl(230 15% 78%))",
 ];
 
-const SpecialDayHeroCard = ({ day, now, onEdit }: Props) => {
+const SpecialDayHeroCard = ({ day, now, onEdit, isPrivate = false }: Props) => {
   const count = getDayCount(day, now);
   const label = getDisplayLabel(day, now);
   const eventDate = parseLocalDate(day.event_date);
