@@ -579,28 +579,28 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     const loadFrequent = async () => {
       const { data } = await supabase
         .from("meal_logs")
-        .select("title, protein, calories, meal_type")
+        .select("title, protein, calories, carbs, fat, fiber, meal_type")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(200);
       if (!data) return;
-      const counts: Record<string, { title: string; protein: number; calories: number; meal_type: string; count: number }> = {};
+      const counts: Record<string, { title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number }> = {};
       for (const m of data) {
         const key = m.title.toLowerCase().trim();
         if (counts[key]) {
           counts[key].count++;
         } else {
-          counts[key] = { title: m.title, protein: m.protein, calories: m.calories || 0, meal_type: m.meal_type, count: 1 };
+          counts[key] = { title: m.title, protein: m.protein, calories: m.calories || 0, carbs: (m as any).carbs || 0, fat: (m as any).fat || 0, fiber: (m as any).fiber || 0, meal_type: m.meal_type, count: 1 };
         }
       }
       const sorted = Object.values(counts).filter(c => c.count >= 2).sort((a, b) => b.count - a.count).slice(0, 12);
       setFrequentMeals(sorted);
     };
     loadFrequent();
-  }, [user, meals.length]); // re-fetch when meals change
+  }, [user, meals.length]);
 
   // Quick add from suggestion/frequent
-  const quickAddMeal = async (item: { title: string; protein: number; calories: number; meal_type: string }) => {
+  const quickAddMeal = async (item: { title: string; protein: number; calories: number; carbs?: number; fat?: number; fiber?: number; meal_type: string }) => {
     if (!user) return;
     const { data, error } = await supabase.from("meal_logs").insert({
       user_id: user.id,
