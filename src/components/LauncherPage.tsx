@@ -64,9 +64,114 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
   const pendingGroupIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Calendar card reorder state
+  const [editMode, setEditMode] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const [orderedIds, setOrderedIds] = useState<string[]>(() =>
+    reconcileCalendarOrder(loadCalendarOrder(), visibleGroups)
+  );
+
+  useEffect(() => {
+    setOrderedIds((prev) => reconcileCalendarOrder(prev, visibleGroups));
+  }, [visibleGroups]);
+
+  useEffect(() => {
+    saveCalendarOrder(orderedIds);
+  }, [orderedIds]);
+
+  const orderedVisibleGroups = useMemo(() => {
+    const map = new Map(visibleGroups.map((g) => [g.id, g]));
+    return orderedIds.map((id) => map.get(id)).filter(Boolean) as Group[];
+  }, [orderedIds, visibleGroups]);
+
+  // Close edit mode on outside tap
+  useEffect(() => {
+    if (!editMode) return;
+    const handler = (e: PointerEvent) => {
+      if (listRef.current && !listRef.current.contains(e.target as Node)) {
+        setEditMode(false);
+      }
+    };
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, [editMode]);
+
+  const clearLP = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleCardPointerDown = useCallback((idx: number) => {
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      setEditMode(true);
+      setDragIdx(idx);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }, LONG_PRESS_MS);
+  }, []);
+
+  const handleCardPointerUp = useCallback(
+    (group: Group) => {
+      const wasLongPress = didLongPress.current;
+      clearLP();
+
+      if (editMode && dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+        setOrderedIds((prev) => {
+          const next = [...prev];
+          const [moved] = next.splice(dragIdx, 1);
+          next.splice(dragOverIdx, 0, moved);
+          return next;
+        });
+      }
+
+      setDragIdx(null);
+      setDragOverIdx(null);
+
+      if (!wasLongPress && !editMode) {
+        onEnterGroup(group.id);
+      }
+    },
+    [editMode, dragIdx, dragOverIdx, clearLP, onEnterGroup]
+  );
+
+  const handleCardPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!editMode || dragIdx === null) return;
+      const y = e.clientY;
+      for (let i = 0; i < cardRefs.current.length; i++) {
+        const el = cardRefs.current[i];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (y >= rect.top && y <= rect.bottom) {
+          setDragOverIdx(i);
+          return;
+        }
+      }
+    },
+    [editMode, dragIdx]
+  );
+
+  const visualCalendarGroups = useMemo(() => {
+    if (editMode && dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+      const next = [...orderedVisibleGroups];
+      const [moved] = next.splice(dragIdx, 1);
+      next.splice(dragOverIdx, 0, moved);
+      return next;
+    }
+    return orderedVisibleGroups;
+  }, [orderedVisibleGroups, editMode, dragIdx, dragOverIdx]);
+
   const now = new Date();
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
-  const visibleGroups = useMemo(() => (groups.length > 0 ? groups : fallbackGroups), [groups, fallbackGroups]);
 
   useEffect(() => {
     if (!user || groups.length > 0) {
