@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Check, Dumbbell, Save, ChevronDown } from "lucide-react";
+import { Check, Save, ChevronDown, Pencil, Flame } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ExerciseLog {
@@ -33,6 +33,7 @@ interface Props {
   exercises: Exercise[];
   scheduledDate?: string;
   readOnly?: boolean;
+  onProgressUpdate?: (progress: number, estimatedCal: number) => void;
 }
 
 const parseReps = (reps: string): number => {
@@ -40,15 +41,32 @@ const parseReps = (reps: string): number => {
   return match ? parseInt(match[0]) : 10;
 };
 
-const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji, exercises, scheduledDate, readOnly }: Props) => {
+// Simple calorie estimation: ~0.05 cal per lb per rep (rough MET-based estimate)
+const estimateCalories = (logs: ExerciseLog[]): number => {
+  let total = 0;
+  for (const l of logs) {
+    if (!l.completed) continue;
+    const weightLb = l.unit === "kg" ? l.weight * 2.20462 : l.weight;
+    // Bodyweight exercises (0 weight) get ~3 cal per set
+    if (weightLb === 0) {
+      total += l.reps * 0.3;
+    } else {
+      total += weightLb * l.reps * 0.004;
+    }
+  }
+  return Math.round(total);
+};
+
+const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji, exercises, scheduledDate, readOnly, onProgressUpdate }: Props) => {
   const { user } = useAuth();
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [unit, setUnit] = useState<"lb" | "kg">("lb");
   const [saving, setSaving] = useState(false);
   const [expandedExercise, setExpandedExercise] = useState<number | null>(0);
   const [loaded, setLoaded] = useState(false);
+  const [calOverride, setCalOverride] = useState<number | null>(null);
+  const [editingCal, setEditingCal] = useState(false);
 
-  // Load existing logs
   const loadLogs = useCallback(async () => {
     if (!user || !workoutId || !open) return;
     const { data } = await supabase
@@ -72,7 +90,6 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
       })));
       setUnit(data[0].unit as "lb" | "kg");
     } else {
-      // Initialize from exercise template
       const initial: ExerciseLog[] = [];
       exercises.forEach((ex, idx) => {
         const targetReps = parseReps(ex.reps);
@@ -96,9 +113,29 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
   useEffect(() => {
     if (open) {
       setLoaded(false);
+      setCalOverride(null);
+      setEditingCal(false);
       loadLogs();
     }
   }, [open, loadLogs]);
+
+  // Calculate progress and calories
+  const { progress, estimatedCal } = useMemo(() => {
+    if (logs.length === 0) return { progress: 0, estimatedCal: 0 };
+    const completedSets = logs.filter(l => l.completed).length;
+    const totalSets = logs.length;
+    return {
+      progress: Math.round((completedSets / totalSets) * 100),
+      estimatedCal: estimateCalories(logs),
+    };
+  }, [logs]);
+
+  // Notify parent of progress changes
+  useEffect(() => {
+    if (loaded && onProgressUpdate) {
+      onProgressUpdate(progress, calOverride ?? estimatedCal);
+    }
+  }, [progress, estimatedCal, calOverride, loaded, onProgressUpdate]);
 
   const updateLog = (exerciseIndex: number, setNumber: number, field: keyof ExerciseLog, value: any) => {
     setLogs(prev => prev.map(l =>
@@ -123,10 +160,7 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
     if (!user) return;
     setSaving(true);
     try {
-      // Delete existing logs for this workout
       await supabase.from("exercise_logs").delete().eq("workout_id", workoutId).eq("user_id", user.id);
-
-      // Insert all current logs
       const rows = logs.map(l => ({
         user_id: user.id,
         workout_id: workoutId,
@@ -139,7 +173,6 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
         completed: l.completed,
         logged_date: scheduledDate || new Date().toISOString().slice(0, 10),
       }));
-
       const { error } = await supabase.from("exercise_logs").insert(rows);
       if (error) throw error;
       toast.success("Workout log saved!");
@@ -160,6 +193,8 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
     if (eLogs.length === 0) return 0;
     return Math.round((eLogs.filter(l => l.completed).length / eLogs.length) * 100);
   };
+
+  const displayCal = calOverride ?? estimatedCal;
 
   return (
     <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
@@ -184,9 +219,53 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
               </button>
             )}
           </div>
+
+          {/* Progress bar + calories */}
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Progress</span>
+              <span className="font-semibold">{progress}%</span>
+            </div>
+            <div className="w-full h-2.5 rounded-full bg-secondary overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-habit-green"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Flame size={12} className="text-orange-500" />
+                {editingCal ? (
+                  <input
+                    type="number"
+                    value={calOverride ?? estimatedCal}
+                    onChange={(e) => setCalOverride(parseInt(e.target.value) || 0)}
+                    onBlur={() => setEditingCal(false)}
+                    onKeyDown={(e) => e.key === "Enter" && setEditingCal(false)}
+                    autoFocus
+                    className="w-16 text-center bg-secondary rounded px-1 py-0.5 outline-none border border-primary text-foreground text-xs"
+                  />
+                ) : (
+                  <button
+                    onClick={() => !readOnly && setEditingCal(true)}
+                    className="hover:text-foreground transition-colors"
+                    title="Click to edit calories"
+                  >
+                    ~{displayCal} cal estimated
+                    {!readOnly && <Pencil size={9} className="inline ml-1 opacity-50" />}
+                  </button>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {logs.filter(l => l.completed).length}/{logs.length} sets
+              </span>
+            </div>
+          </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[65vh]">
+        <ScrollArea className="max-h-[55vh]">
           <div className="p-4 space-y-3">
             {!loaded ? (
               <div className="flex items-center justify-center py-8">
@@ -199,7 +278,6 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
 
               return (
                 <div key={idx} className="rounded-xl border border-border bg-card overflow-hidden">
-                  {/* Exercise Header */}
                   <button
                     onClick={() => setExpandedExercise(isExpanded ? null : idx)}
                     className="w-full flex items-center gap-3 p-3 text-left hover:bg-secondary/50 transition-colors"
@@ -223,7 +301,6 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
                     <ChevronDown size={16} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                   </button>
 
-                  {/* Set-by-set input */}
                   <AnimatePresence>
                     {isExpanded && (
                       <motion.div
@@ -233,7 +310,6 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
                         className="overflow-hidden"
                       >
                         <div className="px-3 pb-3">
-                          {/* Column Headers */}
                           <div className="grid grid-cols-[32px_1fr_1fr_40px] gap-2 mb-1.5 px-1">
                             <span className="text-[10px] font-medium text-muted-foreground text-center">Set</span>
                             <span className="text-[10px] font-medium text-muted-foreground text-center">Weight ({unit})</span>
@@ -294,7 +370,6 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
           </div>
         </ScrollArea>
 
-        {/* Save Button */}
         {!readOnly && (
           <div className="p-4 border-t border-border">
             <button

@@ -61,6 +61,7 @@ serve(async (req) => {
       }
     }
 
+    const isSuggest = planType === "suggest";
     const isMultiDay = planType === "week" || planType === "month";
     const isMonthly = planType === "month";
     const daysCount = isMonthly ? 28 : planType === "week" ? 7 : 1;
@@ -81,7 +82,9 @@ serve(async (req) => {
 
     const systemPrompt = isMultiDay
       ? `You are a fitness coach. Generate a ${planType === "month" ? "4-week" : "weekly"} workout plan starting from ${effectiveStartDate}. The plan MUST cover exactly ${daysCount} days (one entry per day). ${dateList ? `The exact dates are: ${dateList}.` : ""} Include rest days where appropriate (1-2 per week). For each day provide: date (YYYY-MM-DD), dayLabel (weekday name), isRest (boolean). For workout days provide: title, emoji, duration, cal, tag (e.g. Chest, Legs, Cardio, Full Body), and ${isMonthly ? "3-4" : "4-6"} exercises with sets and reps. ${isMonthly ? "Keep exercise lists concise (max 4 per day). Vary focus across weeks." : ""} Return using the provided tool.`
-      : "You are a fitness coach. Generate 2-3 workout plan options based on the user's request. Each plan should have a title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. Return using the provided tool.";
+      : isSuggest
+        ? "You are a fitness coach. Generate exactly 4 diverse workout plan suggestions based on the user's request. Each should target different muscle groups. Each plan should have a title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Back, Cardio, Full Body), and 3-5 exercises with sets and reps. Return using the provided tool."
+        : "You are a fitness coach. Generate 2-3 workout plan options based on the user's request. Each plan should have a title, emoji, duration estimate, calorie estimate, tag (e.g. Chest, Legs, Cardio, Full Body), and a list of exercises with sets and reps. Return using the provided tool.";
 
     const tools = isMultiDay
       ? [

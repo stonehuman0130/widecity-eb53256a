@@ -1,5 +1,7 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { Clock, Flame, Check, MoreVertical, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Replace, Settings } from "lucide-react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Settings } from "lucide-react";
+import WorkoutStatsCards from "@/components/WorkoutStatsCards";
+import WorkoutAiSuggest from "@/components/WorkoutAiSuggest";
 import GroupBadge from "@/components/GroupBadge";
 import { useAppContext, Workout } from "@/context/AppContext";
 import ItemActionMenu from "@/components/ItemActionMenu";
@@ -240,11 +242,25 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     toast.success("Exercise removed");
   };
 
-  const completedCount = activeWorkouts.filter((w) => w.done).length;
-  const totalCal = activeWorkouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
-  const todayCal = activeWorkouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
   const { twoTabFilters, hasOther, otherName } = useGroupContext();
   const partnerName = otherName;
+
+  // Track workout progress from exercise logs
+  const [workoutProgress, setWorkoutProgress] = useState<Record<string, { progress: number; cal: number }>>({});
+
+  const handleProgressUpdate = useCallback((workoutId: string, progress: number, cal: number) => {
+    setWorkoutProgress(prev => ({
+      ...prev,
+      [workoutId]: { progress, cal },
+    }));
+    // Auto-complete if 100% and not already done
+    if (progress >= 100) {
+      const w = workouts.find(w => w.id === workoutId);
+      if (w && !w.done) {
+        handleToggleWorkout(workoutId);
+      }
+    }
+  }, [workouts]);
 
   return (
     <div className="px-5 pb-24">
@@ -327,19 +343,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {[
-          { label: "workouts", value: String(completedCount), sublabel: isViewingPartner ? `${partnerName}` : "Done", icon: "📈" },
-          { label: "calories", value: String(totalCal), sublabel: "All Time", icon: "🔥" },
-          { label: "calories", value: String(todayCal), sublabel: "Today", icon: "✅" },
-        ].map((stat) => (
-          <div key={stat.sublabel} className="bg-card rounded-xl p-3 border border-border shadow-card">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase">{stat.sublabel}</span>
-            <p className="text-xl font-bold tracking-display mt-0.5">{stat.value}</p>
-            <span className="text-[11px] text-muted-foreground">{stat.label}</span>
-          </div>
-        ))}
-      </div>
+      <WorkoutStatsCards workouts={activeWorkouts} isViewingPartner={isViewingPartner} partnerName={partnerName} />
 
       {/* Missed Workouts Banner */}
       {missedWorkouts.length > 0 && selectedDate === today && !isViewingPartner && (
@@ -474,15 +478,24 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                   : `Workout for ${new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
             <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
           </h3>
-          {/* Copy partner's plan button */}
-          {isViewingPartner && dateWorkouts.length > 0 && (
-            <button
-              onClick={copyPartnerWorkouts}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
-            >
-              <Copy size={12} /> Copy to Mine
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {!isViewingPartner && (
+              <WorkoutAiSuggest
+                selectedDate={selectedDate}
+                recentWorkouts={filteredWorkouts}
+                onAddWorkout={addWorkouts}
+              />
+            )}
+            {/* Copy partner's plan button */}
+            {isViewingPartner && dateWorkouts.length > 0 && (
+              <button
+                onClick={copyPartnerWorkouts}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
+              >
+                <Copy size={12} /> Copy to Mine
+              </button>
+            )}
+          </div>
         </div>
 
         {dateWorkouts.length === 0 ? (
@@ -509,6 +522,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                 onDeleteExercise={deleteExercise}
                 onLogWorkout={setLoggingWorkout}
                 readOnly={isViewingPartner}
+                progress={workoutProgress[w.id]?.progress}
               />
             ))}
           </div>
@@ -532,6 +546,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           exercises={loggingWorkout.exercises || []}
           scheduledDate={loggingWorkout.scheduledDate}
           readOnly={isViewingPartner}
+          onProgressUpdate={(progress, cal) => handleProgressUpdate(loggingWorkout.id, progress, cal)}
         />
       )}
     </div>
@@ -550,6 +565,7 @@ const WorkoutCard = ({
   onDeleteExercise,
   onLogWorkout,
   readOnly,
+  progress,
 }: {
   workout: Workout;
   onToggle: (id: string) => void;
@@ -562,6 +578,7 @@ const WorkoutCard = ({
   onDeleteExercise: (workoutId: string, index: number) => void;
   onLogWorkout: (workout: Workout) => void;
   readOnly?: boolean;
+  progress?: number;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [cascadeConfirm, setCascadeConfirm] = useState<{ newDate: string; diffDays: number; followingCount: number } | null>(null);
@@ -645,11 +662,28 @@ const WorkoutCard = ({
             {!readOnly && (
               <button
                 onClick={() => onToggle(workout.id)}
-                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                  workout.done ? "bg-habit-green border-habit-green" : "border-muted-foreground/30 hover:border-primary"
-                }`}
+                className="relative w-8 h-8 flex items-center justify-center flex-shrink-0"
               >
-                {workout.done && <Check size={14} className="text-primary-foreground" />}
+                {/* Progress ring */}
+                <svg className="absolute inset-0 w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+                  <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" className="text-muted-foreground/20" strokeWidth="2.5" />
+                  {(progress || 0) > 0 && !workout.done && (
+                    <circle
+                      cx="16" cy="16" r="13"
+                      fill="none"
+                      stroke="currentColor"
+                      className="text-habit-green"
+                      strokeWidth="2.5"
+                      strokeDasharray={`${((progress || 0) / 100) * 81.68} 81.68`}
+                      strokeLinecap="round"
+                    />
+                  )}
+                </svg>
+                <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all z-10 ${
+                  workout.done ? "bg-habit-green border-habit-green" : "border-transparent"
+                }`}>
+                  {workout.done && <Check size={14} className="text-primary-foreground" />}
+                </div>
               </button>
             )}
             <span className="text-2xl">{workout.emoji}</span>
