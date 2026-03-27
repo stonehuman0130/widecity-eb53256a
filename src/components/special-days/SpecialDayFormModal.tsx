@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Camera, Trash2, ChevronRight, Pin } from "lucide-react";
 import { useModalScrollLock } from "@/hooks/useModalScrollLock";
