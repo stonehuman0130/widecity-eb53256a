@@ -897,6 +897,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
         visible={sectionVisible}
         selectedSobrietyIds={selectedSobrietyIds}
         selectedSpecialDayIds={selectedSpecialDayIds}
+        selectedHabitSubIds={selectedHabitSubIds}
         onSave={handleSaveSections}
       />
       <AddItemModal open={showAddModal} onClose={() => setShowAddModal(false)} />
