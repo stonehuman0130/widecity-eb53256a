@@ -18,16 +18,23 @@ import {
   resolveDisplayMode,
 } from "./SpecialDayTypes";
 
+interface GroupOption {
+  id: string;
+  name: string;
+  emoji: string;
+}
+
 interface Props {
   open: boolean;
   editingDay: SpecialDay | null;
   userId: string;
   groupId: string | null;
+  groups?: GroupOption[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-const SpecialDayFormModal = ({ open, editingDay, userId, groupId, onClose, onSaved }: Props) => {
+const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], onClose, onSaved }: Props) => {
   useModalScrollLock(open);
 
   const getInitialEventType = (): EventType => {
