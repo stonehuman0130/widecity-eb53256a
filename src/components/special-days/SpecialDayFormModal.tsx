@@ -69,6 +69,31 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(editingDay?.group_id ?? groupId);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Reset all form state when the modal opens or the edited card changes
+  useEffect(() => {
+    if (!open) return;
+    const et = getInitialEventType();
+    const dm = (() => {
+      if (editingDay?.display_mode && editingDay.display_mode !== "auto") return editingDay.display_mode;
+      return EVENT_TYPE_OPTIONS.find((o) => o.value === et)?.defaultDisplayMode || "countdown";
+    })();
+    setStep(editingDay ? 2 : 1);
+    setEventType(et);
+    setTitle(editingDay?.title || "");
+    setIcon(editingDay?.icon || "❤️");
+    setDate(editingDay?.event_date || fmtDate(new Date()));
+    setDirection((editingDay?.count_direction as "since" | "until") || "since");
+    setRepeats(editingDay?.repeats_yearly || false);
+    setNotes(editingDay?.notes || "");
+    setReminder(editingDay?.reminder_minutes ?? null);
+    setPhotoUrl(editingDay?.photo_url || "");
+    setUploading(false);
+    setPinAsHero(editingDay?.is_featured || false);
+    setDisplayMode(dm as DisplayMode);
+    setInclusiveCount(editingDay?.inclusive_count || false);
+    setSelectedGroupId(editingDay?.group_id ?? groupId);
+  }, [open, editingDay?.id]);
+
   const selectEventType = (type: EventType) => {
     setEventType(type);
     const opt = EVENT_TYPE_OPTIONS.find((o) => o.value === type)!;
