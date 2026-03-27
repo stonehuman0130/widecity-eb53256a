@@ -197,13 +197,14 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     if (!user) return;
     const { data } = await supabase
       .from("calendars")
-      .select("id, color, provider, provider_calendar_id");
+      .select("id, color, provider, provider_calendar_id, is_default");
     if (data) {
       setCalendarRecords(data.map((c: any) => ({
         id: c.id,
         color: c.color,
         provider: c.provider,
         provider_calendar_id: c.provider_calendar_id,
+        is_default: c.is_default,
       })));
     }
   }, [user]);
