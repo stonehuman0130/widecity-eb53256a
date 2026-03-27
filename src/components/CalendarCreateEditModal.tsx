@@ -3,7 +3,7 @@ import {
   X, Clock, MapPin, Bell, Repeat, Eye, AlignLeft, ChevronDown, ChevronUp,
   CalendarDays, ListTodo, Globe, Trash2, Check, Search,
 } from "lucide-react";
-import CalendarPickerSheet from "@/components/CalendarPickerSheet";
+import CalendarPickerInline from "@/components/CalendarPickerInline";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext, ScheduledEvent, Task } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
