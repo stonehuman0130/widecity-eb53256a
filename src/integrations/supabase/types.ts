@@ -1006,7 +1006,9 @@ export type Database = {
           category: string
           count_direction: string
           created_at: string
+          display_mode: string
           event_date: string
+          event_type: string
           group_id: string | null
           icon: string
           id: string
@@ -1023,7 +1025,9 @@ export type Database = {
           category?: string
           count_direction?: string
           created_at?: string
+          display_mode?: string
           event_date: string
+          event_type?: string
           group_id?: string | null
           icon?: string
           id?: string
@@ -1040,7 +1044,9 @@ export type Database = {
           category?: string
           count_direction?: string
           created_at?: string
+          display_mode?: string
           event_date?: string
+          event_type?: string
           group_id?: string | null
           icon?: string
           id?: string
