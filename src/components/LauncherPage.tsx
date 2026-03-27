@@ -395,7 +395,8 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
             const otherMembers = group.members.filter((m) => m.user_id !== profile?.id);
             const memberNames = otherMembers.map((m) => m.display_name || "Member").join(", ");
             const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
-            const hasCover = !!group.cover_image_url;
+            const currentCoverUrl = localCoverMap[group.id] || group.cover_image_url || null;
+            const hasCover = !!currentCoverUrl;
             const isUploading = uploadingGroupId === group.id;
 
             return (
