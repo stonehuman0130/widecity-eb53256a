@@ -1284,6 +1284,48 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   </div>
                 </div>
 
+                {/* Shared With selector */}
+                {groups.length > 0 && (
+                  <div className="mb-4">
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-2 block flex items-center gap-1">
+                      <Users size={10} /> Shared With
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        onClick={() => { setAddMealPrivate(true); setAddMealGroupIds([]); }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                          addMealPrivate
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
+                        }`}
+                      >
+                        🔒 Just me
+                      </button>
+                      {groups.map(g => {
+                        const isSelected = !addMealPrivate && addMealGroupIds.includes(g.id);
+                        return (
+                          <button
+                            key={g.id}
+                            onClick={() => {
+                              setAddMealPrivate(false);
+                              setAddMealGroupIds(prev =>
+                                prev.includes(g.id) ? prev.filter(x => x !== g.id) : [...prev, g.id]
+                              );
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                              isSelected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
+                            }`}
+                          >
+                            {g.emoji} {g.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3 pb-4">
                   <input
                     value={manualTitle}
@@ -1305,7 +1347,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   </div>
                   <button
                     onClick={() => logManualMeal(showAddMeal.mealType, showAddMeal.date)}
-                    disabled={!manualTitle.trim()}
+                    disabled={!manualTitle.trim() || (!addMealPrivate && addMealGroupIds.length === 0 && !groupId && groups.length > 0)}
                     className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
                   >
                     Add to Plan
