@@ -478,15 +478,24 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                   : `Workout for ${new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
             <span className="text-muted-foreground text-xs">({dateWorkouts.length})</span>
           </h3>
-          {/* Copy partner's plan button */}
-          {isViewingPartner && dateWorkouts.length > 0 && (
-            <button
-              onClick={copyPartnerWorkouts}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
-            >
-              <Copy size={12} /> Copy to Mine
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {!isViewingPartner && (
+              <WorkoutAiSuggest
+                selectedDate={selectedDate}
+                recentWorkouts={filteredWorkouts}
+                onAddWorkout={addWorkouts}
+              />
+            )}
+            {/* Copy partner's plan button */}
+            {isViewingPartner && dateWorkouts.length > 0 && (
+              <button
+                onClick={copyPartnerWorkouts}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
+              >
+                <Copy size={12} /> Copy to Mine
+              </button>
+            )}
+          </div>
         </div>
 
         {dateWorkouts.length === 0 ? (
