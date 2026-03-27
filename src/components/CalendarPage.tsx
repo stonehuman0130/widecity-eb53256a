@@ -1188,7 +1188,7 @@ const DateStrip = ({
 };
 
 // Helper to resolve the display color for a CalItem (used by sub-components that don't have resolveColor)
-function resolveItemColor(item: CalItem, groups: Group[], colorMap?: { byId: Map<string, string>; byProvider: Map<string, string> }): string {
+function resolveItemColor(item: CalItem, groups: Group[], colorMap?: { byId: Map<string, string>; byProvider: Map<string, string>; defaultColor?: string | null }): string {
   if (item.isDueDateTask) return TODO_COLOR;
   if (colorMap) {
     if (item.type === "event") {
@@ -1196,6 +1196,8 @@ function resolveItemColor(item: CalItem, groups: Group[], colorMap?: { byId: Map
       if (raw.calendarId && colorMap.byId.has(raw.calendarId)) {
         return colorMap.byId.get(raw.calendarId)!;
       }
+      // Local event without calendar_id → use default calendar color
+      if (colorMap.defaultColor) return colorMap.defaultColor;
     }
     if (item.type === "gcal") {
       const raw = item.raw as GoogleCalendarEvent;
