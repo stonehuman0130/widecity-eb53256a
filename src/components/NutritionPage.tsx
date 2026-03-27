@@ -110,6 +110,14 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Add meal: group sharing selection
+  const [addMealGroupIds, setAddMealGroupIds] = useState<string[]>([]);
+  const [addMealPrivate, setAddMealPrivate] = useState(false);
+
+  // Quick Suggestions / Frequent Items
+  const [mealIdeasTab, setMealIdeasTab] = useState<"suggestions" | "frequent">("suggestions");
+  const [frequentMeals, setFrequentMeals] = useState<{ title: string; protein: number; calories: number; meal_type: string; count: number }[]>([]);
+
   // Shopping list prompt after AI suggest add (queue for multiple meals)
   const [shopPrompt, setShopPrompt] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string } | null>(null);
   const [shopQueue, setShopQueue] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string }[]>([]);
