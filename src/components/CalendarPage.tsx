@@ -151,6 +151,7 @@ interface CalItem {
   startDateTime?: Date | null;
   endDateTime?: Date | null;
   isDueDateTask?: boolean;
+  calendarColor?: string | null;
 }
 
 const TODO_COLOR = "hsl(280 70% 55%)";
