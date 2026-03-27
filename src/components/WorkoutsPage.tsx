@@ -522,6 +522,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                 onDeleteExercise={deleteExercise}
                 onLogWorkout={setLoggingWorkout}
                 readOnly={isViewingPartner}
+                progress={workoutProgress[w.id]?.progress}
               />
             ))}
           </div>
