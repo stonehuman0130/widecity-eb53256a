@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Apple, Plus, Sparkles, RefreshCw, ChevronLeft, ChevronRight, Check, X, Loader2, Settings, Calendar, Target, Camera, ArrowLeftRight, MoreVertical, Trash2, Pencil } from "lucide-react";
+import { Apple, Plus, Sparkles, RefreshCw, ChevronLeft, ChevronRight, Check, X, Loader2, Settings, Calendar, Target, Camera, ArrowLeftRight, MoreVertical, Trash2, Pencil, Clock, Zap, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -69,7 +69,7 @@ const MEAL_TYPES = [
 ];
 
 const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
-  const { user, activeGroup, partner, profile } = useAuth();
+  const { user, activeGroup, partner, profile, groups } = useAuth();
   const { hasOther, otherName, filters: groupFilters, twoTabFilters } = useGroupContext();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -109,6 +109,14 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [goalShowCal, setGoalShowCal] = useState(false);
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Add meal: group sharing selection
+  const [addMealGroupIds, setAddMealGroupIds] = useState<string[]>([]);
+  const [addMealPrivate, setAddMealPrivate] = useState(false);
+
+  // Quick Suggestions / Frequent Items
+  const [mealIdeasTab, setMealIdeasTab] = useState<"suggestions" | "frequent">("suggestions");
+  const [frequentMeals, setFrequentMeals] = useState<{ title: string; protein: number; calories: number; meal_type: string; count: number }[]>([]);
 
   // Shopping list prompt after AI suggest add (queue for multiple meals)
   const [shopPrompt, setShopPrompt] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string } | null>(null);
@@ -308,11 +316,12 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   };
 
   // Add a selected AI suggestion as a planned meal
-  const addAiMealAsPlanned = async (suggestion: any) => {
+  const addAiMealAsPlanned = async (suggestion: any, targetGroupId?: string | null) => {
     if (!user) return;
+    const gid = targetGroupId !== undefined ? targetGroupId : groupId;
     const { data, error } = await supabase.from("meal_logs").insert({
       user_id: user.id,
-      group_id: groupId,
+      group_id: gid,
       meal_date: dateStr,
       meal_type: suggestion.meal_type || "lunch",
       title: suggestion.title,
@@ -328,7 +337,6 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     if (!error && data) {
       setMeals(prev => [...prev, data as MealLog]);
       toast.success(`${suggestion.title} added to planned meals!`);
-      // Prompt for shopping list if there are ingredients
       const ingredients = Array.isArray(suggestion.ingredients) ? suggestion.ingredients : [];
       if (ingredients.length > 0) {
         enqueueShopPrompt({ ingredients, mealTitle: suggestion.title, mealDate: dateStr });
@@ -345,30 +353,89 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
-  // Log manual meal as planned (consumed=false)
+  // Log manual meal as planned (consumed=false) — now respects shared-with group selection
   const logManualMeal = async (mealType: string, targetDate?: string) => {
     if (!user || !manualTitle.trim()) return;
     const mealDate = targetDate || dateStr;
-    const { data, error } = await supabase.from("meal_logs").insert({
-      user_id: user.id,
-      group_id: groupId,
-      meal_date: mealDate,
-      meal_type: mealType,
-      title: manualTitle.trim(),
-      protein: parseInt(manualProtein) || 0,
-      calories: parseInt(manualCalories) || 0,
-      is_ai_generated: false,
-      consumed: false,
-    }).select().single();
 
-    if (!error && data) {
-      setMeals(prev => [...prev, data as MealLog]);
+    // Determine which group(s) to save to
+    const selectedGroupIds = addMealPrivate ? [null] : (addMealGroupIds.length > 0 ? addMealGroupIds : [groupId]);
+
+    let addedAny = false;
+    for (const gid of selectedGroupIds) {
+      const { data, error } = await supabase.from("meal_logs").insert({
+        user_id: user.id,
+        group_id: gid || null,
+        meal_date: mealDate,
+        meal_type: mealType,
+        title: manualTitle.trim(),
+        protein: parseInt(manualProtein) || 0,
+        calories: parseInt(manualCalories) || 0,
+        is_ai_generated: false,
+        consumed: false,
+      }).select().single();
+
+      if (!error && data) {
+        setMeals(prev => [...prev, data as MealLog]);
+        addedAny = true;
+      }
+    }
+
+    if (addedAny) {
       setShowAddMeal(null);
       setManualTitle("");
       setManualProtein("");
       setManualCalories("");
       setManualFoodText("");
+      setAddMealGroupIds([]);
+      setAddMealPrivate(false);
       toast.success("Meal added to plan!");
+    }
+  };
+
+  // Load frequent meals
+  useEffect(() => {
+    if (!user) return;
+    const loadFrequent = async () => {
+      const { data } = await supabase
+        .from("meal_logs")
+        .select("title, protein, calories, meal_type")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (!data) return;
+      const counts: Record<string, { title: string; protein: number; calories: number; meal_type: string; count: number }> = {};
+      for (const m of data) {
+        const key = m.title.toLowerCase().trim();
+        if (counts[key]) {
+          counts[key].count++;
+        } else {
+          counts[key] = { title: m.title, protein: m.protein, calories: m.calories || 0, meal_type: m.meal_type, count: 1 };
+        }
+      }
+      const sorted = Object.values(counts).filter(c => c.count >= 2).sort((a, b) => b.count - a.count).slice(0, 12);
+      setFrequentMeals(sorted);
+    };
+    loadFrequent();
+  }, [user, meals.length]); // re-fetch when meals change
+
+  // Quick add from suggestion/frequent
+  const quickAddMeal = async (item: { title: string; protein: number; calories: number; meal_type: string }) => {
+    if (!user) return;
+    const { data, error } = await supabase.from("meal_logs").insert({
+      user_id: user.id,
+      group_id: groupId,
+      meal_date: dateStr,
+      meal_type: item.meal_type || "snack",
+      title: item.title,
+      protein: item.protein || 0,
+      calories: item.calories || 0,
+      is_ai_generated: false,
+      consumed: false,
+    }).select().single();
+    if (!error && data) {
+      setMeals(prev => [...prev, data as MealLog]);
+      toast.success(`${item.title} added!`);
     }
   };
 
@@ -708,7 +775,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 {isViewingOwn && (
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => setShowAddMeal({ mealType: "snack", date: dateStr })}
+                      onClick={() => { setShowAddMeal({ mealType: "snack", date: dateStr }); setAddMealPrivate(!activeGroup); setAddMealGroupIds(activeGroup ? [activeGroup.id] : []); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
                     >
                       <Plus size={12} /> Add
@@ -834,6 +901,93 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 )}
               </div>
             )}
+
+            {/* ───── Quick Suggestions / Frequent Items ───── */}
+            {isViewingOwn && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Meal Ideas</h2>
+                </div>
+                <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-3">
+                  <button
+                    onClick={() => setMealIdeasTab("suggestions")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
+                      mealIdeasTab === "suggestions"
+                        ? "bg-card text-foreground shadow-card"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <Zap size={12} /> Quick Suggestions
+                  </button>
+                  <button
+                    onClick={() => setMealIdeasTab("frequent")}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
+                      mealIdeasTab === "frequent"
+                        ? "bg-card text-foreground shadow-card"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <Clock size={12} /> Frequent Items
+                  </button>
+                </div>
+
+                {mealIdeasTab === "suggestions" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { title: "Greek Yogurt Bowl", protein: 20, calories: 250, meal_type: "breakfast" },
+                      { title: "Chicken Rice Bowl", protein: 35, calories: 450, meal_type: "lunch" },
+                      { title: "Turkey Lettuce Wraps", protein: 28, calories: 280, meal_type: "lunch" },
+                      { title: "Protein Smoothie", protein: 30, calories: 320, meal_type: "snack" },
+                      { title: "Salmon & Veggies", protein: 32, calories: 380, meal_type: "dinner" },
+                      { title: "Egg White Omelette", protein: 24, calories: 200, meal_type: "breakfast" },
+                    ].map((item, i) => (
+                      <button
+                        key={i}
+                        onClick={() => quickAddMeal(item)}
+                        className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
+                      >
+                        <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-bold text-primary">{item.protein}g</span>
+                          <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
+                        </div>
+                        <div className="flex items-center gap-1 mt-1.5">
+                          <Plus size={10} className="text-primary" />
+                          <span className="text-[9px] text-primary font-medium">Quick add</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    {frequentMeals.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {frequentMeals.map((item, i) => (
+                          <button
+                            key={i}
+                            onClick={() => quickAddMeal(item)}
+                            className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
+                          >
+                            <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-bold text-primary">{item.protein}g</span>
+                              <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
+                            </div>
+                            <div className="flex items-center gap-1 mt-1.5">
+                              <span className="text-[9px] text-muted-foreground">Added {item.count}×</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-card rounded-xl p-4 border border-dashed border-border text-center">
+                        <p className="text-xs text-muted-foreground">Add meals a few times and they'll appear here for quick re-adding.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <WeeklyCalendarView
@@ -844,7 +998,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             isTogether={isTogether}
             partnerMeals={partnerMeals}
             onDetailMeal={setDetailMeal}
-            onAddMeal={(mt, date) => setShowAddMeal({ mealType: mt, date })}
+            onAddMeal={(mt, date) => { setShowAddMeal({ mealType: mt, date }); setAddMealPrivate(!activeGroup); setAddMealGroupIds(activeGroup ? [activeGroup.id] : []); }}
             aiLoading={aiLoading}
             onGenerate={generateSuggestions}
             onToggleConsumed={toggleConsumed}
@@ -1130,6 +1284,48 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   </div>
                 </div>
 
+                {/* Shared With selector */}
+                {groups.length > 0 && (
+                  <div className="mb-4">
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-2 block flex items-center gap-1">
+                      <Users size={10} /> Shared With
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        onClick={() => { setAddMealPrivate(true); setAddMealGroupIds([]); }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                          addMealPrivate
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
+                        }`}
+                      >
+                        🔒 Just me
+                      </button>
+                      {groups.map(g => {
+                        const isSelected = !addMealPrivate && addMealGroupIds.includes(g.id);
+                        return (
+                          <button
+                            key={g.id}
+                            onClick={() => {
+                              setAddMealPrivate(false);
+                              setAddMealGroupIds(prev =>
+                                prev.includes(g.id) ? prev.filter(x => x !== g.id) : [...prev, g.id]
+                              );
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                              isSelected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
+                            }`}
+                          >
+                            {g.emoji} {g.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3 pb-4">
                   <input
                     value={manualTitle}
@@ -1151,7 +1347,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   </div>
                   <button
                     onClick={() => logManualMeal(showAddMeal.mealType, showAddMeal.date)}
-                    disabled={!manualTitle.trim()}
+                    disabled={!manualTitle.trim() || (!addMealPrivate && addMealGroupIds.length === 0 && !groupId && groups.length > 0)}
                     className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
                   >
                     Add to Plan
