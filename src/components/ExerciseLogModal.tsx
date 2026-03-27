@@ -90,7 +90,7 @@ const estimateCalories = (logs: ExerciseLog[], durationStr?: string, tag?: strin
   return Math.round(total);
 };
 
-const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji, exercises, scheduledDate, readOnly, onProgressUpdate }: Props) => {
+const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji, workoutDuration, workoutTag, exercises, scheduledDate, readOnly, onProgressUpdate, onCaloriesSaved }: Props) => {
   const { user } = useAuth();
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [unit, setUnit] = useState<"lb" | "kg">("lb");
