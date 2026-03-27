@@ -345,10 +345,25 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       if (mealsRes.data) setMeals(mealsRes.data as MealLog[]);
       if (goalsRes.data) {
         const g = goalsRes.data as any;
-        setGoals({ protein_goal: g.protein_goal || 150, calorie_goal: g.calorie_goal, show_calories: g.show_calories || false });
+        const enabledTrackers = Array.isArray(g.enabled_trackers) ? g.enabled_trackers : ["protein", "calories"];
+        const trackerOrder = Array.isArray(g.tracker_order) ? g.tracker_order : ["protein", "calories", "carbs", "fat", "fiber"];
+        setGoals({
+          protein_goal: g.protein_goal || 150,
+          calorie_goal: g.calorie_goal,
+          carbs_goal: g.carbs_goal,
+          fat_goal: g.fat_goal,
+          fiber_goal: g.fiber_goal,
+          show_calories: g.show_calories || false,
+          enabled_trackers: enabledTrackers,
+          tracker_order: trackerOrder,
+        });
         setGoalProtein(String(g.protein_goal || 150));
         setGoalCalories(g.calorie_goal ? String(g.calorie_goal) : "");
+        setGoalCarbs(g.carbs_goal ? String(g.carbs_goal) : "");
+        setGoalFat(g.fat_goal ? String(g.fat_goal) : "");
+        setGoalFiber(g.fiber_goal ? String(g.fiber_goal) : "");
         setGoalShowCal(g.show_calories || false);
+        setGoalEnabledTrackers(enabledTrackers);
       }
       if (suggestionsRes.data) setSuggestions(suggestionsRes.data as MealSuggestion[]);
 
