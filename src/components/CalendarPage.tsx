@@ -576,7 +576,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           item: {
             id: `gcal-${ge.id}`, title: ge.title, time: ge.start || "",
             allDay: ge.allDay, hour: null, endHour: null, assignee: ge.assignee || "me",
-            groupId: null, type: "gcal", raw: ge,
+            groupId: null, type: "gcal", raw: ge, calendarColor: ge.calendarColor || null,
           },
           dateLabel: ge.start ? new Date(ge.start).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
         });
