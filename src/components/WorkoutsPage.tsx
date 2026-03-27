@@ -346,19 +346,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {[
-          { label: "workouts", value: String(completedCount), sublabel: isViewingPartner ? `${partnerName}` : "Done", icon: "📈" },
-          { label: "calories", value: String(totalCal), sublabel: "All Time", icon: "🔥" },
-          { label: "calories", value: String(todayCal), sublabel: "Today", icon: "✅" },
-        ].map((stat) => (
-          <div key={stat.sublabel} className="bg-card rounded-xl p-3 border border-border shadow-card">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase">{stat.sublabel}</span>
-            <p className="text-xl font-bold tracking-display mt-0.5">{stat.value}</p>
-            <span className="text-[11px] text-muted-foreground">{stat.label}</span>
-          </div>
-        ))}
-      </div>
+      <WorkoutStatsCards workouts={activeWorkouts} isViewingPartner={isViewingPartner} partnerName={partnerName} />
 
       {/* Missed Workouts Banner */}
       {missedWorkouts.length > 0 && selectedDate === today && !isViewingPartner && (
