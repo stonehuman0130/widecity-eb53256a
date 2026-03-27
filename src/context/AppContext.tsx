@@ -691,6 +691,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               hiddenFromPartner: w.hidden_from_partner || false,
               groupId: w.group_id || null,
               ownerUserId: otherUserId,
+              distance: Number(w.distance) || 0,
+              distanceUnit: w.distance_unit || 'km',
             })));
           }
 
