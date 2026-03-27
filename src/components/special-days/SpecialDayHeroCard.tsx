@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { Pencil } from "lucide-react";
+import { Pencil, Lock } from "lucide-react";
 import { SpecialDay, getDayCount, getDisplayLabel, parseLocalDate } from "./SpecialDayTypes";
 
 interface Props {
   day: SpecialDay;
   now: Date;
   onEdit: (day: SpecialDay) => void;
+  isPrivate?: boolean;
 }
 
 const PLACEHOLDER_GRADIENTS = [
@@ -14,7 +15,7 @@ const PLACEHOLDER_GRADIENTS = [
   "linear-gradient(135deg, hsl(210 20% 88%), hsl(220 18% 82%), hsl(230 15% 78%))",
 ];
 
-const SpecialDayHeroCard = ({ day, now, onEdit }: Props) => {
+const SpecialDayHeroCard = ({ day, now, onEdit, isPrivate = false }: Props) => {
   const count = getDayCount(day, now);
   const label = getDisplayLabel(day, now);
   const eventDate = parseLocalDate(day.event_date);
@@ -97,12 +98,19 @@ const SpecialDayHeroCard = ({ day, now, onEdit }: Props) => {
             </div>
           </div>
 
-          <button
-            onClick={() => onEdit(day)}
-            className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-white/15 backdrop-blur-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all"
-          >
-            <Pencil size={12} />
-          </button>
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+            {isPrivate && (
+              <div className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-lg flex items-center justify-center">
+                <Lock size={11} className="text-white/70" />
+              </div>
+            )}
+            <button
+              onClick={() => onEdit(day)}
+              className="w-7 h-7 rounded-full bg-white/15 backdrop-blur-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/25 transition-all"
+            >
+              <Pencil size={12} />
+            </button>
+          </div>
         </div>
       </motion.div>
 

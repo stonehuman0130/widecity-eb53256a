@@ -30,19 +30,12 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
     if (!user) return;
     let q = supabase.from("special_days").select("*");
     if (activeGroup) {
-      // Specific group: show all events in that group (own + shared)
-      q = q.eq("group_id", activeGroup.id);
-    } else {
-      // "All" view: show personal events + events from all user's groups
-      // RLS already limits to own rows + group member rows, so just filter by user
-      // We need: (user_id = me AND group_id IS NULL) OR (group_id IN user's groups)
-      const groupIds = groups.map((g) => g.id);
-      if (groupIds.length > 0) {
-        q = q.or(`and(user_id.eq.${user.id},group_id.is.null),group_id.in.(${groupIds.join(",")})`);
-      } else {
-        q = q.eq("user_id", user.id).is("group_id", null);
-      }
+      // Group view: events shared with this group + private events in this context for this user
+      q = q.or(
+        `shared_group_ids.cs.{${activeGroup.id}},and(context_group_id.eq.${activeGroup.id},user_id.eq.${user.id},shared_group_ids.eq.{})`
+      );
     }
+    // "All" view: RLS returns own events + events shared with user's groups — no extra filter needed
     const { data } = await q.order("event_date", { ascending: true });
     if (data) setDays(data as unknown as SpecialDay[]);
     setLoading(false);
@@ -90,6 +83,22 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
 
   const activeFilterLabel = CATEGORY_FILTERS.find((f) => f.value === categoryFilter);
   const hasActiveFilter = categoryFilter !== "all";
+
+  // Resolve group name for badges
+  const getGroupNames = (day: SpecialDay): string | undefined => {
+    if (activeGroup) return undefined; // Don't show badge when in specific group
+    const sharedIds = day.shared_group_ids || [];
+    if (sharedIds.length === 0) return undefined;
+    const names = sharedIds
+      .map((id) => groups.find((g) => g.id === id)?.name)
+      .filter(Boolean);
+    return names.length > 0 ? names.join(", ") : undefined;
+  };
+
+  const isPrivate = (day: SpecialDay): boolean => {
+    const sharedIds = day.shared_group_ids || [];
+    return sharedIds.length === 0;
+  };
 
   return (
     <div className="px-4 pt-5 pb-8 max-w-md mx-auto">
@@ -261,7 +270,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
       ) : (
         <>
           {heroDay && (
-            <SpecialDayHeroCard day={heroDay} now={now} onEdit={openEdit} />
+            <SpecialDayHeroCard day={heroDay} now={now} onEdit={openEdit} isPrivate={isPrivate(heroDay)} />
           )}
 
           {otherDays.length > 0 && (
@@ -271,7 +280,15 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
               </h3>
               <div className="space-y-2.5">
                 {otherDays.map((day, i) => (
-                  <SpecialDayListCard key={day.id} day={day} now={now} onEdit={openEdit} index={i} groupName={!activeGroup ? groups.find(g => g.id === day.group_id)?.name : undefined} />
+                  <SpecialDayListCard
+                    key={day.id}
+                    day={day}
+                    now={now}
+                    onEdit={openEdit}
+                    index={i}
+                    groupName={getGroupNames(day)}
+                    isPrivate={isPrivate(day)}
+                  />
                 ))}
               </div>
             </div>
