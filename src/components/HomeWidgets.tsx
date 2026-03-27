@@ -599,46 +599,72 @@ export const HomeNutritionWidget = ({ selectedDate }: { selectedDate: Date }) =>
   );
 };
 
-/** Compact shopping list widget for Home page */
+/** Compact shopping list widget for Home page — interactive & synced */
 export const HomeShoppingWidget = () => {
   const { user, activeGroup } = useAuth();
-  const [items, setItems] = useState<{ id: string; name: string; checked: boolean }[]>([]);
+  const [items, setItems] = useState<{ id: string; name: string; checked: boolean; list_id: string }[]>([]);
+  const [listIds, setListIds] = useState<string[]>([]);
 
-  useEffect(() => {
+  const loadItems = useCallback(async () => {
     if (!user) return;
-    const load = async () => {
-      const groupId = activeGroup?.id || null;
+    const groupId = activeGroup?.id || null;
 
-      // Get the user's shopping lists
-      let listsQuery = supabase
-        .from("shopping_lists")
-        .select("id")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(3);
+    let listsQuery = supabase
+      .from("shopping_lists")
+      .select("id")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(3);
 
-      if (groupId) listsQuery = listsQuery.eq("group_id", groupId);
-      else listsQuery = listsQuery.is("group_id", null);
+    if (groupId) listsQuery = listsQuery.eq("group_id", groupId);
+    else listsQuery = listsQuery.is("group_id", null);
 
-      const { data: lists } = await listsQuery;
-      if (!lists || lists.length === 0) {
-        setItems([]);
-        return;
-      }
+    const { data: lists } = await listsQuery;
+    if (!lists || lists.length === 0) {
+      setItems([]);
+      setListIds([]);
+      return;
+    }
 
-      const listIds = lists.map((l) => l.id);
-      const { data: listItems } = await supabase
-        .from("shopping_list_items")
-        .select("id, name, checked")
-        .in("list_id", listIds)
-        .eq("checked", false)
-        .order("created_at", { ascending: false })
-        .limit(8);
+    const ids = lists.map((l) => l.id);
+    setListIds(ids);
 
-      setItems((listItems as any[]) || []);
-    };
-    load();
+    const { data: listItems } = await supabase
+      .from("shopping_list_items")
+      .select("id, name, checked, list_id")
+      .in("list_id", ids)
+      .eq("checked", false)
+      .order("created_at", { ascending: false })
+      .limit(8);
+
+    setItems((listItems as any[]) || []);
   }, [user, activeGroup?.id]);
+
+  useEffect(() => { loadItems(); }, [loadItems]);
+
+  // Realtime sync
+  useEffect(() => {
+    if (listIds.length === 0) return;
+    const channel = supabase
+      .channel("home-shopping")
+      .on("postgres_changes", { event: "*", schema: "public", table: "shopping_list_items" }, (payload) => {
+        const row = (payload.new || payload.old) as any;
+        if (row && listIds.includes(row.list_id)) {
+          loadItems();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [listIds, loadItems]);
+
+  const toggleItem = async (itemId: string) => {
+    // Optimistic: remove from list
+    setItems((prev) => prev.filter((i) => i.id !== itemId));
+    await supabase
+      .from("shopping_list_items")
+      .update({ checked: true })
+      .eq("id", itemId);
+  };
 
   return (
     <div>
@@ -651,10 +677,14 @@ export const HomeShoppingWidget = () => {
         ) : (
           <div className="space-y-1.5">
             {items.map((item) => (
-              <div key={item.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-secondary/40">
+              <button
+                key={item.id}
+                onClick={() => toggleItem(item.id)}
+                className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 bg-secondary/40 text-left active:scale-[0.98] transition-all"
+              >
                 <span className="w-4 h-4 rounded border-2 border-muted flex-shrink-0" />
                 <span className="flex-1 text-xs font-medium truncate">{item.name}</span>
-              </div>
+              </button>
             ))}
           </div>
         )}
