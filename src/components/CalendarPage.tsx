@@ -10,6 +10,7 @@ import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { formatTime } from "@/lib/formatTime";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
