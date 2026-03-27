@@ -588,6 +588,13 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
   // ── Color helpers ─────────────────────────────────────
 
+  const getItemColor = useCallback((item: CalItem): string => {
+    if (item.isDueDateTask) return TODO_COLOR;
+    if (item.calendarColor) return item.calendarColor;
+    const idx = getGroupColorIndex(item.groupId, groups);
+    return GROUP_COLORS[idx % GROUP_COLORS.length];
+  }, [groups]);
+
   const getColorClasses = (groupId: string | null | undefined) =>
     GROUP_COLOR_CLASSES[getGroupColorIndex(groupId, groups)];
 
