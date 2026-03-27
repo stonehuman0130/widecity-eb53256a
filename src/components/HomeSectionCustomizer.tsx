@@ -195,7 +195,8 @@ const HomeSectionCustomizer = ({
     for (const cat of categories) {
       const hasHabits = filteredHabits.some((h) => {
         const hCat = (h.category || "other").toLowerCase();
-        return hCat === cat.key;
+        // Match both "morning" and legacy "morning-habits" etc.
+        return hCat === cat.key || hCat === `${cat.key}-habits`;
       });
       if (hasHabits) {
         items.push({ id: `habit:${cat.key}`, label: cat.label, icon: cat.icon });
