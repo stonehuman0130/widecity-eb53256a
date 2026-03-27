@@ -316,11 +316,12 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   };
 
   // Add a selected AI suggestion as a planned meal
-  const addAiMealAsPlanned = async (suggestion: any) => {
+  const addAiMealAsPlanned = async (suggestion: any, targetGroupId?: string | null) => {
     if (!user) return;
+    const gid = targetGroupId !== undefined ? targetGroupId : groupId;
     const { data, error } = await supabase.from("meal_logs").insert({
       user_id: user.id,
-      group_id: groupId,
+      group_id: gid,
       meal_date: dateStr,
       meal_type: suggestion.meal_type || "lunch",
       title: suggestion.title,
@@ -336,7 +337,6 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     if (!error && data) {
       setMeals(prev => [...prev, data as MealLog]);
       toast.success(`${suggestion.title} added to planned meals!`);
-      // Prompt for shopping list if there are ingredients
       const ingredients = Array.isArray(suggestion.ingredients) ? suggestion.ingredients : [];
       if (ingredients.length > 0) {
         enqueueShopPrompt({ ingredients, mealTitle: suggestion.title, mealDate: dateStr });
