@@ -667,7 +667,7 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
 // Category Card Component
 function SobrietyCategoryCard({
   cat, idx, getStreakInfo, getHeatmapData, getMissedDays, isCheckedIn,
-  today, expandedCard, setExpandedCard, openCheckinFor,
+  today, expandedCard, setExpandedCard, onBatchCheckin,
   handleResetStreak, handleDeleteCategory, readOnly, ownerLabel,
   onUpdateMoneyPerDay, onAddPriorDays,
 }: {
@@ -680,7 +680,7 @@ function SobrietyCategoryCard({
   today: string;
   expandedCard: string | null;
   setExpandedCard: (id: string | null) => void;
-  openCheckinFor: (cat: SobrietyCategory, date: string) => void;
+  onBatchCheckin: (cat: SobrietyCategory, dates: string[], onTrack: boolean) => void;
   handleResetStreak: (cat: SobrietyCategory) => void;
   handleDeleteCategory: (id: string) => void;
   readOnly?: boolean;
@@ -692,6 +692,9 @@ function SobrietyCategoryCard({
   const [moneyValue, setMoneyValue] = useState(String(cat.money_per_day || ""));
   const [showPriorDays, setShowPriorDays] = useState(false);
   const [priorDaysCount, setPriorDaysCount] = useState("3");
+  const [selectedMissed, setSelectedMissed] = useState<Set<string>>(new Set());
+  const [showMissedConfirm, setShowMissedConfirm] = useState(false);
+  const [showTodayCheckin, setShowTodayCheckin] = useState(false);
 
   const info = getStreakInfo(cat);
   const isExpanded = expandedCard === cat.id;
@@ -700,6 +703,14 @@ function SobrietyCategoryCard({
   const milestones = getReachedMilestones(info.currentStreak);
   const latestMilestone = milestones.length > 0 ? milestones[milestones.length - 1] : null;
   const missedDays = getMissedDays(cat);
+
+  const toggleMissedDay = (d: string) => {
+    setSelectedMissed(prev => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d); else next.add(d);
+      return next;
+    });
+  };
 
   return (
     <motion.div
