@@ -302,6 +302,37 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
     fetchData();
   };
 
+  const handleUpdateMoneyPerDay = async (catId: string, value: number) => {
+    const { error } = await supabase.from("sobriety_categories").update({ money_per_day: value } as any).eq("id", catId);
+    if (error) { toast.error("Failed to update"); return; }
+    toast.success("Money saved updated");
+    fetchData();
+  };
+
+  const handleAddPriorDays = async (cat: SobrietyCategory, days: number) => {
+    if (!user) return;
+    const startDate = parseISO(cat.start_date);
+    const rows: any[] = [];
+    for (let i = 1; i <= days; i++) {
+      const d = subDays(startDate, i);
+      const dateStr = format(d, "yyyy-MM-dd");
+      rows.push({
+        user_id: user.id,
+        category_id: cat.id,
+        check_date: dateStr,
+        stayed_on_track: true,
+      });
+    }
+    const newStart = format(subDays(startDate, days), "yyyy-MM-dd");
+    const [{ error: checkErr }, { error: catErr }] = await Promise.all([
+      supabase.from("sobriety_checkins").upsert(rows, { onConflict: "category_id,check_date" }),
+      supabase.from("sobriety_categories").update({ start_date: newStart } as any).eq("id", cat.id),
+    ]);
+    if (checkErr || catErr) { toast.error("Failed to add prior days"); return; }
+    toast.success(`Added ${days} prior sober days`);
+    fetchData();
+  };
+
   const isCheckedIn = useCallback((catId: string, date: string) => {
     return checkins.some(c => c.category_id === catId && c.check_date === date);
   }, [checkins]);
