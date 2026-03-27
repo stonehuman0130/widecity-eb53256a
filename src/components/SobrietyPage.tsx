@@ -638,11 +638,13 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
         <DialogContent className="max-w-[320px] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-center">
-              {checkinCategory?.icon} Daily Check-In
+              {checkinCategory?.icon} {checkinIsMissed ? "Missed Day Check-In" : "Daily Check-In"}
             </DialogTitle>
             <DialogDescription className="text-center">
-              {checkinDate && checkinDate !== today
-                ? `Check in for ${format(parseISO(checkinDate), "MMM d, yyyy")}`
+              {checkinIsMissed
+                ? checkinDates.length > 1
+                  ? `Confirm check-in for ${checkinDates.length} missed days`
+                  : `Check in for ${format(parseISO(checkinDates[0] || today), "MMM d, yyyy")}`
                 : `Did you stay on track with ${checkinCategory?.label} today?`}
             </DialogDescription>
           </DialogHeader>
@@ -651,14 +653,14 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
               onClick={() => handleCheckin(true)}
               className="rounded-xl h-14 text-base bg-[hsl(var(--habit-green))] hover:bg-[hsl(var(--habit-green))]/90 text-white"
             >
-              ✅ Yes!
+              ✅ Yes{checkinIsMissed ? "" : "!"}
             </Button>
             <Button
               onClick={() => handleCheckin(false)}
               variant="outline"
               className="rounded-xl h-14 text-base border-destructive/30 text-destructive hover:bg-destructive/5"
             >
-              Not today
+              {checkinIsMissed ? "No" : "Not today"}
             </Button>
           </div>
           <p className="text-[10px] text-center text-muted-foreground mt-1">
