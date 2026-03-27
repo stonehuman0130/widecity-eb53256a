@@ -816,7 +816,7 @@ function SobrietyCategoryCard({
           <Button
             onClick={(e) => {
               e.stopPropagation();
-              openCheckinFor(cat, today);
+              setShowTodayCheckin(true);
             }}
             variant="outline"
             className="w-full rounded-xl text-sm h-9 border-primary/30 text-primary hover:bg-primary/5"
@@ -825,6 +825,41 @@ function SobrietyCategoryCard({
           </Button>
         </div>
       )}
+
+      {/* Today check-in inline dialog */}
+      <AnimatePresence>
+        {showTodayCheckin && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="px-4 pb-3 overflow-hidden"
+          >
+            <div className="bg-secondary/50 rounded-xl p-3 text-center space-y-2">
+              <p className="text-xs font-medium text-foreground">
+                Did you stay on track with {cat.label} today?
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  className="rounded-lg h-9 text-sm bg-[hsl(var(--habit-green))] hover:bg-[hsl(var(--habit-green))]/90 text-white"
+                  onClick={(e) => { e.stopPropagation(); onBatchCheckin(cat, [today], true); setShowTodayCheckin(false); }}
+                >
+                  ✅ Yes!
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg h-9 text-sm border-destructive/30 text-destructive"
+                  onClick={(e) => { e.stopPropagation(); onBatchCheckin(cat, [today], false); setShowTodayCheckin(false); }}
+                >
+                  Not today
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {checkedToday && (
         <div className="px-4 pb-3">
           <div className="text-center text-xs text-muted-foreground py-1.5 bg-secondary/50 rounded-xl">
