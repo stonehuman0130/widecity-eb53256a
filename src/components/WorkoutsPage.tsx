@@ -572,10 +572,13 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           workoutId={loggingWorkout.id}
           workoutTitle={loggingWorkout.title}
           workoutEmoji={loggingWorkout.emoji}
+          workoutDuration={loggingWorkout.duration}
+          workoutTag={loggingWorkout.tag}
           exercises={loggingWorkout.exercises || []}
           scheduledDate={loggingWorkout.scheduledDate}
           readOnly={isViewingPartner || isTogetherView}
           onProgressUpdate={(progress, cal) => handleProgressUpdate(loggingWorkout.id, progress, cal)}
+          onCaloriesSaved={(cal) => handleCaloriesSaved(loggingWorkout.id, cal)}
         />
       )}
     </div>
