@@ -271,7 +271,7 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
               </h3>
               <div className="space-y-2.5">
                 {otherDays.map((day, i) => (
-                  <SpecialDayListCard key={day.id} day={day} now={now} onEdit={openEdit} index={i} />
+                  <SpecialDayListCard key={day.id} day={day} now={now} onEdit={openEdit} index={i} groupName={!activeGroup ? groups.find(g => g.id === day.group_id)?.name : undefined} />
                 ))}
               </div>
             </div>
