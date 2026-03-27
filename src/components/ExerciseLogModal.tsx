@@ -30,10 +30,13 @@ interface Props {
   workoutId: string;
   workoutTitle: string;
   workoutEmoji: string;
+  workoutDuration?: string;
+  workoutTag?: string;
   exercises: Exercise[];
   scheduledDate?: string;
   readOnly?: boolean;
   onProgressUpdate?: (progress: number, estimatedCal: number) => void;
+  onCaloriesSaved?: (cal: number) => void;
 }
 
 const parseReps = (reps: string): number => {
