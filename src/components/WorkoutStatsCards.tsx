@@ -5,6 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Workout } from "@/context/AppContext";
 
 type TimeRange = "all" | "today" | "week" | "month" | "30days" | "custom";
+type DistanceUnit = "km" | "mi";
 
 const RANGE_LABELS: Record<TimeRange, string> = {
   all: "All Time",
@@ -18,18 +19,22 @@ const RANGE_LABELS: Record<TimeRange, string> = {
 const fmtDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+const KM_TO_MI = 0.621371;
+
 interface Props {
   workouts: Workout[];
-  isViewingPartner: boolean;
+  isViewingPartner?: boolean;
   partnerName?: string;
+  label?: string; // e.g. "Harrison" for Together view
 }
 
-const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName }: Props) => {
+const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label }: Props) => {
   const [range, setRange] = useState<TimeRange>("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickingCustom, setPickingCustom] = useState<"from" | "to" | null>(null);
+  const [distUnit, setDistUnit] = useState<DistanceUnit>("km");
 
   const today = fmtDate(new Date());
 
@@ -70,6 +75,25 @@ const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName }: Props) =
   const totalCal = filteredDone.reduce((sum, w) => sum + w.cal, 0);
   const todayCal = workouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
 
+  // Distance calculations
+  const totalDistKm = filteredDone.reduce((sum, w) => {
+    if (!w.distance) return sum;
+    const d = w.distanceUnit === "mi" ? w.distance / KM_TO_MI : w.distance;
+    return sum + d;
+  }, 0);
+  const todayDistKm = workouts
+    .filter((w) => w.done && w.completedDate === today)
+    .reduce((sum, w) => {
+      if (!w.distance) return sum;
+      const d = w.distanceUnit === "mi" ? w.distance / KM_TO_MI : w.distance;
+      return sum + d;
+    }, 0);
+
+  const fmtDist = (km: number) => {
+    const val = distUnit === "mi" ? km * KM_TO_MI : km;
+    return val < 10 ? val.toFixed(1) : Math.round(val).toString();
+  };
+
   const selectRange = (r: TimeRange) => {
     if (r === "custom") {
       setPickingCustom("from");
@@ -79,10 +103,29 @@ const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName }: Props) =
     }
   };
 
+  const ownerLabel = label || (isViewingPartner ? partnerName || "Partner" : undefined);
+
+  const stats = [
+    { label: "workouts", value: String(completedCount), sublabel: ownerLabel ? `Done` : `Done (${RANGE_LABELS[range]})`, icon: "📈" },
+    { label: "calories", value: String(totalCal), sublabel: RANGE_LABELS[range], icon: "🔥" },
+    { label: "calories", value: String(todayCal), sublabel: "Today", icon: "✅" },
+    { label: distUnit, value: fmtDist(totalDistKm), sublabel: RANGE_LABELS[range], icon: "📏" },
+    { label: distUnit, value: fmtDist(todayDistKm), sublabel: "Today", icon: "🏃" },
+  ];
+
   return (
     <div className="mb-5">
-      {/* Time range selector */}
-      <div className="flex items-center justify-end mb-2">
+      {/* Controls row */}
+      <div className="flex items-center justify-between mb-2">
+        {/* Distance unit toggle */}
+        <button
+          onClick={() => setDistUnit((u) => (u === "km" ? "mi" : "km"))}
+          className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+        >
+          📏 {distUnit === "km" ? "km" : "mi"}
+        </button>
+
+        {/* Time range selector */}
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>
             <button className="flex items-center gap-1 text-xs text-primary font-semibold px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
@@ -135,16 +178,13 @@ const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName }: Props) =
         </Popover>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "workouts", value: String(completedCount), sublabel: isViewingPartner ? partnerName || "Partner" : `Done (${RANGE_LABELS[range]})`, icon: "📈" },
-          { label: "calories", value: String(totalCal), sublabel: RANGE_LABELS[range], icon: "🔥" },
-          { label: "calories", value: String(todayCal), sublabel: "Today", icon: "✅" },
-        ].map((stat) => (
-          <div key={stat.sublabel + stat.label} className="bg-card rounded-xl p-3 border border-border shadow-card">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase">{stat.sublabel}</span>
-            <p className="text-xl font-bold tracking-display mt-0.5">{stat.value}</p>
-            <span className="text-[11px] text-muted-foreground">{stat.label}</span>
+      {/* Horizontally scrollable stat cards */}
+      <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+        {stats.map((stat, i) => (
+          <div key={i} className="bg-card rounded-xl p-3 border border-border shadow-card min-w-[105px] flex-shrink-0">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase leading-tight block">{stat.sublabel}</span>
+            <p className="text-lg font-bold tracking-display mt-0.5">{stat.value}</p>
+            <span className="text-[11px] text-muted-foreground">{stat.icon} {stat.label}</span>
           </div>
         ))}
       </div>
