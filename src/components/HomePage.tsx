@@ -1368,7 +1368,7 @@ const TodoListSection = ({ tasks, onToggle, onCongrats, readOnly, addTask, selec
           ))}
         </div>
       ) : !adding ? (
-        <p className="text-sm text-muted-foreground py-2">No to-dos yet</p>
+        <p className="text-sm text-muted-foreground text-center py-4">No to-dos yet</p>
       ) : null}
 
     </section>
