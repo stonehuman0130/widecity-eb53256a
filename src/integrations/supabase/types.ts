@@ -174,6 +174,7 @@ export type Database = {
         Row: {
           all_day: boolean
           assignee: string
+          calendar_id: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
@@ -201,6 +202,7 @@ export type Database = {
         Insert: {
           all_day?: boolean
           assignee?: string
+          calendar_id?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -228,6 +230,7 @@ export type Database = {
         Update: {
           all_day?: boolean
           assignee?: string
+          calendar_id?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -253,6 +256,13 @@ export type Database = {
           year?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "events_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "calendars"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "events_group_id_fkey"
             columns: ["group_id"]
@@ -1328,6 +1338,7 @@ export type Database = {
         Returns: {
           all_day: boolean
           assignee: string
+          calendar_id: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
