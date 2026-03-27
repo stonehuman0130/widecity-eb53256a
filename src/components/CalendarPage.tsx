@@ -1312,7 +1312,7 @@ const EventList = ({
 // ── Time Grid View (Day / 3-Day) ──────────────────────────
 
 const TimeGridView = ({
-  dates, getItemsForDate, groups, timeGridRef, onItemTap, hideColumnHeaders,
+  dates, getItemsForDate, groups, timeGridRef, onItemTap, hideColumnHeaders, colorMap,
 }: {
   dates: Date[];
   getItemsForDate: (d: number, m: number, y: number) => CalItem[];
@@ -1320,6 +1320,7 @@ const TimeGridView = ({
   timeGridRef: React.RefObject<HTMLDivElement | null>;
   onItemTap?: (item: CalItem) => void;
   hideColumnHeaders?: boolean;
+  colorMap?: { byId: Map<string, string>; byProvider: Map<string, string> };
 }) => {
   const columns = dates.map((d) => ({
     date: d,
