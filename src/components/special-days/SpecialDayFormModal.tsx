@@ -66,6 +66,7 @@ const SpecialDayFormModal = ({ open, editingDay, userId, groupId, groups = [], o
   const [pinAsHero, setPinAsHero] = useState(editingDay?.is_featured || false);
   const [displayMode, setDisplayMode] = useState<DisplayMode>(getInitialDisplayMode());
   const [inclusiveCount, setInclusiveCount] = useState(editingDay?.inclusive_count || false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(editingDay?.group_id ?? groupId);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const selectEventType = (type: EventType) => {
