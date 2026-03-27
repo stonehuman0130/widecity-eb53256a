@@ -66,6 +66,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
     setSectionVisible(prefs.visible);
     setSelectedSobrietyIds(prefs.selectedSobrietyIds);
     setSelectedSpecialDayIds(prefs.selectedSpecialDayIds);
+    setSelectedHabitSubIds(prefs.selectedHabitSubIds);
   }, [activeGroup?.id]);
 
   const handleSaveSections = (
