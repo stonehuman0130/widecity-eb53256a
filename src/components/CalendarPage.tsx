@@ -1396,7 +1396,7 @@ const TimeGridView = ({
           {columns.map((col, ci) => (
             <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
               {col.items.filter((it) => it.allDay && !it.isDueDateTask).map((it) => {
-                const color = resolveItemColor(it, groups);
+                const color = resolveItemColor(it, groups, colorMap);
                 return (
                   <button key={it.id} onClick={() => onItemTap?.(it)}
                     className="w-full text-left text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5 hover:opacity-80 active:opacity-60 transition-opacity"
