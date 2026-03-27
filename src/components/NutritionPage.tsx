@@ -119,6 +119,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [manualTitle, setManualTitle] = useState("");
   const [manualProtein, setManualProtein] = useState("");
   const [manualCalories, setManualCalories] = useState("");
+  const [manualCarbs, setManualCarbs] = useState("");
+  const [manualFat, setManualFat] = useState("");
+  const [manualFiber, setManualFiber] = useState("");
   const [manualFoodText, setManualFoodText] = useState("");
   const [aiEstimating, setAiEstimating] = useState(false);
   const [goalProtein, setGoalProtein] = useState("150");
@@ -127,9 +130,16 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [editTitle, setEditTitle] = useState("");
   const [editProtein, setEditProtein] = useState("");
   const [editCalories, setEditCalories] = useState("");
+  const [editCarbs, setEditCarbs] = useState("");
+  const [editFat, setEditFat] = useState("");
+  const [editFiber, setEditFiber] = useState("");
   const [editMealType, setEditMealType] = useState("lunch");
   const [goalCalories, setGoalCalories] = useState("");
+  const [goalCarbs, setGoalCarbs] = useState("");
+  const [goalFat, setGoalFat] = useState("");
+  const [goalFiber, setGoalFiber] = useState("");
   const [goalShowCal, setGoalShowCal] = useState(false);
+  const [goalEnabledTrackers, setGoalEnabledTrackers] = useState<TrackerKey[]>(["protein", "calories"]);
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
