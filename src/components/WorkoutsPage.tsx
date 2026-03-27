@@ -242,9 +242,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     toast.success("Exercise removed");
   };
 
-  const completedCount = activeWorkouts.filter((w) => w.done).length;
-  const totalCal = activeWorkouts.filter((w) => w.done).reduce((sum, w) => sum + w.cal, 0);
-  const todayCal = activeWorkouts.filter((w) => w.done && w.completedDate === today).reduce((sum, w) => sum + w.cal, 0);
   const { twoTabFilters, hasOther, otherName } = useGroupContext();
   const partnerName = otherName;
 
