@@ -458,6 +458,8 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
           openCheckinFor={openCheckinFor}
           handleResetStreak={handleResetStreak}
           handleDeleteCategory={handleDeleteCategory}
+          onUpdateMoneyPerDay={handleUpdateMoneyPerDay}
+          onAddPriorDays={handleAddPriorDays}
         />
       ) : (
         /* Normal card list */
