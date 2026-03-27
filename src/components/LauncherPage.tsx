@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Plus, Settings, Users, Loader2, X, Check, Camera, Compass } from "lucide-react";
 import { Group, useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface LauncherPageProps {
   onEnterGroup: (groupId: string | null) => void;
