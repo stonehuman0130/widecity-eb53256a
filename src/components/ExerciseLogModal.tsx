@@ -164,7 +164,7 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
     };
   }, [logs]);
 
-  // Notify parent of progress changes
+  // Notify parent of progress + estimated calories (single shared source)
   useEffect(() => {
     if (loaded && onProgressUpdate) {
       onProgressUpdate(progress, calOverride ?? estimatedCal);
