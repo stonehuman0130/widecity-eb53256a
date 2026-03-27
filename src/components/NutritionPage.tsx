@@ -944,32 +944,57 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       {/* Tracker progress */}
       {!isTogether && (
         <div className="mb-2 mt-1">
-          <div className="bg-card rounded-2xl p-4 shadow-card border border-border space-y-3">
-            {orderedTrackers.map((key: TrackerKey) => {
-              const info = ALL_TRACKERS.find(t => t.key === key)!;
-              const total = trackerTotals[key] || 0;
-              const goal = trackerGoals[key];
-              if (!goal && goal !== 0) return (
-                <div key={key} className="flex items-center justify-between">
-                  <span className="text-sm font-semibold">{info.label}</span>
-                  <span className="text-sm font-bold" style={{ color: info.color }}>{total}{info.unit}</span>
+          <div className="bg-card rounded-2xl p-4 shadow-card border border-border">
+            {orderedTrackers.length > 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Daily Trackers</span>
+                  <button
+                    onClick={() => setShowGoalSettings(true)}
+                    className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-secondary transition-colors"
+                    title="Customize Trackers"
+                  >
+                    <Settings size={14} className="text-muted-foreground" />
+                  </button>
                 </div>
-              );
-              const pct = goal > 0 ? Math.min((total / goal) * 100, 100) : 0;
-              return (
-                <div key={key}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold">{info.label}</span>
-                    <span className="text-sm font-bold" style={{ color: info.color }}>{total}{info.unit} / {goal}{info.unit}</span>
-                  </div>
-                  <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: info.color }} />
-                  </div>
+                {orderedTrackers.map((key: TrackerKey) => {
+                  const info = ALL_TRACKERS.find(t => t.key === key)!;
+                  const total = trackerTotals[key] || 0;
+                  const goal = trackerGoals[key];
+                  if (!goal && goal !== 0) return (
+                    <div key={key} className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">{info.label}</span>
+                      <span className="text-sm font-bold" style={{ color: info.color }}>{total}{info.unit}</span>
+                    </div>
+                  );
+                  const pct = goal > 0 ? Math.min((total / goal) * 100, 100) : 0;
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-semibold">{info.label}</span>
+                        <span className="text-sm font-bold" style={{ color: info.color }}>{total}{info.unit} / {goal}{info.unit}</span>
+                      </div>
+                      <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: info.color }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-4 gap-2">
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+                  <Target size={20} className="text-muted-foreground" />
                 </div>
-              );
-            })}
-            {orderedTrackers.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-2">No trackers enabled. Tap Goals to configure.</p>
+                <p className="text-sm font-medium text-foreground">No trackers selected</p>
+                <p className="text-xs text-muted-foreground text-center">Choose which nutrition metrics to track</p>
+                <button
+                  onClick={() => setShowGoalSettings(true)}
+                  className="mt-1 px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                >
+                  <Settings size={12} /> Customize Trackers
+                </button>
+              </div>
             )}
           </div>
         </div>
