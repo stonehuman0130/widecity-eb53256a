@@ -538,7 +538,7 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
               today={today}
               expandedCard={expandedCard}
               setExpandedCard={setExpandedCard}
-              openCheckinFor={openCheckinFor}
+              onBatchCheckin={handleBatchCheckin}
               handleResetStreak={handleResetStreak}
               handleDeleteCategory={handleDeleteCategory}
               readOnly={readOnly}
