@@ -229,18 +229,64 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
         </div>
       </div>
 
-      <div className="bg-card rounded-xl p-5 border border-border shadow-card flex flex-col items-center">
-        <DraggableWaterGauge
-          intake={waterIntake}
-          goal={waterGoal}
-          onIntakeChange={setWaterIntake}
-          size={compact ? 120 : 140}
-          strokeWidth={compact ? 8 : 10}
-        />
+      <div className="bg-card rounded-xl p-5 border border-border shadow-card flex flex-col items-center overflow-visible">
+        {/* Display mode toggle */}
+        <div className="flex gap-1 bg-secondary rounded-lg p-0.5 mb-4 self-center">
+          <button
+            onClick={() => { setWaterDisplayMode("circular"); localStorage.setItem("water_display_mode", "circular"); }}
+            className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${
+              waterDisplayMode === "circular" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            <Circle size={10} className="inline mr-1" />Circular
+          </button>
+          <button
+            onClick={() => { setWaterDisplayMode("bar"); localStorage.setItem("water_display_mode", "bar"); }}
+            className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${
+              waterDisplayMode === "bar" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+            }`}
+          >
+            <Minus size={10} className="inline mr-1" />Bar
+          </button>
+        </div>
 
-        <span className="text-xs font-semibold text-primary mb-3">
-          {waterIntake >= waterGoal ? "Goal reached!" : `${Math.round((waterIntake / waterGoal) * 100)}%`}
-        </span>
+        {waterDisplayMode === "circular" ? (
+          <>
+            <DraggableWaterGauge
+              intake={waterIntake}
+              goal={waterGoal}
+              onIntakeChange={setWaterIntake}
+              size={compact ? 120 : 140}
+              strokeWidth={compact ? 8 : 10}
+            />
+            <span className="text-xs font-semibold text-primary mb-3">
+              {waterIntake >= waterGoal ? "Goal reached!" : `${Math.round((waterIntake / waterGoal) * 100)}%`}
+            </span>
+          </>
+        ) : (
+          <div className="w-full mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-2xl font-bold tracking-display">{waterIntake.toFixed(1)}L</span>
+              <span className="text-sm text-muted-foreground">/ {waterGoal}L</span>
+            </div>
+            <div className="h-3 bg-secondary rounded-full overflow-hidden mb-2">
+              <div
+                className="h-full bg-primary rounded-full"
+                style={{
+                  width: `${Math.min((waterIntake / waterGoal) * 100, 100)}%`,
+                  transition: "width 0.35s cubic-bezier(.4,0,.2,1)",
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>0L</span>
+              <span className="font-semibold text-primary">
+                {waterIntake >= waterGoal ? "🎉 Goal reached!" : `${Math.round((waterIntake / waterGoal) * 100)}%`}
+              </span>
+              <span>{waterGoal}L</span>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2 w-full">
           {[0.25, 0.5].map((amt) => (
