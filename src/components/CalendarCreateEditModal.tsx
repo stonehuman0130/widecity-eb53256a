@@ -123,6 +123,9 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
   const [notificationMinutes, setNotificationMinutes] = useState(-1);
   const [visibility, setVisibility] = useState<"group" | "private">("group");
   const [calendarColor, setCalendarColor] = useState(CALENDAR_COLORS[0].value);
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
+  const [selectedCalendarName, setSelectedCalendarName] = useState<string>("Personal");
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
   // To-do specific
   const [todoDueDate, setTodoDueDate] = useState<Date | undefined>(undefined);
