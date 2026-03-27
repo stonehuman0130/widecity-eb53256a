@@ -66,8 +66,15 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
   const isViewingTogether = viewFilter === "together";
 
   const displayHabits = isViewingPartner ? filteredPartnerHabits : filteredHabits;
-  const totalCompleted = displayHabits.filter((h) => h.done).length;
-  const total = displayHabits.length;
+  const habitsDone = displayHabits.filter((h) => h.done).length;
+  const habitsTotal = displayHabits.length;
+
+  // Include water intake in progress if enabled
+  const waterCompleted = showWater && (isViewingPartner
+    ? partnerWaterIntake >= partnerWaterGoal
+    : waterIntake >= waterGoal);
+  const totalCompleted = habitsDone + (showWater ? (waterCompleted ? 1 : 0) : 0);
+  const total = habitsTotal + (showWater ? 1 : 0);
   const streakFn = isViewingPartner ? getPartnerHabitStreak : getHabitStreak;
 
   const myName = profile?.display_name || "Me";
