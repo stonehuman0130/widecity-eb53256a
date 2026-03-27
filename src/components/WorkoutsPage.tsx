@@ -328,7 +328,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       {/* Mine / Member Toggle */}
       {hasOther && (
         <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-5 overflow-x-auto scrollbar-hide">
-          {twoTabFilters.map((f) => (
+          {workoutFilters.map((f) => (
             <button
               key={f.id}
               onClick={() => setViewFilter(f.id)}
