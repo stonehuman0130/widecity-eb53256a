@@ -449,6 +449,7 @@ export type Database = {
       }
       groups: {
         Row: {
+          cover_image_url: string | null
           created_at: string
           created_by: string
           emoji: string
@@ -458,6 +459,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string
           created_by: string
           emoji?: string
@@ -467,6 +469,7 @@ export type Database = {
           type?: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string
           created_by?: string
           emoji?: string
