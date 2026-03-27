@@ -24,6 +24,9 @@ interface MealLog {
   title: string;
   protein: number;
   calories: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
   ingredients: string[];
   prep_steps: string[];
   is_ai_generated: boolean;
@@ -39,6 +42,9 @@ interface MealSuggestion {
   title: string;
   protein: number;
   calories: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
   ingredients: string[];
   prep_steps: string[];
   suggestion_date?: string;
@@ -46,10 +52,25 @@ interface MealSuggestion {
   user_id?: string;
 }
 
+type TrackerKey = "protein" | "calories" | "carbs" | "fat" | "fiber";
+
+const ALL_TRACKERS: { key: TrackerKey; label: string; unit: string; defaultGoal: number; color: string }[] = [
+  { key: "protein", label: "Protein", unit: "g", defaultGoal: 150, color: "hsl(var(--primary))" },
+  { key: "calories", label: "Calories", unit: "kcal", defaultGoal: 2000, color: "hsl(25 95% 53%)" },
+  { key: "carbs", label: "Carbs", unit: "g", defaultGoal: 220, color: "hsl(45 93% 47%)" },
+  { key: "fat", label: "Fat", unit: "g", defaultGoal: 70, color: "hsl(280 67% 55%)" },
+  { key: "fiber", label: "Fiber", unit: "g", defaultGoal: 30, color: "hsl(142 71% 45%)" },
+];
+
 interface NutritionGoals {
   protein_goal: number;
   calorie_goal: number | null;
+  carbs_goal: number | null;
+  fat_goal: number | null;
+  fiber_goal: number | null;
   show_calories: boolean;
+  enabled_trackers: TrackerKey[];
+  tracker_order: TrackerKey[];
 }
 
 type ViewFilter = string;
@@ -83,7 +104,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [suggestions, setSuggestions] = useState<MealSuggestion[]>([]);
   const [partnerMeals, setPartnerMeals] = useState<MealLog[]>([]);
   const [partnerSuggestions, setPartnerSuggestions] = useState<MealSuggestion[]>([]);
-  const [goals, setGoals] = useState<NutritionGoals>({ protein_goal: 150, calorie_goal: null, show_calories: false });
+  const [goals, setGoals] = useState<NutritionGoals>({ protein_goal: 150, calorie_goal: null, carbs_goal: null, fat_goal: null, fiber_goal: null, show_calories: false, enabled_trackers: ["protein", "calories"], tracker_order: ["protein", "calories", "carbs", "fat", "fiber"] });
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -98,6 +119,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [manualTitle, setManualTitle] = useState("");
   const [manualProtein, setManualProtein] = useState("");
   const [manualCalories, setManualCalories] = useState("");
+  const [manualCarbs, setManualCarbs] = useState("");
+  const [manualFat, setManualFat] = useState("");
+  const [manualFiber, setManualFiber] = useState("");
   const [manualFoodText, setManualFoodText] = useState("");
   const [aiEstimating, setAiEstimating] = useState(false);
   const [goalProtein, setGoalProtein] = useState("150");
@@ -106,9 +130,16 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [editTitle, setEditTitle] = useState("");
   const [editProtein, setEditProtein] = useState("");
   const [editCalories, setEditCalories] = useState("");
+  const [editCarbs, setEditCarbs] = useState("");
+  const [editFat, setEditFat] = useState("");
+  const [editFiber, setEditFiber] = useState("");
   const [editMealType, setEditMealType] = useState("lunch");
   const [goalCalories, setGoalCalories] = useState("");
+  const [goalCarbs, setGoalCarbs] = useState("");
+  const [goalFat, setGoalFat] = useState("");
+  const [goalFiber, setGoalFiber] = useState("");
   const [goalShowCal, setGoalShowCal] = useState(false);
+  const [goalEnabledTrackers, setGoalEnabledTrackers] = useState<TrackerKey[]>(["protein", "calories"]);
   const [cameraAnalyzing, setCameraAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,7 +150,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
   // Quick Suggestions / Frequent Items
   const [mealIdeasTab, setMealIdeasTab] = useState<"suggestions" | "frequent">("suggestions");
-  const [frequentMeals, setFrequentMeals] = useState<{ title: string; protein: number; calories: number; meal_type: string; count: number }[]>([]);
+  const [frequentMeals, setFrequentMeals] = useState<{ title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number }[]>([]);
 
   // Shopping list prompt after AI suggest add (queue for multiple meals)
   const [shopPrompt, setShopPrompt] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string } | null>(null);
@@ -212,6 +243,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     prep_steps?: string[];
     protein: number;
     calories: number;
+    carbs?: number;
+    fat?: number;
+    fiber?: number;
     is_ai_generated: boolean;
     ai_tags?: string[];
     consumed: boolean;
@@ -238,6 +272,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             prep_steps: mealPayload.prep_steps || [],
             protein: mealPayload.protein,
             calories: mealPayload.calories,
+            carbs: mealPayload.carbs || 0,
+            fat: mealPayload.fat || 0,
+            fiber: mealPayload.fiber || 0,
             is_ai_generated: mealPayload.is_ai_generated,
             ai_tags: mealPayload.ai_tags || [],
             consumed: mealPayload.consumed,
@@ -314,10 +351,25 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       if (mealsRes.data) setMeals(mealsRes.data as MealLog[]);
       if (goalsRes.data) {
         const g = goalsRes.data as any;
-        setGoals({ protein_goal: g.protein_goal || 150, calorie_goal: g.calorie_goal, show_calories: g.show_calories || false });
+        const enabledTrackers = Array.isArray(g.enabled_trackers) ? g.enabled_trackers : ["protein", "calories"];
+        const trackerOrder = Array.isArray(g.tracker_order) ? g.tracker_order : ["protein", "calories", "carbs", "fat", "fiber"];
+        setGoals({
+          protein_goal: g.protein_goal || 150,
+          calorie_goal: g.calorie_goal,
+          carbs_goal: g.carbs_goal,
+          fat_goal: g.fat_goal,
+          fiber_goal: g.fiber_goal,
+          show_calories: g.show_calories || false,
+          enabled_trackers: enabledTrackers,
+          tracker_order: trackerOrder,
+        });
         setGoalProtein(String(g.protein_goal || 150));
         setGoalCalories(g.calorie_goal ? String(g.calorie_goal) : "");
+        setGoalCarbs(g.carbs_goal ? String(g.carbs_goal) : "");
+        setGoalFat(g.fat_goal ? String(g.fat_goal) : "");
+        setGoalFiber(g.fiber_goal ? String(g.fiber_goal) : "");
         setGoalShowCal(g.show_calories || false);
+        setGoalEnabledTrackers(enabledTrackers);
       }
       if (suggestionsRes.data) setSuggestions(suggestionsRes.data as MealSuggestion[]);
 
@@ -393,8 +445,23 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const consumedMeals = useMemo(() => todayMeals.filter(m => m.consumed), [todayMeals]);
   const totalProtein = useMemo(() => consumedMeals.reduce((s, m) => s + m.protein, 0), [consumedMeals]);
   const totalCalories = useMemo(() => consumedMeals.reduce((s, m) => s + (m.calories || 0), 0), [consumedMeals]);
-  const proteinPercent = goals.protein_goal > 0 ? Math.min((totalProtein / goals.protein_goal) * 100, 100) : 0;
+  const totalCarbs = useMemo(() => consumedMeals.reduce((s, m) => s + (m.carbs || 0), 0), [consumedMeals]);
+  const totalFat = useMemo(() => consumedMeals.reduce((s, m) => s + (m.fat || 0), 0), [consumedMeals]);
+  const totalFiber = useMemo(() => consumedMeals.reduce((s, m) => s + (m.fiber || 0), 0), [consumedMeals]);
 
+  const trackerTotals: Record<TrackerKey, number> = { protein: totalProtein, calories: totalCalories, carbs: totalCarbs, fat: totalFat, fiber: totalFiber };
+  const trackerGoals: Record<TrackerKey, number | null> = {
+    protein: goals.protein_goal,
+    calories: goals.calorie_goal,
+    carbs: goals.carbs_goal,
+    fat: goals.fat_goal,
+    fiber: goals.fiber_goal,
+  };
+
+  const enabledTrackers = goals.enabled_trackers || ["protein", "calories"];
+  const orderedTrackers = (goals.tracker_order || ALL_TRACKERS.map(t => t.key)).filter((k: TrackerKey) => enabledTrackers.includes(k));
+
+  const proteinPercent = goals.protein_goal > 0 ? Math.min((totalProtein / goals.protein_goal) * 100, 100) : 0;
   const caloriePercent = goals.show_calories && goals.calorie_goal ? Math.min((totalCalories / goals.calorie_goal) * 100, 100) : 0;
 
   const viewTabs = useMemo(() => {
@@ -468,6 +535,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       prep_steps: suggestion.prep_steps || [],
       protein: suggestion.protein || 0,
       calories: suggestion.calories || 0,
+      carbs: suggestion.carbs || 0,
+      fat: suggestion.fat || 0,
+      fiber: suggestion.fiber || 0,
       is_ai_generated: true,
       ai_tags: suggestion.tags || [],
       consumed: false,
@@ -511,6 +581,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       title: manualTitle.trim(),
       protein: parseInt(manualProtein) || 0,
       calories: parseInt(manualCalories) || 0,
+      carbs: parseInt(manualCarbs) || 0,
+      fat: parseInt(manualFat) || 0,
+      fiber: parseInt(manualFiber) || 0,
       is_ai_generated: false,
       consumed: false,
     });
@@ -521,6 +594,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       setManualTitle("");
       setManualProtein("");
       setManualCalories("");
+      setManualCarbs("");
+      setManualFat("");
+      setManualFiber("");
       setManualFoodText("");
       resetSharingSelection();
       toast.success("Meal added to plan!");
@@ -533,28 +609,28 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     const loadFrequent = async () => {
       const { data } = await supabase
         .from("meal_logs")
-        .select("title, protein, calories, meal_type")
+        .select("title, protein, calories, carbs, fat, fiber, meal_type")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(200);
       if (!data) return;
-      const counts: Record<string, { title: string; protein: number; calories: number; meal_type: string; count: number }> = {};
+      const counts: Record<string, { title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number }> = {};
       for (const m of data) {
         const key = m.title.toLowerCase().trim();
         if (counts[key]) {
           counts[key].count++;
         } else {
-          counts[key] = { title: m.title, protein: m.protein, calories: m.calories || 0, meal_type: m.meal_type, count: 1 };
+          counts[key] = { title: m.title, protein: m.protein, calories: m.calories || 0, carbs: (m as any).carbs || 0, fat: (m as any).fat || 0, fiber: (m as any).fiber || 0, meal_type: m.meal_type, count: 1 };
         }
       }
       const sorted = Object.values(counts).filter(c => c.count >= 2).sort((a, b) => b.count - a.count).slice(0, 12);
       setFrequentMeals(sorted);
     };
     loadFrequent();
-  }, [user, meals.length]); // re-fetch when meals change
+  }, [user, meals.length]);
 
   // Quick add from suggestion/frequent
-  const quickAddMeal = async (item: { title: string; protein: number; calories: number; meal_type: string }) => {
+  const quickAddMeal = async (item: { title: string; protein: number; calories: number; carbs?: number; fat?: number; fiber?: number; meal_type: string }) => {
     if (!user) return;
     const { data, error } = await supabase.from("meal_logs").insert({
       user_id: user.id,
@@ -564,6 +640,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       title: item.title,
       protein: item.protein || 0,
       calories: item.calories || 0,
+      carbs: item.carbs || 0,
+      fat: item.fat || 0,
+      fiber: item.fiber || 0,
       is_ai_generated: false,
       consumed: false,
     }).select().single();
@@ -586,6 +665,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     setEditTitle(meal.title);
     setEditProtein(String(meal.protein));
     setEditCalories(String(meal.calories || 0));
+    setEditCarbs(String(meal.carbs || 0));
+    setEditFat(String(meal.fat || 0));
+    setEditFiber(String(meal.fiber || 0));
     setEditMealType(meal.meal_type);
     setDetailMeal(null);
     setMealMenuOpen(null);
@@ -597,6 +679,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       title: editTitle.trim(),
       protein: parseInt(editProtein) || 0,
       calories: parseInt(editCalories) || 0,
+      carbs: parseInt(editCarbs) || 0,
+      fat: parseInt(editFat) || 0,
+      fiber: parseInt(editFiber) || 0,
       meal_type: editMealType,
     };
     const { error } = await supabase.from("meal_logs").update(updates).eq("id", editingMeal.id);
@@ -690,16 +775,30 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
   const saveGoals = async () => {
     if (!user) return;
-    const payload = {
+    const payload: any = {
       user_id: user.id,
       group_id: groupId,
       protein_goal: parseInt(goalProtein) || 150,
       calorie_goal: goalCalories ? parseInt(goalCalories) : null,
-      show_calories: goalShowCal,
+      carbs_goal: goalCarbs ? parseInt(goalCarbs) : null,
+      fat_goal: goalFat ? parseInt(goalFat) : null,
+      fiber_goal: goalFiber ? parseInt(goalFiber) : null,
+      show_calories: goalEnabledTrackers.includes("calories"),
+      enabled_trackers: goalEnabledTrackers,
+      tracker_order: goals.tracker_order,
     };
     const { error } = await supabase.from("nutrition_goals").upsert(payload, { onConflict: "user_id,group_id" });
     if (!error) {
-      setGoals({ protein_goal: payload.protein_goal, calorie_goal: payload.calorie_goal, show_calories: payload.show_calories });
+      setGoals({
+        protein_goal: payload.protein_goal,
+        calorie_goal: payload.calorie_goal,
+        carbs_goal: payload.carbs_goal,
+        fat_goal: payload.fat_goal,
+        fiber_goal: payload.fiber_goal,
+        show_calories: payload.show_calories,
+        enabled_trackers: goalEnabledTrackers,
+        tracker_order: goals.tracker_order,
+      });
       setShowGoalSettings(false);
       toast.success("Goals updated");
     }
@@ -717,6 +816,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       if (parsed.title) setManualTitle(parsed.title);
       if (parsed.protein) setManualProtein(String(parsed.protein));
       if (parsed.calories) setManualCalories(String(parsed.calories));
+      if (parsed.carbs) setManualCarbs(String(parsed.carbs));
+      if (parsed.fat) setManualFat(String(parsed.fat));
+      if (parsed.fiber) setManualFiber(String(parsed.fiber));
       toast.success("Macros estimated by AI");
     } catch {
       toast.error("Couldn't estimate macros");
@@ -746,6 +848,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       if (parsed.title) setManualTitle(parsed.title);
       if (parsed.protein) setManualProtein(String(parsed.protein));
       if (parsed.calories) setManualCalories(String(parsed.calories));
+      if (parsed.carbs) setManualCarbs(String(parsed.carbs));
+      if (parsed.fat) setManualFat(String(parsed.fat));
+      if (parsed.fiber) setManualFiber(String(parsed.fiber));
       toast.success("Food analyzed from photo!");
     } catch (err) {
       console.error("Camera analysis error:", err);
@@ -836,23 +941,35 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         </div>
       )}
 
-      {/* Protein progress */}
+      {/* Tracker progress */}
       {!isTogether && (
         <div className="mb-2 mt-1">
-          <div className="bg-card rounded-2xl p-4 shadow-card border border-border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold">Protein</span>
-              <span className="text-sm font-bold text-primary">{totalProtein}g / {goals.protein_goal}g</span>
-            </div>
-            <Progress value={proteinPercent} className="h-3" />
-            {goals.show_calories && goals.calorie_goal && (
-              <>
-              <div className="flex items-center justify-between mt-4 mb-2">
-                <span className="text-sm font-semibold">Calories</span>
-                <span className="text-sm font-bold text-primary">{totalCalories} / {goals.calorie_goal} kcal</span>
-              </div>
-              <Progress value={caloriePercent} className="h-3" />
-              </>
+          <div className="bg-card rounded-2xl p-4 shadow-card border border-border space-y-3">
+            {orderedTrackers.map((key: TrackerKey) => {
+              const info = ALL_TRACKERS.find(t => t.key === key)!;
+              const total = trackerTotals[key] || 0;
+              const goal = trackerGoals[key];
+              if (!goal && goal !== 0) return (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">{info.label}</span>
+                  <span className="text-sm font-bold" style={{ color: info.color }}>{total}{info.unit}</span>
+                </div>
+              );
+              const pct = goal > 0 ? Math.min((total / goal) * 100, 100) : 0;
+              return (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold">{info.label}</span>
+                    <span className="text-sm font-bold" style={{ color: info.color }}>{total}{info.unit} / {goal}{info.unit}</span>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: info.color }} />
+                  </div>
+                </div>
+              );
+            })}
+            {orderedTrackers.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">No trackers enabled. Tap Goals to configure.</p>
             )}
           </div>
         </div>
@@ -864,13 +981,13 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
           <div className="grid grid-cols-2 gap-2.5">
             <div className="bg-card rounded-2xl p-3.5 shadow-card border border-border">
               <p className="text-xs font-semibold text-muted-foreground mb-1">{profile?.display_name || "Me"}</p>
-              <p className="text-xl font-bold text-primary">{totalProtein}g</p>
+              <p className="text-xl font-bold text-primary">{totalProtein}g protein</p>
               <Progress value={proteinPercent} className="h-2 mt-1.5" />
               <p className="text-[10px] text-muted-foreground mt-1.5">{consumedMeals.length} consumed</p>
             </div>
             <div className="bg-card rounded-2xl p-3.5 shadow-card border border-border">
               <p className="text-xs font-semibold text-muted-foreground mb-1">{otherName}</p>
-              <p className="text-xl font-bold text-primary">{partnerTotalProtein}g</p>
+              <p className="text-xl font-bold text-primary">{partnerTotalProtein}g protein</p>
               <Progress value={goals.protein_goal > 0 ? Math.min((partnerTotalProtein / goals.protein_goal) * 100, 100) : 0} className="h-2 mt-1.5" />
               <p className="text-[10px] text-muted-foreground mt-1.5">{partnerConsumed.length} consumed</p>
             </div>
@@ -962,8 +1079,8 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                               </p>
                             </div>
                             <div className="text-right flex-shrink-0 ml-2">
-                              <p className="text-xs font-bold text-primary">{meal.protein}g</p>
-                              <p className="text-[10px] text-muted-foreground">{meal.calories} kcal</p>
+                              <p className="text-xs font-bold text-primary">{meal.protein}g prot</p>
+                              <p className="text-[10px] text-muted-foreground">{meal.calories} kcal{meal.carbs ? ` · ${meal.carbs}g C` : ""}{meal.fat ? ` · ${meal.fat}g F` : ""}</p>
                             </div>
                           </div>
                         </button>
@@ -1068,12 +1185,12 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 {mealIdeasTab === "suggestions" ? (
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { title: "Greek Yogurt Bowl", protein: 20, calories: 250, meal_type: "breakfast" },
-                      { title: "Chicken Rice Bowl", protein: 35, calories: 450, meal_type: "lunch" },
-                      { title: "Turkey Lettuce Wraps", protein: 28, calories: 280, meal_type: "lunch" },
-                      { title: "Protein Smoothie", protein: 30, calories: 320, meal_type: "snack" },
-                      { title: "Salmon & Veggies", protein: 32, calories: 380, meal_type: "dinner" },
-                      { title: "Egg White Omelette", protein: 24, calories: 200, meal_type: "breakfast" },
+                      { title: "Greek Yogurt Bowl", protein: 20, calories: 250, carbs: 30, fat: 8, fiber: 3, meal_type: "breakfast" },
+                      { title: "Chicken Rice Bowl", protein: 35, calories: 450, carbs: 45, fat: 12, fiber: 4, meal_type: "lunch" },
+                      { title: "Turkey Lettuce Wraps", protein: 28, calories: 280, carbs: 12, fat: 14, fiber: 3, meal_type: "lunch" },
+                      { title: "Protein Smoothie", protein: 30, calories: 320, carbs: 35, fat: 6, fiber: 5, meal_type: "snack" },
+                      { title: "Salmon & Veggies", protein: 32, calories: 380, carbs: 15, fat: 18, fiber: 6, meal_type: "dinner" },
+                      { title: "Egg White Omelette", protein: 24, calories: 200, carbs: 4, fat: 8, fiber: 1, meal_type: "breakfast" },
                     ].map((item, i) => (
                       <button
                         key={i}
@@ -1081,9 +1198,10 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                         className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
                       >
                         <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] font-bold text-primary">{item.protein}g</span>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-primary">{item.protein}g P</span>
                           <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
+                          {item.carbs > 0 && <span className="text-[10px] text-muted-foreground">{item.carbs}g C</span>}
                         </div>
                         <div className="flex items-center gap-1 mt-1.5">
                           <Plus size={10} className="text-primary" />
@@ -1103,9 +1221,10 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                             className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
                           >
                             <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] font-bold text-primary">{item.protein}g</span>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="text-[10px] font-bold text-primary">{item.protein}g P</span>
                               <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
+                              {item.carbs > 0 && <span className="text-[10px] text-muted-foreground">{item.carbs}g C</span>}
                             </div>
                             <div className="flex items-center gap-1 mt-1.5">
                               <span className="text-[9px] text-muted-foreground">Added {item.count}×</span>
@@ -1192,8 +1311,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                         <p className="text-[10px] text-muted-foreground capitalize">{s.meal_type}</p>
                       </div>
                       <div className="text-right flex-shrink-0 ml-3">
-                        <p className="text-sm font-bold text-primary">{s.protein}g</p>
+                        <p className="text-sm font-bold text-primary">{s.protein}g P</p>
                         <p className="text-[10px] text-muted-foreground">{s.calories} kcal</p>
+                        {(s.carbs || s.fat || s.fiber) && (
+                          <p className="text-[9px] text-muted-foreground">{s.carbs || 0}C · {s.fat || 0}F · {s.fiber || 0}Fi</p>
+                        )}
                       </div>
                     </div>
                     {s.ingredients && s.ingredients.length > 0 && (
@@ -1247,7 +1369,10 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 <div className="bg-background rounded-xl border border-border p-3">
                   <p className="text-sm font-semibold">{aiConfirmSelection.suggestion.title}</p>
                   <p className="text-[10px] text-muted-foreground capitalize">
-                    {aiConfirmSelection.suggestion.meal_type} · {aiConfirmSelection.suggestion.protein || 0}g protein · {aiConfirmSelection.suggestion.calories || 0} kcal
+                    {aiConfirmSelection.suggestion.meal_type} · {aiConfirmSelection.suggestion.protein || 0}g P · {aiConfirmSelection.suggestion.calories || 0} kcal
+                    {aiConfirmSelection.suggestion.carbs ? ` · ${aiConfirmSelection.suggestion.carbs}g C` : ""}
+                    {aiConfirmSelection.suggestion.fat ? ` · ${aiConfirmSelection.suggestion.fat}g F` : ""}
+                    {aiConfirmSelection.suggestion.fiber ? ` · ${aiConfirmSelection.suggestion.fiber}g Fi` : ""}
                   </p>
                 </div>
 
@@ -1303,15 +1428,33 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 </button>
               </div>
               <div className="px-5 flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
-                <div className="flex gap-3 mb-4">
-                  <div className="bg-primary/10 rounded-xl px-4 py-2 text-center flex-1">
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-primary/10 rounded-xl px-3 py-2 text-center">
                     <p className="text-lg font-bold text-primary">{detailMeal.protein}g</p>
                     <p className="text-[10px] text-muted-foreground">Protein</p>
                   </div>
-                  <div className="bg-secondary rounded-xl px-4 py-2 text-center flex-1">
+                  <div className="bg-secondary rounded-xl px-3 py-2 text-center">
                     <p className="text-lg font-bold">{detailMeal.calories}</p>
                     <p className="text-[10px] text-muted-foreground">Calories</p>
                   </div>
+                  {(detailMeal.carbs > 0 || detailMeal.fat > 0 || detailMeal.fiber > 0) && (
+                    <>
+                      <div className="bg-secondary rounded-xl px-3 py-2 text-center">
+                        <p className="text-base font-bold">{detailMeal.carbs || 0}g</p>
+                        <p className="text-[10px] text-muted-foreground">Carbs</p>
+                      </div>
+                      <div className="bg-secondary rounded-xl px-3 py-2 text-center">
+                        <p className="text-base font-bold">{detailMeal.fat || 0}g</p>
+                        <p className="text-[10px] text-muted-foreground">Fat</p>
+                      </div>
+                      {detailMeal.fiber > 0 && (
+                        <div className="bg-secondary rounded-xl px-3 py-2 text-center col-span-2">
+                          <p className="text-base font-bold">{detailMeal.fiber}g</p>
+                          <p className="text-[10px] text-muted-foreground">Fiber</p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {detailMeal.ingredients && (detailMeal.ingredients as string[]).length > 0 && (
@@ -1485,15 +1628,30 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                     placeholder="Meal name"
                     className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background placeholder:text-muted-foreground"
                   />
-                  <div className="flex gap-2">
-                    <div className="flex-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
                       <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Protein (g)</label>
                       <input type="number" value={manualProtein} onChange={e => setManualProtein(e.target.value)} placeholder="0"
                         className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
                     </div>
-                    <div className="flex-1">
+                    <div>
                       <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Calories</label>
                       <input type="number" value={manualCalories} onChange={e => setManualCalories(e.target.value)} placeholder="0"
+                        className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Carbs (g)</label>
+                      <input type="number" value={manualCarbs} onChange={e => setManualCarbs(e.target.value)} placeholder="0"
+                        className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Fat (g)</label>
+                      <input type="number" value={manualFat} onChange={e => setManualFat(e.target.value)} placeholder="0"
+                        className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Fiber (g)</label>
+                      <input type="number" value={manualFiber} onChange={e => setManualFiber(e.target.value)} placeholder="0"
                         className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
                     </div>
                   </div>
@@ -1564,15 +1722,30 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                     className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background placeholder:text-muted-foreground"
                   />
                 </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
                     <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Protein (g)</label>
                     <input type="number" value={editProtein} onChange={e => setEditProtein(e.target.value)}
                       className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Calories</label>
                     <input type="number" value={editCalories} onChange={e => setEditCalories(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Carbs (g)</label>
+                    <input type="number" value={editCarbs} onChange={e => setEditCarbs(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Fat (g)</label>
+                    <input type="number" value={editFat} onChange={e => setEditFat(e.target.value)}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Fiber (g)</label>
+                    <input type="number" value={editFiber} onChange={e => setEditFiber(e.target.value)}
                       className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background" />
                   </div>
                 </div>
@@ -1619,27 +1792,46 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
               </div>
               <div className="px-5 flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
                 <div className="space-y-4 pb-4">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1 block">Daily Protein Goal (g)</label>
-                    <input type="number" value={goalProtein} onChange={e => setGoalProtein(e.target.value)}
-                      className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Track Calories</span>
-                    <button
-                      onClick={() => setGoalShowCal(!goalShowCal)}
-                      className={`w-12 h-7 rounded-full transition-colors relative ${goalShowCal ? "bg-primary" : "bg-secondary"}`}
-                    >
-                      <div className={`w-5 h-5 rounded-full bg-card shadow absolute top-1 transition-transform ${goalShowCal ? "translate-x-6" : "translate-x-1"}`} />
-                    </button>
-                  </div>
-                  {goalShowCal && (
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground mb-1 block">Daily Calorie Goal</label>
-                      <input type="number" value={goalCalories} onChange={e => setGoalCalories(e.target.value)} placeholder="2000"
-                        className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background" />
-                    </div>
-                  )}
+                  <p className="text-xs text-muted-foreground">Toggle trackers on/off and set daily goals.</p>
+                  {ALL_TRACKERS.map(tracker => {
+                    const isEnabled = goalEnabledTrackers.includes(tracker.key);
+                    const goalValue = tracker.key === "protein" ? goalProtein : tracker.key === "calories" ? goalCalories : tracker.key === "carbs" ? goalCarbs : tracker.key === "fat" ? goalFat : goalFiber;
+                    const setGoalValue = tracker.key === "protein" ? setGoalProtein : tracker.key === "calories" ? setGoalCalories : tracker.key === "carbs" ? setGoalCarbs : tracker.key === "fat" ? setGoalFat : setGoalFiber;
+                    return (
+                      <div key={tracker.key} className="bg-background rounded-xl border border-border p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tracker.color }} />
+                            <span className="text-sm font-semibold">{tracker.label}</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setGoalEnabledTrackers(prev =>
+                                prev.includes(tracker.key)
+                                  ? prev.filter(k => k !== tracker.key)
+                                  : [...prev, tracker.key]
+                              );
+                            }}
+                            className={`w-12 h-7 rounded-full transition-colors relative ${isEnabled ? "bg-primary" : "bg-secondary"}`}
+                          >
+                            <div className={`w-5 h-5 rounded-full bg-card shadow absolute top-1 transition-transform ${isEnabled ? "translate-x-6" : "translate-x-1"}`} />
+                          </button>
+                        </div>
+                        {isEnabled && (
+                          <div>
+                            <label className="text-[10px] font-semibold text-muted-foreground mb-1 block">Daily Goal ({tracker.unit})</label>
+                            <input
+                              type="number"
+                              value={goalValue}
+                              onChange={e => setGoalValue(e.target.value)}
+                              placeholder={String(tracker.defaultGoal)}
+                              className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-card"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   <button onClick={saveGoals}
                     className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity">
                     Save Goals
