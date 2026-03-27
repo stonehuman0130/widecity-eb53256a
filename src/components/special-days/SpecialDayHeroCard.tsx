@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Pencil } from "lucide-react";
-import { SpecialDay, getDayCount, getDisplayLabel } from "./SpecialDayTypes";
+import { SpecialDay, getDayCount, getDisplayLabel, parseLocalDate } from "./SpecialDayTypes";
 
 interface Props {
   day: SpecialDay;
