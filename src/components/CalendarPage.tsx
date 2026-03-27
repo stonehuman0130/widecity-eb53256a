@@ -1317,11 +1317,11 @@ const TimeGridView = ({
           {columns.map((col, ci) => (
             <div key={ci} className="flex-1 p-0.5 min-h-[28px] border-l border-border">
               {col.items.filter((it) => it.allDay && !it.isDueDateTask).map((it) => {
-                const colorIdx = getGroupColorIndex(it.groupId, groups);
+                const color = resolveItemColor(it, groups);
                 return (
                   <button key={it.id} onClick={() => onItemTap?.(it)}
                     className="w-full text-left text-[10px] font-medium rounded px-1 py-0.5 truncate mb-0.5 hover:opacity-80 active:opacity-60 transition-opacity"
-                    style={{ backgroundColor: GROUP_COLORS[colorIdx] + "22", color: GROUP_COLORS[colorIdx] }}>
+                    style={{ backgroundColor: color + "22", color }}>
                     {it.title}
                   </button>
                 );
