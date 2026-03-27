@@ -1335,12 +1335,27 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                         <p className="text-sm font-semibold">{s.title}</p>
                         <p className="text-[10px] text-muted-foreground capitalize">{s.meal_type}</p>
                       </div>
-                      <div className="text-right flex-shrink-0 ml-3">
-                        <p className="text-sm font-bold text-primary">{s.protein}g P</p>
-                        <p className="text-[10px] text-muted-foreground">{s.calories} kcal</p>
-                        {(s.carbs || s.fat || s.fiber) && (
-                          <p className="text-[9px] text-muted-foreground">{s.carbs || 0}C · {s.fat || 0}F · {s.fiber || 0}Fi</p>
-                        )}
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5 mb-3">
+                      <div className="bg-primary/10 rounded-lg px-2 py-1.5 text-center">
+                        <p className="text-xs font-bold text-primary">{s.protein || 0}g</p>
+                        <p className="text-[8px] text-muted-foreground">Protein</p>
+                      </div>
+                      <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                        <p className="text-xs font-bold">{s.calories || 0}</p>
+                        <p className="text-[8px] text-muted-foreground">Cal</p>
+                      </div>
+                      <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                        <p className="text-xs font-bold">{s.carbs || 0}g</p>
+                        <p className="text-[8px] text-muted-foreground">Carbs</p>
+                      </div>
+                      <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                        <p className="text-xs font-bold">{s.fat || 0}g</p>
+                        <p className="text-[8px] text-muted-foreground">Fat</p>
+                      </div>
+                      <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                        <p className="text-xs font-bold">{s.fiber || 0}g</p>
+                        <p className="text-[8px] text-muted-foreground">Fiber</p>
                       </div>
                     </div>
                     {s.ingredients && s.ingredients.length > 0 && (
