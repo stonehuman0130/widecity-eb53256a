@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import { useModalScrollLock } from "@/hooks/useModalScrollLock";
+import GroupSelector from "@/components/GroupSelector";
 
 const fmtDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
