@@ -1030,6 +1030,8 @@ function TogetherSobrietyView({
                 handleResetStreak={handleResetStreak}
                 handleDeleteCategory={handleDeleteCategory}
                 readOnly={false}
+                onUpdateMoneyPerDay={onUpdateMoneyPerDay}
+                onAddPriorDays={onAddPriorDays}
               />
             ))}
           </div>
