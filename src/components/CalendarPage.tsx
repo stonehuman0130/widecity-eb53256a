@@ -1012,7 +1012,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
             <div className="space-y-1 max-h-[70vh] overflow-y-auto">
               {searchResults.map((r) => {
                 const group = getGroupName(r.item.groupId);
-                const colorClasses = getColorClasses(r.item.groupId);
+                const searchItemColor = resolveItemColor(r.item, groups);
                 return (
                   <button key={r.item.id} onClick={() => {
                     const raw = r.item.raw;
@@ -1031,7 +1031,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                     setShowSearch(false);
                     setSearchQuery("");
                   }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary text-left">
-                    <span className={`w-[3px] h-8 rounded-full flex-shrink-0 ${r.item.isDueDateTask ? TODO_COLOR_CLASSES.bg : colorClasses.bg}`} />
+                    <span className="w-[3px] h-8 rounded-full flex-shrink-0" style={{ backgroundColor: searchItemColor }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{r.item.title}</p>
                       <p className="text-[11px] text-muted-foreground">
