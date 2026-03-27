@@ -610,6 +610,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       title: item.title,
       protein: item.protein || 0,
       calories: item.calories || 0,
+      carbs: item.carbs || 0,
+      fat: item.fat || 0,
+      fiber: item.fiber || 0,
       is_ai_generated: false,
       consumed: false,
     }).select().single();
