@@ -125,10 +125,16 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
         .eq("id", groupId);
 
       await refreshGroups();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error uploading cover image:", err);
+      toast({
+        title: "Upload failed",
+        description: err?.message || "Could not upload the image. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setUploadingGroupId(null);
+      pendingGroupIdRef.current = null;
     }
   };
 
