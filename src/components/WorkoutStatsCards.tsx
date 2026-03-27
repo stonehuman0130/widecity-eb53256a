@@ -115,17 +115,8 @@ const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label }: P
 
   return (
     <div className="mb-5">
-      {/* Controls row */}
-      <div className="flex items-center justify-between mb-2">
-        {/* Distance unit toggle */}
-        <button
-          onClick={() => setDistUnit((u) => (u === "km" ? "mi" : "km"))}
-          className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-        >
-          📏 {distUnit === "km" ? "km" : "mi"}
-        </button>
-
-        {/* Time range selector */}
+      {/* Time range selector */}
+      <div className="flex items-center justify-end mb-2">
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>
             <button className="flex items-center gap-1 text-xs text-primary font-semibold px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">
@@ -184,7 +175,16 @@ const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label }: P
           <div key={i} className="bg-card rounded-xl p-3 border border-border shadow-card min-w-[105px] flex-shrink-0">
             <span className="text-[10px] font-medium text-muted-foreground uppercase leading-tight block">{stat.sublabel}</span>
             <p className="text-lg font-bold tracking-display mt-0.5">{stat.value}</p>
-            <span className="text-[11px] text-muted-foreground">{stat.icon} {stat.label}</span>
+            {stat.isDist ? (
+              <button
+                onClick={() => setDistUnit((u) => (u === "km" ? "mi" : "km"))}
+                className="text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors"
+              >
+                {stat.icon} {distUnit} ↔
+              </button>
+            ) : (
+              <span className="text-[11px] text-muted-foreground">{stat.icon} {stat.label}</span>
+            )}
           </div>
         ))}
       </div>
