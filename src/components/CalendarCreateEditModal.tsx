@@ -546,6 +546,24 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
 
               <div className="h-px bg-border" />
 
+              {/* Calendar selector — prominent placement */}
+              <button
+                onClick={() => setShowCalendarPicker(true)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/50 transition-colors"
+              >
+                <div
+                  className="w-4 h-4 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: calendarColor }}
+                />
+                <div className="flex flex-col items-start flex-1 min-w-0">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Calendar</span>
+                  <span className="text-[14px] text-foreground truncate">{selectedCalendarName}</span>
+                </div>
+                <ChevronDown size={16} className="text-muted-foreground flex-shrink-0" />
+              </button>
+
+              <div className="h-px bg-border" />
+
               {/* More options toggle */}
               <button
                 onClick={() => setShowMoreOptions(!showMoreOptions)}
