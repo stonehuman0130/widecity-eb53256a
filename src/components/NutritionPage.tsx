@@ -1369,7 +1369,10 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 <div className="bg-background rounded-xl border border-border p-3">
                   <p className="text-sm font-semibold">{aiConfirmSelection.suggestion.title}</p>
                   <p className="text-[10px] text-muted-foreground capitalize">
-                    {aiConfirmSelection.suggestion.meal_type} · {aiConfirmSelection.suggestion.protein || 0}g protein · {aiConfirmSelection.suggestion.calories || 0} kcal
+                    {aiConfirmSelection.suggestion.meal_type} · {aiConfirmSelection.suggestion.protein || 0}g P · {aiConfirmSelection.suggestion.calories || 0} kcal
+                    {aiConfirmSelection.suggestion.carbs ? ` · ${aiConfirmSelection.suggestion.carbs}g C` : ""}
+                    {aiConfirmSelection.suggestion.fat ? ` · ${aiConfirmSelection.suggestion.fat}g F` : ""}
+                    {aiConfirmSelection.suggestion.fiber ? ` · ${aiConfirmSelection.suggestion.fiber}g Fi` : ""}
                   </p>
                 </div>
 
