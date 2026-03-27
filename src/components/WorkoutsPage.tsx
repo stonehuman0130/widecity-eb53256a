@@ -772,6 +772,7 @@ const WorkoutCard = ({
   onEditExercise,
   onDeleteExercise,
   onLogWorkout,
+  onUpdateCalories,
   readOnly,
   progress,
 }: {
