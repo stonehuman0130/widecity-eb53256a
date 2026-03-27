@@ -30,10 +30,13 @@ interface Props {
   workoutId: string;
   workoutTitle: string;
   workoutEmoji: string;
+  workoutDuration?: string;
+  workoutTag?: string;
   exercises: Exercise[];
   scheduledDate?: string;
   readOnly?: boolean;
   onProgressUpdate?: (progress: number, estimatedCal: number) => void;
+  onCaloriesSaved?: (cal: number) => void;
 }
 
 const parseReps = (reps: string): number => {
@@ -41,23 +44,53 @@ const parseReps = (reps: string): number => {
   return match ? parseInt(match[0]) : 10;
 };
 
-// Simple calorie estimation: ~0.05 cal per lb per rep (rough MET-based estimate)
-const estimateCalories = (logs: ExerciseLog[]): number => {
+/**
+ * Smarter calorie estimation using workout volume, exercise intensity,
+ * and duration-based MET estimates.
+ *
+ * Model:
+ * - Weighted exercises: calories ≈ totalVolume(lb) × 0.0015 + completedSets × 1.5
+ *   (volume = weight × reps; the per-set base accounts for rest-period metabolism)
+ * - Bodyweight exercises: ~4 cal per set (moderate calisthenics MET ~3.5)
+ * - Duration fallback: if duration string is available, add MET-based base calories
+ *   (~5 cal/min for strength, ~8 cal/min for cardio/HIIT)
+ */
+const estimateCalories = (logs: ExerciseLog[], durationStr?: string, tag?: string): number => {
   let total = 0;
+  let completedSets = 0;
+
   for (const l of logs) {
     if (!l.completed) continue;
+    completedSets++;
     const weightLb = l.unit === "kg" ? l.weight * 2.20462 : l.weight;
-    // Bodyweight exercises (0 weight) get ~3 cal per set
+
     if (weightLb === 0) {
-      total += l.reps * 0.3;
+      // Bodyweight: ~4 cal per set (push-ups, pull-ups, etc.)
+      total += 4;
     } else {
-      total += weightLb * l.reps * 0.004;
+      // Volume-based: weight × reps gives total volume
+      const volume = weightLb * l.reps;
+      // ~0.0015 cal per lb of volume + 1.5 cal base metabolic cost per set
+      total += volume * 0.0015 + 1.5;
     }
   }
+
+  // Duration-based floor: ensure estimate isn't unreasonably low
+  if (durationStr) {
+    const durMatch = durationStr.match(/(\d+)/);
+    if (durMatch) {
+      const minutes = parseInt(durMatch[1]);
+      const isCardio = tag && /cardio|hiit|running|cycling|swimming|boxing/i.test(tag);
+      const calPerMin = isCardio ? 8 : 4.5;
+      const durationFloor = minutes * calPerMin * (completedSets > 0 ? (completedSets / Math.max(logs.length, 1)) : 0.5);
+      total = Math.max(total, durationFloor);
+    }
+  }
+
   return Math.round(total);
 };
 
-const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji, exercises, scheduledDate, readOnly, onProgressUpdate }: Props) => {
+const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji, workoutDuration, workoutTag, exercises, scheduledDate, readOnly, onProgressUpdate, onCaloriesSaved }: Props) => {
   const { user } = useAuth();
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [unit, setUnit] = useState<"lb" | "kg">("lb");
@@ -126,7 +159,7 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
     const totalSets = logs.length;
     return {
       progress: Math.round((completedSets / totalSets) * 100),
-      estimatedCal: estimateCalories(logs),
+      estimatedCal: estimateCalories(logs, workoutDuration, workoutTag),
     };
   }, [logs]);
 
@@ -175,6 +208,9 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
       }));
       const { error } = await supabase.from("exercise_logs").insert(rows);
       if (error) throw error;
+      // Sync final calorie value back to the workout card
+      const finalCal = calOverride ?? estimateCalories(logs, workoutDuration, workoutTag);
+      if (onCaloriesSaved) onCaloriesSaved(finalCal);
       toast.success("Workout log saved!");
       onClose();
     } catch (e) {

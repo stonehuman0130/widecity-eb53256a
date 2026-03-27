@@ -263,6 +263,14 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     }
   }, [workouts]);
 
+  const handleCaloriesSaved = useCallback((workoutId: string, cal: number) => {
+    updateWorkout(workoutId, { cal });
+    setWorkoutProgress(prev => ({
+      ...prev,
+      [workoutId]: { ...prev[workoutId], cal },
+    }));
+  }, [updateWorkout]);
+
   return (
     <div className="px-5 pb-24">
       {showCongrats && (
@@ -539,6 +547,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
                     onEditExercise={startEditExercise}
                     onDeleteExercise={deleteExercise}
                     onLogWorkout={setLoggingWorkout}
+                    onUpdateCalories={(id, cal) => updateWorkout(id, { cal })}
                     readOnly={isViewingPartner}
                     progress={workoutProgress[w.id]?.progress}
                   />
@@ -563,10 +572,13 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           workoutId={loggingWorkout.id}
           workoutTitle={loggingWorkout.title}
           workoutEmoji={loggingWorkout.emoji}
+          workoutDuration={loggingWorkout.duration}
+          workoutTag={loggingWorkout.tag}
           exercises={loggingWorkout.exercises || []}
           scheduledDate={loggingWorkout.scheduledDate}
           readOnly={isViewingPartner || isTogetherView}
           onProgressUpdate={(progress, cal) => handleProgressUpdate(loggingWorkout.id, progress, cal)}
+          onCaloriesSaved={(cal) => handleCaloriesSaved(loggingWorkout.id, cal)}
         />
       )}
     </div>
@@ -760,6 +772,7 @@ const WorkoutCard = ({
   onEditExercise,
   onDeleteExercise,
   onLogWorkout,
+  onUpdateCalories,
   readOnly,
   progress,
 }: {
@@ -773,11 +786,14 @@ const WorkoutCard = ({
   onEditExercise: (workoutId: string, index: number, ex: { name: string; sets: number; reps: string }) => void;
   onDeleteExercise: (workoutId: string, index: number) => void;
   onLogWorkout: (workout: Workout) => void;
+  onUpdateCalories?: (id: string, cal: number) => void;
   readOnly?: boolean;
   progress?: number;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [cascadeConfirm, setCascadeConfirm] = useState<{ newDate: string; diffDays: number; followingCount: number } | null>(null);
+  const [editingCal, setEditingCal] = useState(false);
+  const [calInput, setCalInput] = useState(String(workout.cal));
 
   const fmtD = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -889,9 +905,47 @@ const WorkoutCard = ({
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock size={11} /> {workout.duration}
                 </span>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Flame size={11} /> {workout.cal} cal
-                </span>
+                {!readOnly && onUpdateCalories ? (
+                  editingCal ? (
+                    <span className="flex items-center gap-0.5">
+                      <Flame size={11} className="text-muted-foreground" />
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={calInput}
+                        onChange={(e) => setCalInput(e.target.value)}
+                        onBlur={() => {
+                          const val = parseInt(calInput) || 0;
+                          onUpdateCalories(workout.id, val);
+                          setEditingCal(false);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const val = parseInt(calInput) || 0;
+                            onUpdateCalories(workout.id, val);
+                            setEditingCal(false);
+                          }
+                        }}
+                        autoFocus
+                        className="w-12 text-xs text-center bg-secondary rounded px-1 py-0.5 outline-none border border-primary text-foreground"
+                      />
+                      <span className="text-xs text-muted-foreground">cal</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => { setCalInput(String(workout.cal)); setEditingCal(true); }}
+                      className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+                      title="Tap to edit calories"
+                    >
+                      <Flame size={11} /> {workout.cal} cal
+                      <Pencil size={8} className="opacity-40" />
+                    </button>
+                  )
+                ) : (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Flame size={11} /> {workout.cal} cal
+                  </span>
+                )}
                 {workout.tag && (
                   <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{workout.tag}</span>
                 )}
