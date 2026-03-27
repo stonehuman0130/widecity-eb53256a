@@ -433,23 +433,35 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   // ── Month grid: dots per day ──────────────────────────
 
   const monthDots = useMemo(() => {
-    const dots = new Map<number, Set<string>>();
+    const dots = new Map<number, { id: string; color: string }[]>();
     for (let d = 1; d <= daysInMonth; d++) {
       const items = getItemsForDate(d, month, year);
       if (items.length > 0) {
-        const groupIds = new Set<string>();
+        const seen = new Set<string>();
+        const dotColors: { id: string; color: string }[] = [];
         items.forEach((it) => {
+          let color: string;
+          let key: string;
           if (it.isDueDateTask) {
-            groupIds.add("__todo");
+            key = "__todo";
+            color = TODO_COLOR;
+          } else if (it.calendarColor) {
+            key = `cal-${it.calendarColor}`;
+            color = it.calendarColor;
           } else {
-            groupIds.add(it.groupId || "__default");
+            key = it.groupId || "__default";
+            color = GROUP_COLORS[(key === "__default" ? 0 : getGroupColorIndex(it.groupId ?? null, groups)) % GROUP_COLORS.length];
+          }
+          if (!seen.has(key)) {
+            seen.add(key);
+            dotColors.push({ id: key, color });
           }
         });
-        dots.set(d, groupIds);
+        dots.set(d, dotColors);
       }
     }
     return dots;
-  }, [daysInMonth, month, year, getItemsForDate]);
+  }, [daysInMonth, month, year, getItemsForDate, groups]);
 
   // ── Navigation ────────────────────────────────────────
 
