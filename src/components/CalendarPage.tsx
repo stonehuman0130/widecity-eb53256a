@@ -480,18 +480,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         const seen = new Set<string>();
         const dotColors: { id: string; color: string }[] = [];
         items.forEach((it) => {
-          let color: string;
-          let key: string;
-          if (it.isDueDateTask) {
-            key = "__todo";
-            color = TODO_COLOR;
-          } else if (it.calendarColor) {
-            key = `cal-${it.calendarColor}`;
-            color = it.calendarColor;
-          } else {
-            key = it.groupId || "__default";
-            color = GROUP_COLORS[(key === "__default" ? 0 : getGroupColorIndex(it.groupId ?? null, groups)) % GROUP_COLORS.length];
-          }
+          const color = resolveItemColor(it, groups, calendarColorMap);
+          const key = it.isDueDateTask ? "__todo" : `color-${color}`;
           if (!seen.has(key)) {
             seen.add(key);
             dotColors.push({ id: key, color });
@@ -501,7 +491,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       }
     }
     return dots;
-  }, [daysInMonth, month, year, getItemsForDate, groups]);
+  }, [daysInMonth, month, year, getItemsForDate, groups, calendarColorMap]);
 
   // ── Navigation ────────────────────────────────────────
 
