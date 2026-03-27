@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Apple, Plus, Sparkles, RefreshCw, ChevronLeft, ChevronRight, Check, X, Loader2, Settings, Calendar, Target, Camera, ArrowLeftRight, MoreVertical, Trash2, Pencil, Clock, Zap, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
+import { Group, useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { useGroupContext } from "@/hooks/useGroupContext";
@@ -28,6 +28,7 @@ interface MealLog {
   prep_steps: string[];
   is_ai_generated: boolean;
   meal_date: string;
+  group_id?: string | null;
   user_id?: string;
   consumed?: boolean;
 }
@@ -41,6 +42,7 @@ interface MealSuggestion {
   ingredients: string[];
   prep_steps: string[];
   suggestion_date?: string;
+  group_id?: string | null;
   user_id?: string;
 }
 
@@ -113,6 +115,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   // Add meal: group sharing selection
   const [addMealGroupIds, setAddMealGroupIds] = useState<string[]>([]);
   const [addMealPrivate, setAddMealPrivate] = useState(false);
+  const [aiConfirmSelection, setAiConfirmSelection] = useState<{ suggestion: any; index: number } | null>(null);
 
   // Quick Suggestions / Frequent Items
   const [mealIdeasTab, setMealIdeasTab] = useState<"suggestions" | "frequent">("suggestions");
@@ -150,11 +153,111 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
-  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!editingMeal || !!shopPrompt);
+  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!aiConfirmSelection || !!editingMeal || !!shopPrompt);
 
   const groupId = activeGroup?.id || null;
   const dateStr = fmtDate(selectedDate);
   const isToday = dateStr === fmtDate(new Date());
+
+  const hasValidSharingSelection = addMealPrivate || addMealGroupIds.length > 0 || groups.length === 0;
+
+  const resetSharingSelection = useCallback(() => {
+    setAddMealPrivate(false);
+    setAddMealGroupIds([]);
+  }, []);
+
+  const applyDefaultSharingSelection = useCallback(() => {
+    if (groupId) {
+      setAddMealPrivate(false);
+      setAddMealGroupIds([groupId]);
+      return;
+    }
+    if (groups.length === 0) {
+      setAddMealPrivate(true);
+      setAddMealGroupIds([]);
+      return;
+    }
+    setAddMealPrivate(false);
+    setAddMealGroupIds([]);
+  }, [groupId, groups.length]);
+
+  const getSharingTargets = useCallback((): { valid: boolean; targets: (string | null)[] } => {
+    if (addMealPrivate || groups.length === 0) {
+      return { valid: true, targets: [null] };
+    }
+
+    const uniqueGroupIds = Array.from(new Set(addMealGroupIds.filter(Boolean)));
+    if (uniqueGroupIds.length === 0) {
+      return { valid: false, targets: [] };
+    }
+
+    return { valid: true, targets: uniqueGroupIds };
+  }, [addMealPrivate, addMealGroupIds, groups.length]);
+
+  const openAddMealModal = useCallback((mealType: string, date: string) => {
+    applyDefaultSharingSelection();
+    setShowAddMeal({ mealType, date });
+  }, [applyDefaultSharingSelection]);
+
+  const openAiSuggestionConfirm = useCallback((suggestion: any, index: number) => {
+    applyDefaultSharingSelection();
+    setAiConfirmSelection({ suggestion, index });
+  }, [applyDefaultSharingSelection]);
+
+  const createMealsForSharing = useCallback(async (mealPayload: {
+    meal_date: string;
+    meal_type: string;
+    title: string;
+    ingredients?: string[];
+    prep_steps?: string[];
+    protein: number;
+    calories: number;
+    is_ai_generated: boolean;
+    ai_tags?: string[];
+    consumed: boolean;
+  }): Promise<MealLog[]> => {
+    if (!user) return [];
+
+    const sharing = getSharingTargets();
+    if (!sharing.valid) {
+      toast.error("Select at least one group or choose Just me.");
+      return [];
+    }
+
+    const results = await Promise.all(
+      sharing.targets.map((targetGroupId) =>
+        supabase
+          .from("meal_logs")
+          .insert({
+            user_id: user.id,
+            group_id: targetGroupId,
+            meal_date: mealPayload.meal_date,
+            meal_type: mealPayload.meal_type,
+            title: mealPayload.title,
+            ingredients: mealPayload.ingredients || [],
+            prep_steps: mealPayload.prep_steps || [],
+            protein: mealPayload.protein,
+            calories: mealPayload.calories,
+            is_ai_generated: mealPayload.is_ai_generated,
+            ai_tags: mealPayload.ai_tags || [],
+            consumed: mealPayload.consumed,
+          })
+          .select()
+          .single()
+      )
+    );
+
+    const insertedMeals = results.flatMap((result) => {
+      if (result.error || !result.data) return [];
+      return [result.data as MealLog];
+    });
+
+    if (insertedMeals.length === 0) {
+      toast.error("Couldn't save meal with the selected sharing options.");
+    }
+
+    return insertedMeals;
+  }, [getSharingTargets, user]);
 
   const rangeDates = useMemo(() => {
     const rangeInfo = DATE_RANGES.find(r => r.key === dateRange) || DATE_RANGES[0];
@@ -184,19 +287,28 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       const startDate = rangeDates[0];
       const endDate = rangeDates[rangeDates.length - 1];
 
+      let ownMealsQuery = supabase.from("meal_logs").select("*")
+        .eq("user_id", user.id)
+        .gte("meal_date", startDate)
+        .lte("meal_date", endDate);
+
+      let ownSuggestionsQuery = supabase.from("ai_meal_suggestions").select("*")
+        .eq("user_id", user.id)
+        .gte("suggestion_date", startDate)
+        .lte("suggestion_date", endDate);
+
+      if (groupId) {
+        ownMealsQuery = ownMealsQuery.eq("group_id", groupId);
+        ownSuggestionsQuery = ownSuggestionsQuery.eq("group_id", groupId);
+      }
+
       const [mealsRes, goalsRes, suggestionsRes] = await Promise.all([
-        supabase.from("meal_logs").select("*")
-          .eq("user_id", user.id)
-          .gte("meal_date", startDate)
-          .lte("meal_date", endDate),
+        ownMealsQuery,
         (groupId
           ? supabase.from("nutrition_goals").select("*").eq("user_id", user.id).eq("group_id", groupId).maybeSingle()
           : supabase.from("nutrition_goals").select("*").eq("user_id", user.id).is("group_id", null).maybeSingle()
         ),
-        supabase.from("ai_meal_suggestions").select("*")
-          .eq("user_id", user.id)
-          .gte("suggestion_date", startDate)
-          .lte("suggestion_date", endDate),
+        ownSuggestionsQuery,
       ]);
 
       if (mealsRes.data) setMeals(mealsRes.data as MealLog[]);
@@ -215,15 +327,24 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
           .map(m => m.user_id) || (partner ? [partner.id] : []);
 
         if (otherIds.length > 0) {
+          let partnerMealsQuery = supabase.from("meal_logs").select("*")
+            .in("user_id", otherIds)
+            .gte("meal_date", startDate)
+            .lte("meal_date", endDate);
+
+          let partnerSuggestionsQuery = supabase.from("ai_meal_suggestions").select("*")
+            .in("user_id", otherIds)
+            .gte("suggestion_date", startDate)
+            .lte("suggestion_date", endDate);
+
+          if (groupId) {
+            partnerMealsQuery = partnerMealsQuery.eq("group_id", groupId);
+            partnerSuggestionsQuery = partnerSuggestionsQuery.eq("group_id", groupId);
+          }
+
           const [pMeals, pSugg] = await Promise.all([
-            supabase.from("meal_logs").select("*")
-              .in("user_id", otherIds)
-              .gte("meal_date", startDate)
-              .lte("meal_date", endDate),
-            supabase.from("ai_meal_suggestions").select("*")
-              .in("user_id", otherIds)
-              .gte("suggestion_date", startDate)
-              .lte("suggestion_date", endDate),
+            partnerMealsQuery,
+            partnerSuggestionsQuery,
           ]);
           if (pMeals.data) setPartnerMeals(pMeals.data as MealLog[]);
           if (pSugg.data) setPartnerSuggestions(pSugg.data as MealSuggestion[]);
@@ -235,17 +356,37 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     load();
   }, [user, rangeDates, groupId, hasOther, activeGroup, partner]);
 
+  const scopedMeals = useMemo(
+    () => (activeGroup ? meals.filter((m) => m.group_id === activeGroup.id) : meals),
+    [meals, activeGroup]
+  );
+
+  const scopedPartnerMeals = useMemo(
+    () => (activeGroup ? partnerMeals.filter((m) => m.group_id === activeGroup.id) : partnerMeals),
+    [partnerMeals, activeGroup]
+  );
+
+  const scopedSuggestions = useMemo(
+    () => (activeGroup ? suggestions.filter((s) => s.group_id === activeGroup.id) : suggestions),
+    [suggestions, activeGroup]
+  );
+
+  const scopedPartnerSuggestions = useMemo(
+    () => (activeGroup ? partnerSuggestions.filter((s) => s.group_id === activeGroup.id) : partnerSuggestions),
+    [partnerSuggestions, activeGroup]
+  );
+
   const displayMeals = useMemo(() => {
-    if (viewFilter === "mine") return meals;
-    if (viewFilter === "together") return meals;
-    return partnerMeals.filter(m => m.user_id === viewUserId);
-  }, [viewFilter, meals, partnerMeals, viewUserId]);
+    if (viewFilter === "mine") return scopedMeals;
+    if (viewFilter === "together") return scopedMeals;
+    return scopedPartnerMeals.filter((m) => m.user_id === viewUserId);
+  }, [viewFilter, scopedMeals, scopedPartnerMeals, viewUserId]);
 
   const displaySuggestions = useMemo(() => {
-    if (viewFilter === "mine") return suggestions;
-    if (viewFilter === "together") return suggestions;
-    return partnerSuggestions.filter(s => s.user_id === viewUserId);
-  }, [viewFilter, suggestions, partnerSuggestions, viewUserId]);
+    if (viewFilter === "mine") return scopedSuggestions;
+    if (viewFilter === "together") return scopedSuggestions;
+    return scopedPartnerSuggestions.filter((s) => s.user_id === viewUserId);
+  }, [viewFilter, scopedSuggestions, scopedPartnerSuggestions, viewUserId]);
 
   // Totals: only count CONSUMED meals
   const todayMeals = useMemo(() => displayMeals.filter(m => m.meal_date === dateStr), [displayMeals, dateStr]);
@@ -315,13 +456,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
-  // Add a selected AI suggestion as a planned meal
-  const addAiMealAsPlanned = async (suggestion: any, targetGroupId?: string | null) => {
-    if (!user) return;
-    const gid = targetGroupId !== undefined ? targetGroupId : groupId;
-    const { data, error } = await supabase.from("meal_logs").insert({
-      user_id: user.id,
-      group_id: gid,
+  const addAiMealAsPlanned = async () => {
+    if (!aiConfirmSelection) return;
+
+    const { suggestion, index } = aiConfirmSelection;
+    const insertedMeals = await createMealsForSharing({
       meal_date: dateStr,
       meal_type: suggestion.meal_type || "lunch",
       title: suggestion.title,
@@ -332,15 +471,23 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       is_ai_generated: true,
       ai_tags: suggestion.tags || [],
       consumed: false,
-    }).select().single();
+    });
 
-    if (!error && data) {
-      setMeals(prev => [...prev, data as MealLog]);
-      toast.success(`${suggestion.title} added to planned meals!`);
-      const ingredients = Array.isArray(suggestion.ingredients) ? suggestion.ingredients : [];
-      if (ingredients.length > 0) {
-        enqueueShopPrompt({ ingredients, mealTitle: suggestion.title, mealDate: dateStr });
-      }
+    if (insertedMeals.length === 0) return;
+
+    setMeals((prev) => [...prev, ...insertedMeals]);
+    setAiResults((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) setShowAiResults(false);
+      return next;
+    });
+    setAiConfirmSelection(null);
+    resetSharingSelection();
+    toast.success(`${suggestion.title} added to planned meals!`);
+
+    const ingredients = Array.isArray(suggestion.ingredients) ? suggestion.ingredients : [];
+    if (ingredients.length > 0) {
+      enqueueShopPrompt({ ingredients, mealTitle: suggestion.title, mealDate: dateStr });
     }
   };
 
@@ -358,37 +505,24 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     if (!user || !manualTitle.trim()) return;
     const mealDate = targetDate || dateStr;
 
-    // Determine which group(s) to save to
-    const selectedGroupIds = addMealPrivate ? [null] : (addMealGroupIds.length > 0 ? addMealGroupIds : [groupId]);
+    const insertedMeals = await createMealsForSharing({
+      meal_date: mealDate,
+      meal_type: mealType,
+      title: manualTitle.trim(),
+      protein: parseInt(manualProtein) || 0,
+      calories: parseInt(manualCalories) || 0,
+      is_ai_generated: false,
+      consumed: false,
+    });
 
-    let addedAny = false;
-    for (const gid of selectedGroupIds) {
-      const { data, error } = await supabase.from("meal_logs").insert({
-        user_id: user.id,
-        group_id: gid || null,
-        meal_date: mealDate,
-        meal_type: mealType,
-        title: manualTitle.trim(),
-        protein: parseInt(manualProtein) || 0,
-        calories: parseInt(manualCalories) || 0,
-        is_ai_generated: false,
-        consumed: false,
-      }).select().single();
-
-      if (!error && data) {
-        setMeals(prev => [...prev, data as MealLog]);
-        addedAny = true;
-      }
-    }
-
-    if (addedAny) {
+    if (insertedMeals.length > 0) {
+      setMeals((prev) => [...prev, ...insertedMeals]);
       setShowAddMeal(null);
       setManualTitle("");
       setManualProtein("");
       setManualCalories("");
       setManualFoodText("");
-      setAddMealGroupIds([]);
-      setAddMealPrivate(false);
+      resetSharingSelection();
       toast.success("Meal added to plan!");
     }
   };
@@ -626,7 +760,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const isViewingOwn = viewFilter === "mine";
   const isTogether = viewFilter === "together";
 
-  const partnerTodayMeals = useMemo(() => partnerMeals.filter(m => m.meal_date === dateStr), [partnerMeals, dateStr]);
+  const partnerTodayMeals = useMemo(() => scopedPartnerMeals.filter(m => m.meal_date === dateStr), [scopedPartnerMeals, dateStr]);
   const partnerConsumed = useMemo(() => partnerTodayMeals.filter(m => m.consumed), [partnerTodayMeals]);
   const partnerTotalProtein = useMemo(() => partnerConsumed.reduce((s, m) => s + m.protein, 0), [partnerConsumed]);
 
@@ -775,7 +909,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 {isViewingOwn && (
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => { setShowAddMeal({ mealType: "snack", date: dateStr }); setAddMealPrivate(!activeGroup); setAddMealGroupIds(activeGroup ? [activeGroup.id] : []); }}
+                      onClick={() => openAddMealModal("snack", dateStr)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
                     >
                       <Plus size={12} /> Add
@@ -996,9 +1130,9 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
             suggestions={displaySuggestions}
             isViewingOwn={isViewingOwn}
             isTogether={isTogether}
-            partnerMeals={partnerMeals}
+            partnerMeals={scopedPartnerMeals}
             onDetailMeal={setDetailMeal}
-            onAddMeal={(mt, date) => { setShowAddMeal({ mealType: mt, date }); setAddMealPrivate(!activeGroup); setAddMealGroupIds(activeGroup ? [activeGroup.id] : []); }}
+            onAddMeal={openAddMealModal}
             aiLoading={aiLoading}
             onGenerate={generateSuggestions}
             onToggleConsumed={toggleConsumed}
@@ -1068,20 +1202,71 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                       </p>
                     )}
                     <button
-                      onClick={() => {
-                        addAiMealAsPlanned(s);
-                        setAiResults(prev => {
-                          const next = prev.filter((_, i) => i !== idx);
-                          if (next.length === 0) setShowAiResults(false);
-                          return next;
-                        });
-                      }}
+                      onClick={() => openAiSuggestionConfirm(s, idx)}
                       className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
                     >
                       <Plus size={14} /> Add to Plan
                     </button>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ───── AI Sharing Confirmation Modal ───── */}
+      <AnimatePresence>
+        {aiConfirmSelection && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
+            onClick={() => setAiConfirmSelection(null)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg"
+            >
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-border" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-1 pb-3">
+                <h3 className="text-lg font-bold flex items-center gap-2"><Sparkles size={18} className="text-primary" /> Confirm AI Meal</h3>
+                <button onClick={() => setAiConfirmSelection(null)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 pb-6 space-y-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1.5rem)" }}>
+                <div className="bg-background rounded-xl border border-border p-3">
+                  <p className="text-sm font-semibold">{aiConfirmSelection.suggestion.title}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize">
+                    {aiConfirmSelection.suggestion.meal_type} · {aiConfirmSelection.suggestion.protein || 0}g protein · {aiConfirmSelection.suggestion.calories || 0} kcal
+                  </p>
+                </div>
+
+                <SharedWithSelector
+                  groups={groups}
+                  isPrivate={addMealPrivate}
+                  selectedGroupIds={addMealGroupIds}
+                  onPrivateChange={setAddMealPrivate}
+                  onGroupIdsChange={setAddMealGroupIds}
+                  showValidationError={!hasValidSharingSelection}
+                />
+
+                <button
+                  onClick={addAiMealAsPlanned}
+                  disabled={!hasValidSharingSelection}
+                  className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
+                >
+                  Add to Plan
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -1284,47 +1469,14 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   </div>
                 </div>
 
-                {/* Shared With selector */}
-                {groups.length > 0 && (
-                  <div className="mb-4">
-                    <label className="text-[10px] font-semibold text-muted-foreground mb-2 block flex items-center gap-1">
-                      <Users size={10} /> Shared With
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        onClick={() => { setAddMealPrivate(true); setAddMealGroupIds([]); }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
-                          addMealPrivate
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
-                        }`}
-                      >
-                        🔒 Just me
-                      </button>
-                      {groups.map(g => {
-                        const isSelected = !addMealPrivate && addMealGroupIds.includes(g.id);
-                        return (
-                          <button
-                            key={g.id}
-                            onClick={() => {
-                              setAddMealPrivate(false);
-                              setAddMealGroupIds(prev =>
-                                prev.includes(g.id) ? prev.filter(x => x !== g.id) : [...prev, g.id]
-                              );
-                            }}
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
-                              isSelected
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
-                            }`}
-                          >
-                            {g.emoji} {g.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                <SharedWithSelector
+                  groups={groups}
+                  isPrivate={addMealPrivate}
+                  selectedGroupIds={addMealGroupIds}
+                  onPrivateChange={setAddMealPrivate}
+                  onGroupIdsChange={setAddMealGroupIds}
+                  showValidationError={!hasValidSharingSelection}
+                />
 
                 <div className="space-y-3 pb-4">
                   <input
@@ -1347,7 +1499,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                   </div>
                   <button
                     onClick={() => logManualMeal(showAddMeal.mealType, showAddMeal.date)}
-                    disabled={!manualTitle.trim() || (!addMealPrivate && addMealGroupIds.length === 0 && !groupId && groups.length > 0)}
+                    disabled={!manualTitle.trim() || !hasValidSharingSelection}
                     className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
                   >
                     Add to Plan
@@ -1578,6 +1730,77 @@ interface WeeklyCalendarViewProps {
   onToggleConsumed: (id: string, consumed: boolean) => void;
   otherName: string;
   profile: any;
+}
+
+interface SharedWithSelectorProps {
+  groups: Group[];
+  isPrivate: boolean;
+  selectedGroupIds: string[];
+  onPrivateChange: (value: boolean) => void;
+  onGroupIdsChange: (groupIds: string[]) => void;
+  showValidationError?: boolean;
+}
+
+function SharedWithSelector({
+  groups,
+  isPrivate,
+  selectedGroupIds,
+  onPrivateChange,
+  onGroupIdsChange,
+  showValidationError = false,
+}: SharedWithSelectorProps) {
+  const toggleGroup = (groupId: string) => {
+    onPrivateChange(false);
+    onGroupIdsChange(
+      selectedGroupIds.includes(groupId)
+        ? selectedGroupIds.filter((id) => id !== groupId)
+        : [...selectedGroupIds, groupId]
+    );
+  };
+
+  return (
+    <div className="mb-4">
+      <label className="text-[10px] font-semibold text-muted-foreground mb-2 block flex items-center gap-1">
+        <Users size={10} /> Shared With
+      </label>
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          onClick={() => {
+            onPrivateChange(true);
+            onGroupIdsChange([]);
+          }}
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+            isPrivate
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
+          }`}
+        >
+          🔒 Just me
+        </button>
+
+        {groups.map((g) => {
+          const isSelected = !isPrivate && selectedGroupIds.includes(g.id);
+          return (
+            <button
+              key={g.id}
+              onClick={() => toggleGroup(g.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+                isSelected
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-secondary text-muted-foreground border-border hover:border-primary/30"
+              }`}
+            >
+              {g.emoji} {g.name}
+            </button>
+          );
+        })}
+      </div>
+
+      {showValidationError && (
+        <p className="text-[10px] text-destructive mt-1.5">Select at least one group or choose Just me.</p>
+      )}
+    </div>
+  );
 }
 
 function WeeklyCalendarView({ dates, meals, suggestions, isViewingOwn, isTogether, partnerMeals, onDetailMeal, onAddMeal, aiLoading, onGenerate, onToggleConsumed, otherName, profile }: WeeklyCalendarViewProps) {
