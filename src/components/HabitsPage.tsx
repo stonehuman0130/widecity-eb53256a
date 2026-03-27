@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import GroupBadge from "@/components/GroupBadge";
-import { Plus, Flame, Check, Bell, Users, Settings, Trash2, MoreVertical, Droplets, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { Plus, Flame, Check, Bell, Users, Settings, Trash2, MoreVertical, Droplets, ChevronDown, Eye, EyeOff, Circle, Minus } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
