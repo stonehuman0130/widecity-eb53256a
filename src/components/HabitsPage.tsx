@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import WaterSlider from "@/components/WaterSlider";
 import WaterGaugeCircle from "@/components/WaterGaugeCircle";
+import DraggableWaterGauge from "@/components/DraggableWaterGauge";
 import HabitDateViewer from "@/components/HabitDateViewer";
 import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
