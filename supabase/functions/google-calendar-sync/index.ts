@@ -21,7 +21,13 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const isDefinitelyInvalidTokenError = (message?: string) => {
   if (!message) return false;
-  return /invalid|jwt|expired|signature|malformed|session.not.found|not.found/i.test(message);
+  return /invalid|jwt|expired|signature|malformed|session[\s._-]*not[\s._-]*found|auth[\s._-]*session[\s._-]*missing|refresh[\s._-]*token[\s._-]*not[\s._-]*found|not[\s._-]*found|forbidden|unauthorized/i.test(message);
+};
+
+const isRetriableAuthError = (message?: string, status?: number) => {
+  if (status && status >= 500) return true;
+  if (!message) return false;
+  return /timeout|temporar|network|fetch|connection|econn|rate limit|try again/i.test(message);
 };
 
 async function resolveUserId(
@@ -34,27 +40,59 @@ async function resolveUserId(
     global: { headers: { Authorization: authHeader } },
   });
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const {
-      data: { user },
-      error,
-    } = await supabaseAuth.auth.getUser(token);
-
-    if (user?.id) {
-      return { userId: user.id };
+  try {
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    const sub = claimsData?.claims?.sub;
+    if (typeof sub === "string" && sub.length > 0) {
+      return { userId: sub };
     }
 
-    const message = error?.message ?? "";
+    const claimsMessage = claimsError?.message ?? "";
+    const claimsStatus = (claimsError as { status?: number } | null)?.status;
 
-    if (isDefinitelyInvalidTokenError(message)) {
+    if (
+      isDefinitelyInvalidTokenError(claimsMessage) ||
+      claimsStatus === 400 ||
+      claimsStatus === 401 ||
+      claimsStatus === 403
+    ) {
       return { status: 401, error: "Invalid token" };
     }
+  } catch {
+    // Fall back to getUser with retry below.
+  }
 
-    if (attempt === 1) {
-      return { status: 503, error: "Authentication temporarily unavailable" };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const {
+        data: { user },
+        error,
+      } = await supabaseAuth.auth.getUser(token);
+
+      if (user?.id) {
+        return { userId: user.id };
+      }
+
+      const message = error?.message ?? "";
+      const status = (error as { status?: number } | null)?.status;
+
+      const retriable = isRetriableAuthError(message, status);
+
+      if (!retriable) {
+        return { status: 401, error: "Invalid token" };
+      }
+
+      if (attempt === 1) {
+        return { status: 503, error: "Authentication temporarily unavailable" };
+      }
+
+      await wait(150 * (attempt + 1));
+    } catch {
+      if (attempt === 1) {
+        return { status: 503, error: "Authentication temporarily unavailable" };
+      }
+      await wait(150 * (attempt + 1));
     }
-
-    await wait(150 * (attempt + 1));
   }
 
   return { status: 503, error: "Authentication temporarily unavailable" };
