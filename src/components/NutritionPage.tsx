@@ -637,7 +637,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
       {/* Protein progress */}
       {!isTogether && (
-        <div className="px-5 mb-2 mt-1">
+        <div className="mb-2 mt-1">
           <div className="bg-card rounded-2xl p-4 shadow-card border border-border">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold">Protein</span>
