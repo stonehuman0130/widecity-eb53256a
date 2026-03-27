@@ -397,20 +397,9 @@ const CalendarsManager = ({ open, onClose }: Props) => {
 
                                 {/* Calendar info */}
                                 <div className="flex-1 min-w-0">
-                                  {editingId === cal.id ? (
-                                    <input
-                                      autoFocus
-                                      value={editName}
-                                      onChange={(e) => setEditName(e.target.value)}
-                                      onBlur={saveEdit}
-                                      onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); }}
-                                      className="text-[14px] font-medium text-foreground bg-transparent outline-none border-b border-primary w-full"
-                                    />
-                                  ) : (
                                     <p className="text-[14px] font-medium text-foreground truncate">
-                                      {cal.name}
+                                      {editingId === cal.id ? editName : cal.name}
                                     </p>
-                                  )}
                                   {cal.groupId && cal.provider === "local" && (
                                     <p className="text-[11px] text-muted-foreground">
                                       Shared with group
