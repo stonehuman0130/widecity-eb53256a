@@ -243,7 +243,7 @@ const SobrietyPage = ({ onOpenSettings }: SobrietyPageProps = {}) => {
       icon,
       group_id: groupId,
       start_date: today,
-      money_per_day: money ?? parseFloat(moneyPerDay) || 0,
+      money_per_day: money ?? (parseFloat(moneyPerDay) || 0),
     } as any);
 
     if (error) { toast.error("Failed to add category"); return; }
