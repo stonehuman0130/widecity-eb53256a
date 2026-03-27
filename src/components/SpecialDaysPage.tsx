@@ -160,8 +160,8 @@ const SpecialDaysPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) =>
           animate={{ opacity: 1, y: 0 }}
           className="text-center py-16"
         >
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-rose-100 to-amber-50 flex items-center justify-center mb-5 shadow-sm">
-            <Heart size={32} className="text-rose-300" />
+          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center mb-5 shadow-sm">
+            <Heart size={32} className="text-primary/40" />
           </div>
           <p className="text-base font-semibold text-foreground mb-1">No moments yet</p>
           <p className="text-xs text-muted-foreground mb-6 max-w-[220px] mx-auto leading-relaxed">
