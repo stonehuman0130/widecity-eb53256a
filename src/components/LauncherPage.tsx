@@ -117,12 +117,15 @@ const LauncherPage = ({ onEnterGroup, onCreateGroup, onOpenSettings }: LauncherP
 
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-      const { error: updateError } = await supabase
+      const { data: updatedGroup, error: updateError } = await supabase
         .from("groups")
         .update({ cover_image_url: publicUrl })
-        .eq("id", groupId);
+        .eq("id", groupId)
+        .select("id")
+        .maybeSingle();
 
       if (updateError) throw updateError;
+      if (!updatedGroup) throw new Error("You do not have permission to update this group image.");
 
       setLocalCoverMap((prev) => ({ ...prev, [groupId]: publicUrl }));
       await refreshGroups();
