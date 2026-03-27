@@ -406,6 +406,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           isEnd: isEndDay,
           startDateTime,
           endDateTime,
+          calendarColor: ge.calendarColor || null,
         });
       });
     }
