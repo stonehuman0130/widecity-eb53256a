@@ -578,6 +578,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           workoutEmoji={loggingWorkout.emoji}
           workoutDuration={loggingWorkout.duration}
           workoutTag={loggingWorkout.tag}
+          currentCal={workouts.find((w) => w.id === loggingWorkout.id)?.cal ?? loggingWorkout.cal}
           exercises={loggingWorkout.exercises || []}
           scheduledDate={loggingWorkout.scheduledDate}
           readOnly={isViewingPartner || isTogetherView}
