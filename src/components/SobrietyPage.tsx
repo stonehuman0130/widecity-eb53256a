@@ -1136,7 +1136,7 @@ function TogetherSobrietyView({
                 today={today}
                 expandedCard={expandedCard}
                 setExpandedCard={setExpandedCard}
-                openCheckinFor={openCheckinFor}
+                onBatchCheckin={onBatchCheckin}
                 handleResetStreak={handleResetStreak}
                 handleDeleteCategory={handleDeleteCategory}
                 readOnly={true}
