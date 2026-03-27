@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { SpecialDay, getDisplayLabel } from "./SpecialDayTypes";
+import { SpecialDay, getDisplayLabel, parseLocalDate } from "./SpecialDayTypes";
 
 interface Props {
   day: SpecialDay;
