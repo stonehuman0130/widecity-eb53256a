@@ -1075,6 +1075,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         endYear: event.endYear ?? event.year,
         endTime: event.endTime ?? (isAllDay ? "" : (event.time || "")),
         allDay: isAllDay,
+        calendarId: (data as any).calendar_id || event.calendarId || null,
       }]);
     }
   };
