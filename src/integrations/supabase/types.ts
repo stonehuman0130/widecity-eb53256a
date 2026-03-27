@@ -17,7 +17,10 @@ export type Database = {
       ai_meal_suggestions: {
         Row: {
           calories: number | null
+          carbs: number | null
           created_at: string
+          fat: number | null
+          fiber: number | null
           group_id: string | null
           id: string
           ingredients: Json | null
@@ -31,7 +34,10 @@ export type Database = {
         }
         Insert: {
           calories?: number | null
+          carbs?: number | null
           created_at?: string
+          fat?: number | null
+          fiber?: number | null
           group_id?: string | null
           id?: string
           ingredients?: Json | null
@@ -45,7 +51,10 @@ export type Database = {
         }
         Update: {
           calories?: number | null
+          carbs?: number | null
           created_at?: string
+          fat?: number | null
+          fiber?: number | null
           group_id?: string | null
           id?: string
           ingredients?: Json | null
@@ -627,8 +636,11 @@ export type Database = {
         Row: {
           ai_tags: Json | null
           calories: number | null
+          carbs: number | null
           consumed: boolean
           created_at: string
+          fat: number | null
+          fiber: number | null
           group_id: string | null
           id: string
           ingredients: Json | null
@@ -643,8 +655,11 @@ export type Database = {
         Insert: {
           ai_tags?: Json | null
           calories?: number | null
+          carbs?: number | null
           consumed?: boolean
           created_at?: string
+          fat?: number | null
+          fiber?: number | null
           group_id?: string | null
           id?: string
           ingredients?: Json | null
@@ -659,8 +674,11 @@ export type Database = {
         Update: {
           ai_tags?: Json | null
           calories?: number | null
+          carbs?: number | null
           consumed?: boolean
           created_at?: string
+          fat?: number | null
+          fiber?: number | null
           group_id?: string | null
           id?: string
           ingredients?: Json | null
@@ -761,31 +779,46 @@ export type Database = {
       nutrition_goals: {
         Row: {
           calorie_goal: number | null
+          carbs_goal: number | null
           created_at: string
+          enabled_trackers: Json | null
+          fat_goal: number | null
+          fiber_goal: number | null
           group_id: string | null
           id: string
           protein_goal: number
           show_calories: boolean
+          tracker_order: Json | null
           updated_at: string
           user_id: string
         }
         Insert: {
           calorie_goal?: number | null
+          carbs_goal?: number | null
           created_at?: string
+          enabled_trackers?: Json | null
+          fat_goal?: number | null
+          fiber_goal?: number | null
           group_id?: string | null
           id?: string
           protein_goal?: number
           show_calories?: boolean
+          tracker_order?: Json | null
           updated_at?: string
           user_id: string
         }
         Update: {
           calorie_goal?: number | null
+          carbs_goal?: number | null
           created_at?: string
+          enabled_trackers?: Json | null
+          fat_goal?: number | null
+          fiber_goal?: number | null
           group_id?: string | null
           id?: string
           protein_goal?: number
           show_calories?: boolean
+          tracker_order?: Json | null
           updated_at?: string
           user_id?: string
         }
