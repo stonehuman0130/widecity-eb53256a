@@ -14,7 +14,7 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     if (body.action === "estimate_macros") {
-      const systemPrompt = `You are a nutrition expert. Given a food description, estimate the macros. Return ONLY valid JSON with keys: title (cleaned meal name), protein (grams, integer), calories (integer). Be accurate based on typical serving sizes.`;
+      const systemPrompt = `You are a nutrition expert. Given a food description, estimate the macros. Return ONLY valid JSON with keys: title (cleaned meal name), protein (grams, integer), calories (integer), carbs (grams, integer), fat (grams, integer), fiber (grams, integer). Be accurate based on typical serving sizes.`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -47,10 +47,10 @@ serve(async (req) => {
       if (!image_base64) throw new Error("No image provided");
 
       const systemPrompt = `You are a nutrition expert. Analyze the provided image. It could be:
-1. A photo of food - estimate the meal name, protein (grams), and calories
-2. A nutrition label - extract the protein (grams) and calories from the label, and identify the food name
+1. A photo of food - estimate the meal name, protein (grams), calories, carbs (grams), fat (grams), and fiber (grams)
+2. A nutrition label - extract the protein (grams), calories, carbs (grams), fat (grams), and fiber (grams) from the label, and identify the food name
 
-Return ONLY valid JSON with keys: title (string, food/product name), protein (integer, grams), calories (integer). Be as accurate as possible.`;
+Return ONLY valid JSON with keys: title (string, food/product name), protein (integer, grams), calories (integer), carbs (integer, grams), fat (integer, grams), fiber (integer, grams). Be as accurate as possible.`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -113,12 +113,15 @@ Generate 2-3 meal suggestions. Return ONLY valid JSON:
       "prep_steps": ["Season and grill chicken", "Cook rice", "Assemble bowl with greens and avocado"],
       "protein": 45,
       "calories": 550,
+      "carbs": 50,
+      "fat": 18,
+      "fiber": 6,
       "tags": ["high-protein", "quick"]
     }
   ]
 }
 
-Prioritize meals for the unlogged meal types. Make suggestions varied and practical.`;
+Prioritize meals for the unlogged meal types. Make suggestions varied and practical. Always include protein, calories, carbs, fat, and fiber values.`;
 
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
