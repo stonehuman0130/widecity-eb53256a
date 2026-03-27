@@ -470,10 +470,10 @@ const HomeSectionCustomizer = ({
                         </div>
 
                         {isHabits && isVisible && habitsExpanded && habitSubItems.length > 0 &&
-                          renderSubItems(habitSubItems, localHabitSubIds, toggleHabitSub)}
+                          renderSubItems(habitSubItems, localHabitSubIds, toggleHabitSub, reorderHabitSubs)}
 
                         {isSobriety && isVisible && sobrietyExpanded && sobrietyOptions.length > 0 &&
-                          renderSubItems(sobrietyOptions, localSobrietyIds, toggleSobrietyTracker)}
+                          renderSubItems(sobrietyOptions, localSobrietyIds, toggleSobrietyTracker, reorderSobrietySubs)}
 
                         {isSpecialDays && isVisible && specialDaysExpanded && specialDayOptions.length > 0 && (
                           <div className="px-3 pb-3 space-y-1.5 ml-11">
