@@ -104,7 +104,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
   const [suggestions, setSuggestions] = useState<MealSuggestion[]>([]);
   const [partnerMeals, setPartnerMeals] = useState<MealLog[]>([]);
   const [partnerSuggestions, setPartnerSuggestions] = useState<MealSuggestion[]>([]);
-  const [goals, setGoals] = useState<NutritionGoals>({ protein_goal: 150, calorie_goal: null, show_calories: false });
+  const [goals, setGoals] = useState<NutritionGoals>({ protein_goal: 150, calorie_goal: null, carbs_goal: null, fat_goal: null, fiber_goal: null, show_calories: false, enabled_trackers: ["protein", "calories"], tracker_order: ["protein", "calories", "carbs", "fat", "fiber"] });
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
