@@ -24,6 +24,9 @@ interface MealLog {
   title: string;
   protein: number;
   calories: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
   ingredients: string[];
   prep_steps: string[];
   is_ai_generated: boolean;
@@ -39,6 +42,9 @@ interface MealSuggestion {
   title: string;
   protein: number;
   calories: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
   ingredients: string[];
   prep_steps: string[];
   suggestion_date?: string;
@@ -46,10 +52,25 @@ interface MealSuggestion {
   user_id?: string;
 }
 
+type TrackerKey = "protein" | "calories" | "carbs" | "fat" | "fiber";
+
+const ALL_TRACKERS: { key: TrackerKey; label: string; unit: string; defaultGoal: number; color: string }[] = [
+  { key: "protein", label: "Protein", unit: "g", defaultGoal: 150, color: "hsl(var(--primary))" },
+  { key: "calories", label: "Calories", unit: "kcal", defaultGoal: 2000, color: "hsl(25 95% 53%)" },
+  { key: "carbs", label: "Carbs", unit: "g", defaultGoal: 220, color: "hsl(45 93% 47%)" },
+  { key: "fat", label: "Fat", unit: "g", defaultGoal: 70, color: "hsl(280 67% 55%)" },
+  { key: "fiber", label: "Fiber", unit: "g", defaultGoal: 30, color: "hsl(142 71% 45%)" },
+];
+
 interface NutritionGoals {
   protein_goal: number;
   calorie_goal: number | null;
+  carbs_goal: number | null;
+  fat_goal: number | null;
+  fiber_goal: number | null;
   show_calories: boolean;
+  enabled_trackers: TrackerKey[];
+  tracker_order: TrackerKey[];
 }
 
 type ViewFilter = string;
