@@ -6,9 +6,10 @@ interface Props {
   now: Date;
   onEdit: (day: SpecialDay) => void;
   index?: number;
+  groupName?: string;
 }
 
-const SpecialDayListCard = ({ day, now, onEdit, index = 0 }: Props) => {
+const SpecialDayListCard = ({ day, now, onEdit, index = 0, groupName }: Props) => {
   const label = getDisplayLabel(day, now);
   const eventDate = parseLocalDate(day.event_date);
   const hasPhoto = !!day.photo_url;
