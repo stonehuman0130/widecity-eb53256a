@@ -212,7 +212,7 @@ const HabitsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) =>
               <span className="text-[10px] text-muted-foreground">L</span>
               <button onClick={saveCustomGoal} className="text-[10px] text-primary font-semibold">Set</button>
             </div>
-          )
+          )}
           <button
             onClick={toggleWaterVisibility}
             className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
