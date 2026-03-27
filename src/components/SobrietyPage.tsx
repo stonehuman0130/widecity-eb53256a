@@ -1013,24 +1013,54 @@ function SobrietyCategoryCard({
                 </div>
               )}
 
-              {/* Retroactive check-in for missed days */}
+              {/* Retroactive check-in for missed days - multi-select */}
               {!readOnly && missedDays.length > 0 && (
                 <div>
                   <p className="text-xs font-medium text-foreground mb-2">Missed Days</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {missedDays.slice(0, 14).map(d => (
-                      <button
-                        key={d}
-                        onClick={() => openCheckinFor(cat, d)}
-                        className="text-[10px] font-medium px-2 py-1 rounded-lg bg-secondary hover:bg-primary/10 hover:text-primary transition-colors border border-border"
-                      >
-                        {format(parseISO(d), "MMM d")}
-                      </button>
-                    ))}
+                    {missedDays.slice(0, 14).map(d => {
+                      const isSelected = selectedMissed.has(d);
+                      return (
+                        <button
+                          key={d}
+                          onClick={(e) => { e.stopPropagation(); toggleMissedDay(d); }}
+                          className={`text-[10px] font-medium px-2 py-1 rounded-lg transition-colors border ${
+                            isSelected
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-secondary hover:bg-primary/10 hover:text-primary border-border"
+                          }`}
+                        >
+                          {format(parseISO(d), "MMM d")}
+                        </button>
+                      );
+                    })}
                     {missedDays.length > 14 && (
                       <span className="text-[10px] text-muted-foreground self-center">+{missedDays.length - 14} more</span>
                     )}
                   </div>
+                  {selectedMissed.size > 0 && (
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs rounded-lg flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onBatchCheckin(cat, Array.from(selectedMissed), true);
+                          setSelectedMissed(new Set());
+                        }}
+                      >
+                        ✅ Check in {selectedMissed.size} day{selectedMissed.size > 1 ? "s" : ""}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-xs"
+                        onClick={(e) => { e.stopPropagation(); setSelectedMissed(new Set()); }}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 
