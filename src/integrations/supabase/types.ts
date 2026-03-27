@@ -1154,6 +1154,8 @@ export type Database = {
           cal: number
           completed_date: string | null
           created_at: string
+          distance: number
+          distance_unit: string
           done: boolean
           duration: string
           emoji: string
@@ -1170,6 +1172,8 @@ export type Database = {
           cal?: number
           completed_date?: string | null
           created_at?: string
+          distance?: number
+          distance_unit?: string
           done?: boolean
           duration?: string
           emoji?: string
@@ -1186,6 +1190,8 @@ export type Database = {
           cal?: number
           completed_date?: string | null
           created_at?: string
+          distance?: number
+          distance_unit?: string
           done?: boolean
           duration?: string
           emoji?: string
