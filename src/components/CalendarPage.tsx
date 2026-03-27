@@ -164,6 +164,7 @@ interface CalendarRecord {
   color: string;
   provider: string;
   provider_calendar_id: string | null;
+  is_default: boolean;
 }
 
 // ── Main Component ──────────────────────────────────────────
@@ -196,13 +197,14 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     if (!user) return;
     const { data } = await supabase
       .from("calendars")
-      .select("id, color, provider, provider_calendar_id");
+      .select("id, color, provider, provider_calendar_id, is_default");
     if (data) {
       setCalendarRecords(data.map((c: any) => ({
         id: c.id,
         color: c.color,
         provider: c.provider,
         provider_calendar_id: c.provider_calendar_id,
+        is_default: c.is_default,
       })));
     }
   }, [user]);
@@ -213,11 +215,13 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const calendarColorMap = useMemo(() => {
     const byId = new Map<string, string>();
     const byProvider = new Map<string, string>();
+    let defaultColor: string | null = null;
     calendarRecords.forEach((c) => {
       byId.set(c.id, c.color);
       if (c.provider_calendar_id) byProvider.set(c.provider_calendar_id, c.color);
+      if (c.is_default && c.provider === "local") defaultColor = c.color;
     });
-    return { byId, byProvider };
+    return { byId, byProvider, defaultColor };
   }, [calendarRecords]);
 
   const year = currentDate.getFullYear();
@@ -626,6 +630,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       if (raw.calendarId && calendarColorMap.byId.has(raw.calendarId)) {
         return calendarColorMap.byId.get(raw.calendarId)!;
       }
+      // Local event without calendar_id → use default calendar color
+      if (calendarColorMap.defaultColor) return calendarColorMap.defaultColor;
     }
     // For gcal events, look up by calendarId (provider_calendar_id)
     if (item.type === "gcal") {
@@ -1182,7 +1188,7 @@ const DateStrip = ({
 };
 
 // Helper to resolve the display color for a CalItem (used by sub-components that don't have resolveColor)
-function resolveItemColor(item: CalItem, groups: Group[], colorMap?: { byId: Map<string, string>; byProvider: Map<string, string> }): string {
+function resolveItemColor(item: CalItem, groups: Group[], colorMap?: { byId: Map<string, string>; byProvider: Map<string, string>; defaultColor?: string | null }): string {
   if (item.isDueDateTask) return TODO_COLOR;
   if (colorMap) {
     if (item.type === "event") {
@@ -1190,6 +1196,8 @@ function resolveItemColor(item: CalItem, groups: Group[], colorMap?: { byId: Map
       if (raw.calendarId && colorMap.byId.has(raw.calendarId)) {
         return colorMap.byId.get(raw.calendarId)!;
       }
+      // Local event without calendar_id → use default calendar color
+      if (colorMap.defaultColor) return colorMap.defaultColor;
     }
     if (item.type === "gcal") {
       const raw = item.raw as GoogleCalendarEvent;
