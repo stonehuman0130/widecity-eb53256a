@@ -159,7 +159,7 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
     const totalSets = logs.length;
     return {
       progress: Math.round((completedSets / totalSets) * 100),
-      estimatedCal: estimateCalories(logs),
+      estimatedCal: estimateCalories(logs, workoutDuration, workoutTag),
     };
   }, [logs]);
 
