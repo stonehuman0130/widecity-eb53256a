@@ -1123,7 +1123,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       </button>
 
       {/* ── Calendars Manager ───────────────────────────── */}
-      <CalendarsManager open={showCalendarsManager} onClose={() => setShowCalendarsManager(false)} />
+      <CalendarsManager open={showCalendarsManager} onClose={() => { setShowCalendarsManager(false); loadCalendars(); }} />
     </div>
   );
 };
