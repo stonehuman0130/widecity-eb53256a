@@ -32,6 +32,7 @@ interface Props {
   workoutEmoji: string;
   workoutDuration?: string;
   workoutTag?: string;
+  currentCal?: number;
   exercises: Exercise[];
   scheduledDate?: string;
   readOnly?: boolean;
@@ -90,7 +91,7 @@ const estimateCalories = (logs: ExerciseLog[], durationStr?: string, tag?: strin
   return Math.round(total);
 };
 
-const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji, workoutDuration, workoutTag, exercises, scheduledDate, readOnly, onProgressUpdate, onCaloriesSaved }: Props) => {
+const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji, workoutDuration, workoutTag, currentCal, exercises, scheduledDate, readOnly, onProgressUpdate, onCaloriesSaved }: Props) => {
   const { user } = useAuth();
   const [logs, setLogs] = useState<ExerciseLog[]>([]);
   const [unit, setUnit] = useState<"lb" | "kg">("lb");
@@ -146,11 +147,16 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
   useEffect(() => {
     if (open) {
       setLoaded(false);
-      setCalOverride(null);
+      setCalOverride(currentCal ?? null);
       setEditingCal(false);
       loadLogs();
     }
   }, [open, loadLogs]);
+
+  useEffect(() => {
+    if (!open || editingCal || currentCal === undefined || currentCal === null) return;
+    setCalOverride(currentCal);
+  }, [open, editingCal, currentCal]);
 
   // Calculate progress and calories
   const { progress, estimatedCal } = useMemo(() => {
@@ -163,7 +169,7 @@ const ExerciseLogModal = ({ open, onClose, workoutId, workoutTitle, workoutEmoji
     };
   }, [logs]);
 
-  // Notify parent of progress changes
+  // Notify parent of progress + estimated calories (single shared source)
   useEffect(() => {
     if (loaded && onProgressUpdate) {
       onProgressUpdate(progress, calOverride ?? estimatedCal);
