@@ -21,8 +21,32 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url);
+  const oauthError = url.searchParams.get("error");
+  const oauthErrorDescription = url.searchParams.get("error_description");
+  const oauthErrorSubtype = url.searchParams.get("error_subtype");
   const code = url.searchParams.get("code");
   const stateRaw = url.searchParams.get("state");
+
+  if (oauthError) {
+    const details = {
+      error: oauthError,
+      error_description: oauthErrorDescription,
+      error_subtype: oauthErrorSubtype,
+      state_present: Boolean(stateRaw),
+    };
+    console.error("Google OAuth returned error:", details);
+
+    return new Response(
+      JSON.stringify({
+        type: "google_oauth_error",
+        ...details,
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
 
   if (!code || !stateRaw) {
     return new Response("Missing code or state", { status: 400, headers: corsHeaders });
