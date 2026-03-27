@@ -63,8 +63,14 @@ export function daysBetween(a: Date, b: Date) {
   return Math.round((utcB - utcA) / 86400000);
 }
 
+/** Parse a YYYY-MM-DD string into a local-midnight Date without UTC shift */
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export function getNextOccurrence(dateStr: string, now: Date) {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = parseLocalDate(dateStr);
   const thisYear = new Date(now.getFullYear(), d.getMonth(), d.getDate());
   if (thisYear >= now) return daysBetween(now, thisYear);
   const nextYear = new Date(now.getFullYear() + 1, d.getMonth(), d.getDate());
