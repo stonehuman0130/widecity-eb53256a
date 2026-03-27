@@ -213,7 +213,7 @@ const GroupSelector = ({ onCreateGroup }: { onCreateGroup?: () => void }) => {
               ref={(el) => { chipRefs.current[i] = el; }}
               onPointerDown={(e) => { e.preventDefault(); handlePointerDown(i); }}
               onPointerUp={() => handlePointerUp(group)}
-              className={`flex items-center gap-2.5 pl-3 pr-4 py-2 rounded-2xl border whitespace-nowrap text-sm font-semibold transition-all flex-shrink-0 select-none touch-none ${
+              className={`flex items-center gap-2.5 pl-3 pr-4 py-2 rounded-2xl border whitespace-nowrap text-sm font-semibold transition-all flex-shrink-0 select-none ${editMode ? "touch-none" : ""} ${
                 isActive
                   ? "border-primary bg-primary text-primary-foreground shadow-md"
                   : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
