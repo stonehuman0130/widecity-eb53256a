@@ -79,6 +79,7 @@ const CalendarsManager = ({ open, onClose }: Props) => {
     const { data, error } = await supabase
       .from("calendars")
       .select("*")
+      .eq("user_id", user.id)
       .order("sort_order", { ascending: true });
 
     if (!error && data) {
