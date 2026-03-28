@@ -40,12 +40,12 @@ const Index = () => {
   // Swipe motion value for Home → Launcher cube transition
   const swipeX = useMotionValue(0);
 
-  // Home face: left-edge hinge, rotates away to the left as user swipes left
-  const homeRotateY = useTransform(swipeX, [-300, 0], [-90, 0]);
+  // Home face: right-edge hinge, rotates away to the right as user swipes right
+  const homeRotateY = useTransform(swipeX, [0, 300], [0, 90]);
 
-  // Launcher face: right-edge hinge, rotates into view from the left
-  const launcherRotateY = useTransform(swipeX, [-300, 0], [0, 90]);
-  const launcherPeekOpacity = useTransform(swipeX, [-300, -30, 0], [1, 0.4, 0]);
+  // Launcher face: left-edge hinge, rotates into view from the right
+  const launcherRotateY = useTransform(swipeX, [0, 300], [-90, 0]);
+  const launcherPeekOpacity = useTransform(swipeX, [0, 30, 300], [0, 0.4, 1]);
 
   if (loading) {
     return (
@@ -135,9 +135,9 @@ const Index = () => {
     setActiveTab("ai");
   };
 
-  // Swipe handlers for Home → Launcher (left swipe)
+  // Swipe handlers for Home → Launcher (right swipe)
   const handleDragEnd = (_: any, info: PanInfo) => {
-    if (activeTab === "home" && info.offset.x < -SWIPE_THRESHOLD && info.velocity.x < -100) {
+    if (activeTab === "home" && info.offset.x > SWIPE_THRESHOLD && info.velocity.x > 100) {
       handleBackToLauncher();
     }
     swipeX.set(0);
@@ -184,7 +184,7 @@ const Index = () => {
             className="absolute inset-0 z-0 overflow-y-auto"
             style={{
               rotateY: launcherRotateY,
-              transformOrigin: "right center",
+              transformOrigin: "left center",
               transformStyle: "preserve-3d",
               backfaceVisibility: "hidden",
               opacity: launcherPeekOpacity,
@@ -215,13 +215,13 @@ const Index = () => {
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
               drag={activeTab === "home" ? "x" : false}
-              dragConstraints={{ left: -300, right: 0 }}
+              dragConstraints={{ left: 0, right: 300 }}
               dragElastic={0.15}
               onDragEnd={handleDragEnd}
               style={activeTab === "home" ? {
                 x: swipeX,
                 rotateY: homeRotateY,
-                transformOrigin: "left center",
+                transformOrigin: "right center",
                 transformStyle: "preserve-3d",
                 backfaceVisibility: "hidden",
               } : {
