@@ -165,6 +165,8 @@ interface CalendarRecord {
   provider: string;
   provider_calendar_id: string | null;
   is_default: boolean;
+  is_visible: boolean;
+  user_id: string;
 }
 
 // ── Main Component ──────────────────────────────────────────
