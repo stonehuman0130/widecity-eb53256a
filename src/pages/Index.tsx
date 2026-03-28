@@ -135,9 +135,9 @@ const Index = () => {
     setActiveTab("ai");
   };
 
-  // Swipe handlers for Home → Launcher (left swipe)
+  // Swipe handlers for Home → Launcher (right swipe)
   const handleDragEnd = (_: any, info: PanInfo) => {
-    if (activeTab === "home" && info.offset.x < -SWIPE_THRESHOLD && info.velocity.x < -100) {
+    if (activeTab === "home" && info.offset.x > SWIPE_THRESHOLD && info.velocity.x > 100) {
       handleBackToLauncher();
     }
     swipeX.set(0);
