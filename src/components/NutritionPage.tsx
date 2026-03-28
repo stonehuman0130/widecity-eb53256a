@@ -150,7 +150,10 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
 
   // Quick Suggestions / Frequent Items
   const [mealIdeasTab, setMealIdeasTab] = useState<"suggestions" | "frequent">("suggestions");
-  const [frequentMeals, setFrequentMeals] = useState<{ title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number }[]>([]);
+  const [frequentMeals, setFrequentMeals] = useState<{ title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number; ingredients: string[]; prep_steps: string[] }[]>([]);
+
+  // Meal idea detail preview (Quick Suggestions / Frequent Items)
+  const [ideaPreview, setIdeaPreview] = useState<{ title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; ingredients: string[]; prep_steps: string[] } | null>(null);
 
   // Shopping list prompt after AI suggest add (queue for multiple meals)
   const [shopPrompt, setShopPrompt] = useState<{ ingredients: string[]; mealTitle: string; mealDate: string } | null>(null);
@@ -184,7 +187,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
-  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!aiConfirmSelection || !!editingMeal || !!shopPrompt);
+  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!aiConfirmSelection || !!editingMeal || !!shopPrompt || !!ideaPreview);
 
   const groupId = activeGroup?.id || null;
   const dateStr = fmtDate(selectedDate);
@@ -603,24 +606,36 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
-  // Load frequent meals
+  // Load frequent meals (with ingredients & prep_steps)
   useEffect(() => {
     if (!user) return;
     const loadFrequent = async () => {
       const { data } = await supabase
         .from("meal_logs")
-        .select("title, protein, calories, carbs, fat, fiber, meal_type")
+        .select("title, protein, calories, carbs, fat, fiber, meal_type, ingredients, prep_steps")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(200);
       if (!data) return;
-      const counts: Record<string, { title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number }> = {};
+      const counts: Record<string, { title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number; ingredients: string[]; prep_steps: string[] }> = {};
       for (const m of data) {
         const key = m.title.toLowerCase().trim();
         if (counts[key]) {
           counts[key].count++;
+          const existingIngs = counts[key].ingredients || [];
+          const newIngs = Array.isArray(m.ingredients) ? m.ingredients as string[] : [];
+          if (newIngs.length > existingIngs.length) {
+            counts[key].ingredients = newIngs;
+            counts[key].prep_steps = Array.isArray(m.prep_steps) ? m.prep_steps as string[] : [];
+          }
         } else {
-          counts[key] = { title: m.title, protein: m.protein, calories: m.calories || 0, carbs: (m as any).carbs || 0, fat: (m as any).fat || 0, fiber: (m as any).fiber || 0, meal_type: m.meal_type, count: 1 };
+          counts[key] = {
+            title: m.title, protein: m.protein, calories: m.calories || 0,
+            carbs: (m as any).carbs || 0, fat: (m as any).fat || 0, fiber: (m as any).fiber || 0,
+            meal_type: m.meal_type, count: 1,
+            ingredients: Array.isArray(m.ingredients) ? m.ingredients as string[] : [],
+            prep_steps: Array.isArray(m.prep_steps) ? m.prep_steps as string[] : [],
+          };
         }
       }
       const sorted = Object.values(counts).filter(c => c.count >= 2).sort((a, b) => b.count - a.count).slice(0, 12);
@@ -629,15 +644,16 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     loadFrequent();
   }, [user, meals.length]);
 
-  // Quick add from suggestion/frequent
-  const quickAddMeal = async (item: { title: string; protein: number; calories: number; carbs?: number; fat?: number; fiber?: number; meal_type: string }) => {
-    if (!user) return;
-    const { data, error } = await supabase.from("meal_logs").insert({
-      user_id: user.id,
-      group_id: groupId,
+  // Add idea (from Quick Suggestions / Frequent Items preview) as planned meal
+  const addIdeaAsPlanned = async () => {
+    if (!ideaPreview) return;
+    const item = ideaPreview;
+    const insertedMeals = await createMealsForSharing({
       meal_date: dateStr,
       meal_type: item.meal_type || "snack",
       title: item.title,
+      ingredients: item.ingredients || [],
+      prep_steps: item.prep_steps || [],
       protein: item.protein || 0,
       calories: item.calories || 0,
       carbs: item.carbs || 0,
@@ -645,10 +661,18 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       fiber: item.fiber || 0,
       is_ai_generated: false,
       consumed: false,
-    }).select().single();
-    if (!error && data) {
-      setMeals(prev => [...prev, data as MealLog]);
-      toast.success(`${item.title} added!`);
+    });
+
+    if (insertedMeals.length === 0) return;
+
+    setMeals((prev) => [...prev, ...insertedMeals]);
+    setIdeaPreview(null);
+    resetSharingSelection();
+    toast.success(`${item.title} added to planned meals!`);
+
+    const ingredients = Array.isArray(item.ingredients) ? item.ingredients : [];
+    if (ingredients.length > 0) {
+      enqueueShopPrompt({ ingredients, mealTitle: item.title, mealDate: dateStr });
     }
   };
 
@@ -1210,16 +1234,16 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 {mealIdeasTab === "suggestions" ? (
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { title: "Greek Yogurt Bowl", protein: 20, calories: 250, carbs: 30, fat: 8, fiber: 3, meal_type: "breakfast" },
-                      { title: "Chicken Rice Bowl", protein: 35, calories: 450, carbs: 45, fat: 12, fiber: 4, meal_type: "lunch" },
-                      { title: "Turkey Lettuce Wraps", protein: 28, calories: 280, carbs: 12, fat: 14, fiber: 3, meal_type: "lunch" },
-                      { title: "Protein Smoothie", protein: 30, calories: 320, carbs: 35, fat: 6, fiber: 5, meal_type: "snack" },
-                      { title: "Salmon & Veggies", protein: 32, calories: 380, carbs: 15, fat: 18, fiber: 6, meal_type: "dinner" },
-                      { title: "Egg White Omelette", protein: 24, calories: 200, carbs: 4, fat: 8, fiber: 1, meal_type: "breakfast" },
+                      { title: "Greek Yogurt Bowl", protein: 20, calories: 250, carbs: 30, fat: 8, fiber: 3, meal_type: "breakfast", ingredients: ["200g Greek yogurt", "1/4 cup granola", "1 tbsp honey", "Mixed berries", "1 tbsp chia seeds"], prep_steps: ["Add Greek yogurt to a bowl", "Top with granola and mixed berries", "Drizzle honey and sprinkle chia seeds"] },
+                      { title: "Chicken Rice Bowl", protein: 35, calories: 450, carbs: 45, fat: 12, fiber: 4, meal_type: "lunch", ingredients: ["200g chicken breast", "1 cup cooked rice", "1/2 avocado", "Mixed greens", "Soy sauce", "Sesame seeds"], prep_steps: ["Season and grill chicken breast until cooked through", "Cook rice according to package directions", "Slice avocado", "Assemble bowl with rice, sliced chicken, greens, and avocado", "Drizzle with soy sauce and top with sesame seeds"] },
+                      { title: "Turkey Lettuce Wraps", protein: 28, calories: 280, carbs: 12, fat: 14, fiber: 3, meal_type: "lunch", ingredients: ["200g ground turkey", "Large lettuce leaves", "1/2 diced onion", "2 cloves garlic", "Soy sauce", "Sriracha"], prep_steps: ["Cook ground turkey with diced onion and garlic", "Season with soy sauce and sriracha", "Spoon mixture into lettuce leaves", "Serve immediately"] },
+                      { title: "Protein Smoothie", protein: 30, calories: 320, carbs: 35, fat: 6, fiber: 5, meal_type: "snack", ingredients: ["1 scoop protein powder", "1 banana", "1 cup spinach", "1 cup almond milk", "1 tbsp peanut butter", "Ice cubes"], prep_steps: ["Add all ingredients to a blender", "Blend until smooth", "Pour into a glass and serve"] },
+                      { title: "Salmon & Veggies", protein: 32, calories: 380, carbs: 15, fat: 18, fiber: 6, meal_type: "dinner", ingredients: ["170g salmon fillet", "1 cup broccoli florets", "1/2 cup bell peppers", "Olive oil", "Lemon juice", "Garlic powder"], prep_steps: ["Preheat oven to 200°C / 400°F", "Season salmon with garlic powder, olive oil, and lemon juice", "Arrange salmon and veggies on a baking sheet", "Bake for 15-18 minutes until salmon flakes easily"] },
+                      { title: "Egg White Omelette", protein: 24, calories: 200, carbs: 4, fat: 8, fiber: 1, meal_type: "breakfast", ingredients: ["6 egg whites", "1/4 cup diced bell pepper", "1/4 cup spinach", "2 tbsp feta cheese", "Salt and pepper"], prep_steps: ["Whisk egg whites with salt and pepper", "Heat a non-stick pan over medium heat", "Pour in egg whites and cook until edges set", "Add bell pepper, spinach, and feta to one half", "Fold and cook for 1 more minute"] },
                     ].map((item, i) => (
                       <button
                         key={i}
-                        onClick={() => quickAddMeal(item)}
+                        onClick={() => { applyDefaultSharingSelection(); setIdeaPreview(item); }}
                         className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
                       >
                         <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
@@ -1228,10 +1252,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                           <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
                           {item.carbs > 0 && <span className="text-[10px] text-muted-foreground">{item.carbs}g C</span>}
                         </div>
-                        <div className="flex items-center gap-1 mt-1.5">
-                          <Plus size={10} className="text-primary" />
-                          <span className="text-[9px] text-primary font-medium">Quick add</span>
-                        </div>
+                        <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">{item.ingredients.slice(0, 3).join(", ")}…</p>
                       </button>
                     ))}
                   </div>
@@ -1242,7 +1263,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                         {frequentMeals.map((item, i) => (
                           <button
                             key={i}
-                            onClick={() => quickAddMeal(item)}
+                            onClick={() => { applyDefaultSharingSelection(); setIdeaPreview(item); }}
                             className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
                           >
                             <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
@@ -1251,9 +1272,11 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                               <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
                               {item.carbs > 0 && <span className="text-[10px] text-muted-foreground">{item.carbs}g C</span>}
                             </div>
-                            <div className="flex items-center gap-1 mt-1.5">
-                              <span className="text-[9px] text-muted-foreground">Added {item.count}×</span>
-                            </div>
+                            {item.ingredients.length > 0 ? (
+                              <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">{item.ingredients.slice(0, 3).join(", ")}…</p>
+                            ) : (
+                              <span className="text-[9px] text-muted-foreground mt-1">Added {item.count}×</span>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -1893,6 +1916,113 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                     Save Goals
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ───── Meal Idea Preview Modal (Quick Suggestions / Frequent Items) ───── */}
+      <AnimatePresence>
+        {ideaPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
+            onClick={() => setIdeaPreview(null)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[85dvh] flex flex-col min-h-0"
+            >
+              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-border" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-1 pb-2 flex-shrink-0">
+                <h3 className="text-lg font-bold pr-2 truncate">{ideaPreview.title}</h3>
+                <button onClick={() => setIdeaPreview(null)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
+                {/* Macros grid */}
+                <div className="grid grid-cols-5 gap-1.5 mb-4">
+                  <div className="bg-primary/10 rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold text-primary">{ideaPreview.protein}g</p>
+                    <p className="text-[8px] text-muted-foreground">Protein</p>
+                  </div>
+                  <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold">{ideaPreview.calories}</p>
+                    <p className="text-[8px] text-muted-foreground">Cal</p>
+                  </div>
+                  <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold">{ideaPreview.carbs || 0}g</p>
+                    <p className="text-[8px] text-muted-foreground">Carbs</p>
+                  </div>
+                  <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold">{ideaPreview.fat || 0}g</p>
+                    <p className="text-[8px] text-muted-foreground">Fat</p>
+                  </div>
+                  <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold">{ideaPreview.fiber || 0}g</p>
+                    <p className="text-[8px] text-muted-foreground">Fiber</p>
+                  </div>
+                </div>
+
+                {/* Ingredients */}
+                {ideaPreview.ingredients.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold mb-2">Ingredients</h4>
+                    <ul className="space-y-1">
+                      {ideaPreview.ingredients.map((ing, i) => (
+                        <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                          {ing}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Preparation */}
+                {ideaPreview.prep_steps.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold mb-2">Preparation</h4>
+                    <ol className="space-y-1.5">
+                      {ideaPreview.prep_steps.map((step, i) => (
+                        <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                          <span className="text-[10px] font-bold text-primary mt-0.5 flex-shrink-0 w-4">{i + 1}.</span>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {/* Sharing selector */}
+                <SharedWithSelector
+                  groups={groups}
+                  isPrivate={addMealPrivate}
+                  selectedGroupIds={addMealGroupIds}
+                  onPrivateChange={setAddMealPrivate}
+                  onGroupIdsChange={setAddMealGroupIds}
+                  showValidationError={!hasValidSharingSelection}
+                />
+
+                {/* Add to plan button */}
+                <button
+                  onClick={addIdeaAsPlanned}
+                  disabled={!hasValidSharingSelection}
+                  className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mb-4"
+                >
+                  <Plus size={16} /> Add to My Planned Meals
+                </button>
               </div>
             </motion.div>
           </motion.div>
