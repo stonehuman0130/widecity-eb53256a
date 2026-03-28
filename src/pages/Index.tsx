@@ -176,12 +176,12 @@ const Index = () => {
 
   return (
     <AppProvider>
-      <div className="flex flex-col w-full max-w-md mx-auto bg-background h-svh relative overflow-hidden" style={{ perspective: "1200px" }}>
+      <div className="flex flex-col w-full max-w-md mx-auto bg-background h-svh relative overflow-hidden" style={activeTab === "home" ? { perspective: "1200px" } : undefined}>
 
         {/* Launcher peek layer — only visible while swiping on Home (cube left face) */}
         {activeTab === "home" && (
           <motion.div
-            className="absolute inset-0 z-0 overflow-y-auto"
+            className="absolute inset-0 z-0 overflow-y-auto pointer-events-none"
             style={{
               rotateY: launcherRotateY,
               transformOrigin: "left center",
@@ -203,7 +203,7 @@ const Index = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="flex-1 overflow-y-auto scroll-smooth-touch relative z-10"
+              className="flex-1 overflow-y-auto scroll-smooth-touch relative"
             >
               {pages.launcher}
             </motion.div>
@@ -224,10 +224,8 @@ const Index = () => {
                 transformOrigin: "right center",
                 transformStyle: "preserve-3d",
                 backfaceVisibility: "hidden",
-              } : {
-                transformStyle: "preserve-3d" as const,
-              }}
-              className={`flex-1 overflow-y-auto scroll-smooth-touch relative z-10 bg-background ${isInnerPage ? (showBottomNav ? "pb-24" : showDrawerButton ? "pb-20" : "pb-4") : ""}`}
+              } : undefined}
+              className={`flex-1 overflow-y-auto scroll-smooth-touch relative bg-background ${isInnerPage ? (showBottomNav ? "pb-24" : showDrawerButton ? "pb-20" : "pb-4") : ""}`}
             >
               {pages[activeTab]}
             </motion.div>
