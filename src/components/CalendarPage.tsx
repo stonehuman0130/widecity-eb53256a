@@ -262,13 +262,16 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     const activeDate = new Date(y, m, d);
     const items: CalItem[] = [];
 
+    const hasCalendarData = calendarRecords.length > 0;
     filteredEvents.forEach((e) => {
-      // Calendar visibility filter for local events
-      if (e.calendarId) {
-        if (!visibleCalendarIds.has(e.calendarId)) return;
-      } else {
-        // Event without calendar_id uses default calendar — check if default is visible
-        if (calendarColorMap.defaultVisible === false) return;
+      // Calendar visibility filter for local events (only apply when calendar data is loaded)
+      if (hasCalendarData) {
+        if (e.calendarId) {
+          if (!visibleCalendarIds.has(e.calendarId)) return;
+        } else {
+          // Event without calendar_id uses default calendar — check if default is visible
+          if (calendarColorMap.defaultVisible === false) return;
+        }
       }
 
       const startD = e.day;
