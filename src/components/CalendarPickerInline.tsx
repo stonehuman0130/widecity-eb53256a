@@ -41,6 +41,7 @@ const CalendarPickerInline = ({ selectedCalendarId, onSelect }: Props) => {
     const { data, error } = await supabase
       .from("calendars")
       .select("*")
+      .eq("user_id", user.id)
       .eq("is_visible", true)
       .order("sort_order", { ascending: true });
 
