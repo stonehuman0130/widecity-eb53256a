@@ -132,6 +132,42 @@ const MorePage = ({ navPages, onNavigate, onAddToNav, onRemoveFromNav, onReplace
             <p className="text-xs text-muted-foreground">Account, appearance & preferences</p>
           </div>
         </button>
+
+        {/* Navigation Style Toggle */}
+        {onNavStyleChange && (
+          <>
+            <div className="pt-2 pb-1">
+              <div className="h-px bg-border" />
+            </div>
+            <div className="p-3">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Navigation Style</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onNavStyleChange("bottom")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-medium transition-colors ${
+                    navStyle === "bottom"
+                      ? "bg-primary/10 text-primary border border-primary/20"
+                      : "bg-secondary text-muted-foreground border border-transparent"
+                  }`}
+                >
+                  <MoreHorizontal size={14} />
+                  Bottom Bar
+                </button>
+                <button
+                  onClick={() => onNavStyleChange("drawer")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-medium transition-colors ${
+                    navStyle === "drawer"
+                      ? "bg-primary/10 text-primary border border-primary/20"
+                      : "bg-secondary text-muted-foreground border border-transparent"
+                  }`}
+                >
+                  <PanelLeft size={14} />
+                  Side Drawer
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Replace drawer */}
