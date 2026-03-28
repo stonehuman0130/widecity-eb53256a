@@ -184,7 +184,7 @@ const Index = () => {
             className="absolute inset-0 z-0 overflow-y-auto"
             style={{
               rotateY: launcherRotateY,
-              transformOrigin: "right center",
+              transformOrigin: "left center",
               transformStyle: "preserve-3d",
               backfaceVisibility: "hidden",
               opacity: launcherPeekOpacity,
