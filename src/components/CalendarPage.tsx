@@ -263,6 +263,14 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     const items: CalItem[] = [];
 
     filteredEvents.forEach((e) => {
+      // Calendar visibility filter for local events
+      if (e.calendarId) {
+        if (!visibleCalendarIds.has(e.calendarId)) return;
+      } else {
+        // Event without calendar_id uses default calendar — check if default is visible
+        if (calendarColorMap.defaultVisible === false) return;
+      }
+
       const startD = e.day;
       const startM = e.month;
       const startY = e.year;
