@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import MorePage from "@/components/MorePage";
 import BottomNav, { type Tab, loadNavPages, saveNavPages, FIXED_NAV_PAGES, MAX_NAV_SLOTS } from "@/components/BottomNav";
@@ -18,6 +18,7 @@ import LauncherPage from "@/components/LauncherPage";
 import AuthPage from "@/components/AuthPage";
 import AppDrawer from "@/components/AppDrawer";
 import DrawerMenuButton from "@/components/DrawerMenuButton";
+import FloatingAiBar from "@/components/FloatingAiBar";
 import { AppProvider } from "@/context/AppContext";
 import { useAuth, Group } from "@/context/AuthContext";
 import { useNavStyle } from "@/hooks/useNavStyle";
@@ -36,14 +37,15 @@ const Index = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { navStyle, setNavStyle } = useNavStyle();
 
-  // Swipe-to-launcher state
-  const [swiping, setSwiping] = useState(false);
+  // Swipe motion value for Home → Launcher cube transition
   const swipeX = useMotionValue(0);
 
-  // 3D cube rotation transforms for swipe — must be before any early returns
-  const rotateY = useTransform(swipeX, [-300, 0], [-45, 0]);
-  const scale = useTransform(swipeX, [-300, 0], [0.88, 1]);
-  const opacity = useTransform(swipeX, [-300, 0], [0.6, 1]);
+  // Home face: left-edge hinge, rotates away to the left as user swipes left
+  const homeRotateY = useTransform(swipeX, [-300, 0], [-90, 0]);
+
+  // Launcher face: right-edge hinge, rotates into view from the left
+  const launcherRotateY = useTransform(swipeX, [-300, 0], [0, 90]);
+  const launcherPeekOpacity = useTransform(swipeX, [-300, -30, 0], [1, 0.4, 0]);
 
   if (loading) {
     return (
@@ -130,24 +132,15 @@ const Index = () => {
   };
 
   const handleAiSubmit = (text: string) => {
-    // Navigate to AI page - the text could be pre-filled but for now just navigate
     setActiveTab("ai");
   };
 
-  // Swipe handlers for Home → Launcher
+  // Swipe handlers for Home → Launcher (left swipe)
   const handleDragEnd = (_: any, info: PanInfo) => {
     if (activeTab === "home" && info.offset.x < -SWIPE_THRESHOLD && info.velocity.x < -100) {
       handleBackToLauncher();
     }
     swipeX.set(0);
-    setSwiping(false);
-  };
-
-  const handleDrag = (_: any, info: PanInfo) => {
-    // Only track leftward drags on home
-    if (activeTab === "home" && info.offset.x < 0) {
-      setSwiping(true);
-    }
   };
 
   const pages: Record<string, React.ReactNode> = {
@@ -181,42 +174,60 @@ const Index = () => {
   const showBottomNav = isInnerPage && navStyle === "bottom";
   const showDrawerButton = isInnerPage && navStyle === "drawer";
 
-
   return (
     <AppProvider>
       <div className="flex flex-col w-full max-w-md mx-auto bg-background h-svh relative overflow-hidden" style={{ perspective: "1200px" }}>
+
+        {/* Launcher peek layer — only visible while swiping on Home (cube left face) */}
+        {activeTab === "home" && (
+          <motion.div
+            className="absolute inset-0 z-0 overflow-y-auto"
+            style={{
+              rotateY: launcherRotateY,
+              transformOrigin: "right center",
+              transformStyle: "preserve-3d",
+              backfaceVisibility: "hidden",
+              opacity: launcherPeekOpacity,
+            }}
+          >
+            {pages.launcher}
+          </motion.div>
+        )}
+
+        {/* Main page area */}
         <AnimatePresence mode="wait">
           {activeTab === "launcher" ? (
             <motion.div
               key="launcher"
-              initial={{ opacity: 0, rotateY: -60, x: "-40%", scale: 0.85 }}
-              animate={{ opacity: 1, rotateY: 0, x: "0%", scale: 1 }}
-              exit={{ opacity: 0, rotateY: 60, x: "40%", scale: 0.85 }}
-              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="flex-1 overflow-y-auto scroll-smooth-touch"
-              style={{ transformStyle: "preserve-3d", transformOrigin: "center center" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="flex-1 overflow-y-auto scroll-smooth-touch relative z-10"
             >
               {pages.launcher}
             </motion.div>
           ) : (
             <motion.div
               key={activeTab === "chat" ? `chat-${chatGroup?.id || "list"}` : activeTab}
-              initial={{ opacity: 0, rotateY: 30, x: "20%", scale: 0.9 }}
-              animate={{ opacity: 1, rotateY: 0, x: "0%", scale: 1 }}
-              exit={{ opacity: 0, rotateY: -60, x: "-40%", scale: 0.85 }}
-              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
               drag={activeTab === "home" ? "x" : false}
               dragConstraints={{ left: -300, right: 0 }}
               dragElastic={0.15}
-              onDrag={handleDrag}
               onDragEnd={handleDragEnd}
-              style={{
-                x: activeTab === "home" ? swipeX : undefined,
-                rotateY: activeTab === "home" ? rotateY : undefined,
+              style={activeTab === "home" ? {
+                x: swipeX,
+                rotateY: homeRotateY,
+                transformOrigin: "left center",
                 transformStyle: "preserve-3d",
-                transformOrigin: "right center",
+                backfaceVisibility: "hidden",
+              } : {
+                transformStyle: "preserve-3d" as const,
               }}
-              className={`flex-1 overflow-y-auto scroll-smooth-touch ${isInnerPage ? (showBottomNav ? "pb-24" : "pb-4") : ""}`}
+              className={`flex-1 overflow-y-auto scroll-smooth-touch relative z-10 bg-background ${isInnerPage ? (showBottomNav ? "pb-24" : showDrawerButton ? "pb-20" : "pb-4") : ""}`}
             >
               {pages[activeTab]}
             </motion.div>
@@ -239,6 +250,11 @@ const Index = () => {
         {/* Drawer Menu Button */}
         {showDrawerButton && (
           <DrawerMenuButton onClick={() => setDrawerOpen(true)} />
+        )}
+
+        {/* Floating AI Bar — always visible in drawer mode */}
+        {showDrawerButton && (
+          <FloatingAiBar onSubmit={handleAiSubmit} />
         )}
 
         {/* Side Drawer */}
