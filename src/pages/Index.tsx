@@ -221,7 +221,7 @@ const Index = () => {
               style={activeTab === "home" ? {
                 x: swipeX,
                 rotateY: homeRotateY,
-                transformOrigin: "left center",
+                transformOrigin: "right center",
                 transformStyle: "preserve-3d",
                 backfaceVisibility: "hidden",
               } : {
