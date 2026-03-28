@@ -613,14 +613,6 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
       <header className="pt-12 pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {onBackToLauncher && (
-              <button
-                onClick={onBackToLauncher}
-                className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors -ml-1"
-              >
-                <ArrowLeft size={18} />
-              </button>
-            )}
             <div className="flex items-center gap-1">
               <button onClick={() => shiftDate(-1)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary active:scale-95 transition-all">
                 <ChevronLeft size={18} />
