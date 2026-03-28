@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, MoreVertical, Navigation, X } from "lucide-react";
+import { Settings, MoreVertical, Navigation, X, PanelLeft, MoreHorizontal } from "lucide-react";
 import { ALL_PAGE_META, CUSTOMIZABLE_PAGE_IDS, FIXED_NAV_PAGES, MAX_NAV_SLOTS, type Tab } from "@/components/BottomNav";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -7,6 +7,7 @@ import {
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
 } from "@/components/ui/drawer";
+import type { NavStyle } from "@/hooks/useNavStyle";
 
 interface MorePageProps {
   navPages: Tab[];
@@ -15,6 +16,8 @@ interface MorePageProps {
   onRemoveFromNav: (pageId: Tab) => void;
   onReplaceInNav: (oldPageId: Tab, newPageId: Tab) => void;
   onOpenSettings: () => void;
+  navStyle?: NavStyle;
+  onNavStyleChange?: (style: NavStyle) => void;
 }
 
 const MorePage = ({ navPages, onNavigate, onAddToNav, onRemoveFromNav, onReplaceInNav, onOpenSettings }: MorePageProps) => {
