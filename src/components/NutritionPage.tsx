@@ -1234,16 +1234,59 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                 {mealIdeasTab === "suggestions" ? (
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { title: "Greek Yogurt Bowl", protein: 20, calories: 250, carbs: 30, fat: 8, fiber: 3, meal_type: "breakfast" },
-                      { title: "Chicken Rice Bowl", protein: 35, calories: 450, carbs: 45, fat: 12, fiber: 4, meal_type: "lunch" },
-                      { title: "Turkey Lettuce Wraps", protein: 28, calories: 280, carbs: 12, fat: 14, fiber: 3, meal_type: "lunch" },
-                      { title: "Protein Smoothie", protein: 30, calories: 320, carbs: 35, fat: 6, fiber: 5, meal_type: "snack" },
-                      { title: "Salmon & Veggies", protein: 32, calories: 380, carbs: 15, fat: 18, fiber: 6, meal_type: "dinner" },
-                      { title: "Egg White Omelette", protein: 24, calories: 200, carbs: 4, fat: 8, fiber: 1, meal_type: "breakfast" },
+                      { title: "Greek Yogurt Bowl", protein: 20, calories: 250, carbs: 30, fat: 8, fiber: 3, meal_type: "breakfast", ingredients: ["200g Greek yogurt", "1/4 cup granola", "1 tbsp honey", "Mixed berries", "1 tbsp chia seeds"], prep_steps: ["Add Greek yogurt to a bowl", "Top with granola and mixed berries", "Drizzle honey and sprinkle chia seeds"] },
+                      { title: "Chicken Rice Bowl", protein: 35, calories: 450, carbs: 45, fat: 12, fiber: 4, meal_type: "lunch", ingredients: ["200g chicken breast", "1 cup cooked rice", "1/2 avocado", "Mixed greens", "Soy sauce", "Sesame seeds"], prep_steps: ["Season and grill chicken breast until cooked through", "Cook rice according to package directions", "Slice avocado", "Assemble bowl with rice, sliced chicken, greens, and avocado", "Drizzle with soy sauce and top with sesame seeds"] },
+                      { title: "Turkey Lettuce Wraps", protein: 28, calories: 280, carbs: 12, fat: 14, fiber: 3, meal_type: "lunch", ingredients: ["200g ground turkey", "Large lettuce leaves", "1/2 diced onion", "2 cloves garlic", "Soy sauce", "Sriracha"], prep_steps: ["Cook ground turkey with diced onion and garlic", "Season with soy sauce and sriracha", "Spoon mixture into lettuce leaves", "Serve immediately"] },
+                      { title: "Protein Smoothie", protein: 30, calories: 320, carbs: 35, fat: 6, fiber: 5, meal_type: "snack", ingredients: ["1 scoop protein powder", "1 banana", "1 cup spinach", "1 cup almond milk", "1 tbsp peanut butter", "Ice cubes"], prep_steps: ["Add all ingredients to a blender", "Blend until smooth", "Pour into a glass and serve"] },
+                      { title: "Salmon & Veggies", protein: 32, calories: 380, carbs: 15, fat: 18, fiber: 6, meal_type: "dinner", ingredients: ["170g salmon fillet", "1 cup broccoli florets", "1/2 cup bell peppers", "Olive oil", "Lemon juice", "Garlic powder"], prep_steps: ["Preheat oven to 200°C / 400°F", "Season salmon with garlic powder, olive oil, and lemon juice", "Arrange salmon and veggies on a baking sheet", "Bake for 15-18 minutes until salmon flakes easily"] },
+                      { title: "Egg White Omelette", protein: 24, calories: 200, carbs: 4, fat: 8, fiber: 1, meal_type: "breakfast", ingredients: ["6 egg whites", "1/4 cup diced bell pepper", "1/4 cup spinach", "2 tbsp feta cheese", "Salt and pepper"], prep_steps: ["Whisk egg whites with salt and pepper", "Heat a non-stick pan over medium heat", "Pour in egg whites and cook until edges set", "Add bell pepper, spinach, and feta to one half", "Fold and cook for 1 more minute"] },
                     ].map((item, i) => (
                       <button
                         key={i}
-                        onClick={() => quickAddMeal(item)}
+                        onClick={() => { applyDefaultSharingSelection(); setIdeaPreview(item); }}
+                        className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
+                      >
+                        <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-primary">{item.protein}g P</span>
+                          <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
+                          {item.carbs > 0 && <span className="text-[10px] text-muted-foreground">{item.carbs}g C</span>}
+                        </div>
+                        <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">{item.ingredients.slice(0, 3).join(", ")}…</p>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    {frequentMeals.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {frequentMeals.map((item, i) => (
+                          <button
+                            key={i}
+                            onClick={() => { applyDefaultSharingSelection(); setIdeaPreview(item); }}
+                            className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
+                          >
+                            <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="text-[10px] font-bold text-primary">{item.protein}g P</span>
+                              <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
+                              {item.carbs > 0 && <span className="text-[10px] text-muted-foreground">{item.carbs}g C</span>}
+                            </div>
+                            {item.ingredients.length > 0 ? (
+                              <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">{item.ingredients.slice(0, 3).join(", ")}…</p>
+                            ) : (
+                              <span className="text-[9px] text-muted-foreground mt-1">Added {item.count}×</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-card rounded-xl p-4 border border-dashed border-border text-center">
+                        <p className="text-xs text-muted-foreground">Add meals a few times and they'll appear here for quick re-adding.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
                         className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
                       >
                         <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
