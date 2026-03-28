@@ -187,7 +187,7 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
-  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!aiConfirmSelection || !!editingMeal || !!shopPrompt);
+  useModalScrollLock(!!detailMeal || !!showAddMeal || showGoalSettings || showAiResults || !!aiConfirmSelection || !!editingMeal || !!shopPrompt || !!ideaPreview);
 
   const groupId = activeGroup?.id || null;
   const dateStr = fmtDate(selectedDate);
