@@ -1287,50 +1287,6 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
                     )}
                   </div>
                 )}
-                        className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
-                      >
-                        <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-[10px] font-bold text-primary">{item.protein}g P</span>
-                          <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
-                          {item.carbs > 0 && <span className="text-[10px] text-muted-foreground">{item.carbs}g C</span>}
-                        </div>
-                        <div className="flex items-center gap-1 mt-1.5">
-                          <Plus size={10} className="text-primary" />
-                          <span className="text-[9px] text-primary font-medium">Quick add</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div>
-                    {frequentMeals.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-2">
-                        {frequentMeals.map((item, i) => (
-                          <button
-                            key={i}
-                            onClick={() => quickAddMeal(item)}
-                            className="bg-card rounded-xl p-3 border border-border hover:border-primary/30 transition-colors text-left"
-                          >
-                            <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <span className="text-[10px] font-bold text-primary">{item.protein}g P</span>
-                              <span className="text-[10px] text-muted-foreground">{item.calories} kcal</span>
-                              {item.carbs > 0 && <span className="text-[10px] text-muted-foreground">{item.carbs}g C</span>}
-                            </div>
-                            <div className="flex items-center gap-1 mt-1.5">
-                              <span className="text-[9px] text-muted-foreground">Added {item.count}×</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="bg-card rounded-xl p-4 border border-dashed border-border text-center">
-                        <p className="text-xs text-muted-foreground">Add meals a few times and they'll appear here for quick re-adding.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
           </>
