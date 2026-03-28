@@ -403,7 +403,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     if (showGoogleCalendar) {
       googleCalendarEvents.forEach((ge) => {
         // Calendar visibility filter for Google Calendar events
-        if (ge.calendarId && !visibleProviderCalendarIds.has(ge.calendarId)) return;
+        if (hasCalendarData && ge.calendarId && !visibleProviderCalendarIds.has(ge.calendarId)) return;
 
         const gcalStart = parseGoogleDateValue(ge.start);
         const gcalEnd = parseGoogleDateValue(ge.end) ?? gcalStart;
