@@ -94,7 +94,7 @@ const CalendarItemDetailModal = ({ item, onClose, onEdit }: Props) => {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-x-4 bottom-4 z-50 bg-card border border-border rounded-2xl shadow-xl max-h-[85vh] overflow-y-auto sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2">
+      <div className="fixed inset-x-0 bottom-0 z-50 bg-card border-t border-border rounded-t-2xl shadow-xl max-h-[70dvh] overflow-y-auto pb-[env(safe-area-inset-bottom,0px)] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:pb-0">
         <div className="p-4 space-y-3">
           {/* Header */}
           <div className="flex items-start justify-between">
