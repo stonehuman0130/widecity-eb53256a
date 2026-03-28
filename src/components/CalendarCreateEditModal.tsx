@@ -471,7 +471,7 @@ const CalendarCreateEditModal = ({ open, onClose, editItem, defaultDate }: Props
                     : "border-border text-muted-foreground"
                 )}
               >
-                Task
+                To Do
               </button>
             </div>
           </div>
