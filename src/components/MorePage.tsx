@@ -20,7 +20,7 @@ interface MorePageProps {
   onNavStyleChange?: (style: NavStyle) => void;
 }
 
-const MorePage = ({ navPages, onNavigate, onAddToNav, onRemoveFromNav, onReplaceInNav, onOpenSettings }: MorePageProps) => {
+const MorePage = ({ navPages, onNavigate, onAddToNav, onRemoveFromNav, onReplaceInNav, onOpenSettings, navStyle, onNavStyleChange }: MorePageProps) => {
   const [replaceTarget, setReplaceTarget] = useState<Tab | null>(null);
 
   const isInNav = (id: Tab) => navPages.includes(id);
