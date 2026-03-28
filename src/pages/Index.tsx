@@ -181,13 +181,6 @@ const Index = () => {
   const showBottomNav = isInnerPage && navStyle === "bottom";
   const showDrawerButton = isInnerPage && navStyle === "drawer";
 
-  // 3D cube rotation transforms for swipe
-  const rotateY = useTransform(swipeX, [-300, 0], [-45, 0]);
-  const scale = useTransform(swipeX, [-300, 0], [0.88, 1]);
-  const opacity = useTransform(swipeX, [-300, 0], [0.6, 1]);
-
-  // Determine transition variants based on whether we're going to/from launcher
-  const isGoingToLauncher = activeTab === "launcher";
 
   return (
     <AppProvider>
