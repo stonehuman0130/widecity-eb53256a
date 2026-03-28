@@ -51,26 +51,6 @@ const AppDrawer = ({ open, onOpenChange, activeTab, onNavigate, navStyle, onNavS
           <SheetTitle className="text-lg font-bold text-foreground">Menu</SheetTitle>
         </SheetHeader>
 
-        {/* AI Quick Input */}
-        <div className="px-4 pb-3">
-          <div className="flex items-center gap-2 rounded-xl bg-secondary/60 border border-border px-3 py-2">
-            <Sparkles size={16} className="text-violet-500 shrink-0" />
-            <input
-              value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleAiSend(); }}
-              placeholder="Ask AI anything…"
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-            />
-            <button
-              onClick={handleAiSend}
-              disabled={!aiInput.trim()}
-              className="text-primary disabled:text-muted-foreground transition-colors"
-            >
-              <Send size={16} />
-            </button>
-          </div>
-        </div>
 
         {/* Nav Items */}
         <nav className="flex-1 overflow-y-auto px-2 space-y-0.5">
