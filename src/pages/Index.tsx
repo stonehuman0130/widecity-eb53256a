@@ -215,7 +215,7 @@ const Index = () => {
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
               drag={activeTab === "home" ? "x" : false}
-              dragConstraints={{ left: -300, right: 0 }}
+              dragConstraints={{ left: 0, right: 300 }}
               dragElastic={0.15}
               onDragEnd={handleDragEnd}
               style={activeTab === "home" ? {
