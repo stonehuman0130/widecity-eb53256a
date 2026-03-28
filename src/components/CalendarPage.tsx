@@ -498,7 +498,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     });
 
     return items;
-  }, [filteredEvents, filteredTasks, googleCalendarEvents, showGoogleCalendar]);
+  }, [filteredEvents, filteredTasks, googleCalendarEvents, showGoogleCalendar, visibleCalendarIds, visibleProviderCalendarIds, calendarColorMap.defaultVisible]);
 
   const selectedDayItems = useMemo(
     () => getItemsForDate(selDay, selMonth, selYear),
