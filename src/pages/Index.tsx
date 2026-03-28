@@ -40,12 +40,12 @@ const Index = () => {
   // Swipe motion value for Home → Launcher cube transition
   const swipeX = useMotionValue(0);
 
-  // Home face: left-edge hinge, rotates away to the left as user swipes left
-  const homeRotateY = useTransform(swipeX, [-300, 0], [-90, 0]);
+  // Home face: right-edge hinge, rotates away to the right as user swipes right
+  const homeRotateY = useTransform(swipeX, [0, 300], [0, 90]);
 
-  // Launcher face: right-edge hinge, rotates into view from the left
-  const launcherRotateY = useTransform(swipeX, [-300, 0], [0, 90]);
-  const launcherPeekOpacity = useTransform(swipeX, [-300, -30, 0], [1, 0.4, 0]);
+  // Launcher face: left-edge hinge, rotates into view from the right
+  const launcherRotateY = useTransform(swipeX, [0, 300], [-90, 0]);
+  const launcherPeekOpacity = useTransform(swipeX, [0, 30, 300], [0, 0.4, 1]);
 
   if (loading) {
     return (
