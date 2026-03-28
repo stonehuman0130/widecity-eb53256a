@@ -40,6 +40,11 @@ const Index = () => {
   const [swiping, setSwiping] = useState(false);
   const swipeX = useMotionValue(0);
 
+  // 3D cube rotation transforms for swipe — must be before any early returns
+  const rotateY = useTransform(swipeX, [-300, 0], [-45, 0]);
+  const scale = useTransform(swipeX, [-300, 0], [0.88, 1]);
+  const opacity = useTransform(swipeX, [-300, 0], [0.6, 1]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-svh bg-background">
