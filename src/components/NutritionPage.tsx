@@ -1922,6 +1922,113 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
         )}
       </AnimatePresence>
 
+      {/* ───── Meal Idea Preview Modal (Quick Suggestions / Frequent Items) ───── */}
+      <AnimatePresence>
+        {ideaPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-black/60 flex items-end justify-center"
+            style={{ touchAction: "none" }}
+            onClick={() => setIdeaPreview(null)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-card rounded-t-2xl border-t border-x border-border shadow-lg max-h-[85dvh] flex flex-col min-h-0"
+            >
+              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-border" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-1 pb-2 flex-shrink-0">
+                <h3 className="text-lg font-bold pr-2 truncate">{ideaPreview.title}</h3>
+                <button onClick={() => setIdeaPreview(null)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehaviorY: "contain", paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
+                {/* Macros grid */}
+                <div className="grid grid-cols-5 gap-1.5 mb-4">
+                  <div className="bg-primary/10 rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold text-primary">{ideaPreview.protein}g</p>
+                    <p className="text-[8px] text-muted-foreground">Protein</p>
+                  </div>
+                  <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold">{ideaPreview.calories}</p>
+                    <p className="text-[8px] text-muted-foreground">Cal</p>
+                  </div>
+                  <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold">{ideaPreview.carbs || 0}g</p>
+                    <p className="text-[8px] text-muted-foreground">Carbs</p>
+                  </div>
+                  <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold">{ideaPreview.fat || 0}g</p>
+                    <p className="text-[8px] text-muted-foreground">Fat</p>
+                  </div>
+                  <div className="bg-secondary rounded-lg px-2 py-1.5 text-center">
+                    <p className="text-xs font-bold">{ideaPreview.fiber || 0}g</p>
+                    <p className="text-[8px] text-muted-foreground">Fiber</p>
+                  </div>
+                </div>
+
+                {/* Ingredients */}
+                {ideaPreview.ingredients.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold mb-2">Ingredients</h4>
+                    <ul className="space-y-1">
+                      {ideaPreview.ingredients.map((ing, i) => (
+                        <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                          {ing}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Preparation */}
+                {ideaPreview.prep_steps.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold mb-2">Preparation</h4>
+                    <ol className="space-y-1.5">
+                      {ideaPreview.prep_steps.map((step, i) => (
+                        <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                          <span className="text-[10px] font-bold text-primary mt-0.5 flex-shrink-0 w-4">{i + 1}.</span>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {/* Sharing selector */}
+                <SharedWithSelector
+                  groups={groups}
+                  isPrivate={addMealPrivate}
+                  selectedGroupIds={addMealGroupIds}
+                  onPrivateChange={setAddMealPrivate}
+                  onGroupIdsChange={setAddMealGroupIds}
+                  showValidationError={!hasValidSharingSelection}
+                />
+
+                {/* Add to plan button */}
+                <button
+                  onClick={addIdeaAsPlanned}
+                  disabled={!hasValidSharingSelection}
+                  className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mb-4"
+                >
+                  <Plus size={16} /> Add to My Planned Meals
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Shopping list prompt after AI Suggest add */}
       <AnimatePresence>
         {shopPrompt && (
