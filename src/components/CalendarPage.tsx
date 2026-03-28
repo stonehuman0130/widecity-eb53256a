@@ -165,6 +165,8 @@ interface CalendarRecord {
   provider: string;
   provider_calendar_id: string | null;
   is_default: boolean;
+  is_visible: boolean;
+  user_id: string;
 }
 
 // ── Main Component ──────────────────────────────────────────
@@ -197,7 +199,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     if (!user) return;
     const { data } = await supabase
       .from("calendars")
-      .select("id, color, provider, provider_calendar_id, is_default");
+      .select("id, color, provider, provider_calendar_id, is_default, is_visible, user_id")
+      .eq("user_id", user.id);
     if (data) {
       setCalendarRecords(data.map((c: any) => ({
         id: c.id,
@@ -205,6 +208,8 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         provider: c.provider,
         provider_calendar_id: c.provider_calendar_id,
         is_default: c.is_default,
+        is_visible: c.is_visible,
+        user_id: c.user_id,
       })));
     }
   }, [user]);
@@ -212,16 +217,31 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   useEffect(() => { loadCalendars(); }, [loadCalendars]);
 
   // Build lookup maps: calendarId (uuid) → color, providerCalendarId → color
-  const calendarColorMap = useMemo(() => {
+  // Also build sets of visible calendar IDs for filtering
+  const { calendarColorMap, visibleCalendarIds, visibleProviderCalendarIds } = useMemo(() => {
     const byId = new Map<string, string>();
     const byProvider = new Map<string, string>();
+    const visibleIds = new Set<string>();
+    const visibleProviderIds = new Set<string>();
     let defaultColor: string | null = null;
+    let defaultVisible = true;
     calendarRecords.forEach((c) => {
       byId.set(c.id, c.color);
       if (c.provider_calendar_id) byProvider.set(c.provider_calendar_id, c.color);
-      if (c.is_default && c.provider === "local") defaultColor = c.color;
+      if (c.is_default && c.provider === "local") {
+        defaultColor = c.color;
+        defaultVisible = c.is_visible;
+      }
+      if (c.is_visible) {
+        visibleIds.add(c.id);
+        if (c.provider_calendar_id) visibleProviderIds.add(c.provider_calendar_id);
+      }
     });
-    return { byId, byProvider, defaultColor };
+    return {
+      calendarColorMap: { byId, byProvider, defaultColor, defaultVisible },
+      visibleCalendarIds: visibleIds,
+      visibleProviderCalendarIds: visibleProviderIds,
+    };
   }, [calendarRecords]);
 
   const year = currentDate.getFullYear();
@@ -242,7 +262,18 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     const activeDate = new Date(y, m, d);
     const items: CalItem[] = [];
 
+    const hasCalendarData = calendarRecords.length > 0;
     filteredEvents.forEach((e) => {
+      // Calendar visibility filter for local events (only apply when calendar data is loaded)
+      if (hasCalendarData) {
+        if (e.calendarId) {
+          if (!visibleCalendarIds.has(e.calendarId)) return;
+        } else {
+          // Event without calendar_id uses default calendar — check if default is visible
+          if (calendarColorMap.defaultVisible === false) return;
+        }
+      }
+
       const startD = e.day;
       const startM = e.month;
       const startY = e.year;
@@ -371,6 +402,9 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
     if (showGoogleCalendar) {
       googleCalendarEvents.forEach((ge) => {
+        // Calendar visibility filter for Google Calendar events
+        if (hasCalendarData && ge.calendarId && !visibleProviderCalendarIds.has(ge.calendarId)) return;
+
         const gcalStart = parseGoogleDateValue(ge.start);
         const gcalEnd = parseGoogleDateValue(ge.end) ?? gcalStart;
         if (!gcalStart || !gcalEnd) return;
@@ -467,7 +501,7 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     });
 
     return items;
-  }, [filteredEvents, filteredTasks, googleCalendarEvents, showGoogleCalendar]);
+  }, [filteredEvents, filteredTasks, googleCalendarEvents, showGoogleCalendar, visibleCalendarIds, visibleProviderCalendarIds, calendarColorMap.defaultVisible, calendarRecords.length]);
 
   const selectedDayItems = useMemo(
     () => getItemsForDate(selDay, selMonth, selYear),
