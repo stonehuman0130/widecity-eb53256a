@@ -606,24 +606,36 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     }
   };
 
-  // Load frequent meals
+  // Load frequent meals (with ingredients & prep_steps)
   useEffect(() => {
     if (!user) return;
     const loadFrequent = async () => {
       const { data } = await supabase
         .from("meal_logs")
-        .select("title, protein, calories, carbs, fat, fiber, meal_type")
+        .select("title, protein, calories, carbs, fat, fiber, meal_type, ingredients, prep_steps")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(200);
       if (!data) return;
-      const counts: Record<string, { title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number }> = {};
+      const counts: Record<string, { title: string; protein: number; calories: number; carbs: number; fat: number; fiber: number; meal_type: string; count: number; ingredients: string[]; prep_steps: string[] }> = {};
       for (const m of data) {
         const key = m.title.toLowerCase().trim();
         if (counts[key]) {
           counts[key].count++;
+          const existingIngs = counts[key].ingredients || [];
+          const newIngs = Array.isArray(m.ingredients) ? m.ingredients as string[] : [];
+          if (newIngs.length > existingIngs.length) {
+            counts[key].ingredients = newIngs;
+            counts[key].prep_steps = Array.isArray(m.prep_steps) ? m.prep_steps as string[] : [];
+          }
         } else {
-          counts[key] = { title: m.title, protein: m.protein, calories: m.calories || 0, carbs: (m as any).carbs || 0, fat: (m as any).fat || 0, fiber: (m as any).fiber || 0, meal_type: m.meal_type, count: 1 };
+          counts[key] = {
+            title: m.title, protein: m.protein, calories: m.calories || 0,
+            carbs: (m as any).carbs || 0, fat: (m as any).fat || 0, fiber: (m as any).fiber || 0,
+            meal_type: m.meal_type, count: 1,
+            ingredients: Array.isArray(m.ingredients) ? m.ingredients as string[] : [],
+            prep_steps: Array.isArray(m.prep_steps) ? m.prep_steps as string[] : [],
+          };
         }
       }
       const sorted = Object.values(counts).filter(c => c.count >= 2).sort((a, b) => b.count - a.count).slice(0, 12);
@@ -632,15 +644,16 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
     loadFrequent();
   }, [user, meals.length]);
 
-  // Quick add from suggestion/frequent
-  const quickAddMeal = async (item: { title: string; protein: number; calories: number; carbs?: number; fat?: number; fiber?: number; meal_type: string }) => {
-    if (!user) return;
-    const { data, error } = await supabase.from("meal_logs").insert({
-      user_id: user.id,
-      group_id: groupId,
+  // Add idea (from Quick Suggestions / Frequent Items preview) as planned meal
+  const addIdeaAsPlanned = async () => {
+    if (!ideaPreview) return;
+    const item = ideaPreview;
+    const insertedMeals = await createMealsForSharing({
       meal_date: dateStr,
       meal_type: item.meal_type || "snack",
       title: item.title,
+      ingredients: item.ingredients || [],
+      prep_steps: item.prep_steps || [],
       protein: item.protein || 0,
       calories: item.calories || 0,
       carbs: item.carbs || 0,
@@ -648,10 +661,18 @@ const NutritionPage = ({ onOpenSettings }: { onOpenSettings?: () => void }) => {
       fiber: item.fiber || 0,
       is_ai_generated: false,
       consumed: false,
-    }).select().single();
-    if (!error && data) {
-      setMeals(prev => [...prev, data as MealLog]);
-      toast.success(`${item.title} added!`);
+    });
+
+    if (insertedMeals.length === 0) return;
+
+    setMeals((prev) => [...prev, ...insertedMeals]);
+    setIdeaPreview(null);
+    resetSharingSelection();
+    toast.success(`${item.title} added to planned meals!`);
+
+    const ingredients = Array.isArray(item.ingredients) ? item.ingredients : [];
+    if (ingredients.length > 0) {
+      enqueueShopPrompt({ ingredients, mealTitle: item.title, mealDate: dateStr });
     }
   };
 
