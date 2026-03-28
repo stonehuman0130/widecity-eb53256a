@@ -217,16 +217,31 @@ const CalendarPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   useEffect(() => { loadCalendars(); }, [loadCalendars]);
 
   // Build lookup maps: calendarId (uuid) → color, providerCalendarId → color
-  const calendarColorMap = useMemo(() => {
+  // Also build sets of visible calendar IDs for filtering
+  const { calendarColorMap, visibleCalendarIds, visibleProviderCalendarIds } = useMemo(() => {
     const byId = new Map<string, string>();
     const byProvider = new Map<string, string>();
+    const visibleIds = new Set<string>();
+    const visibleProviderIds = new Set<string>();
     let defaultColor: string | null = null;
+    let defaultVisible = true;
     calendarRecords.forEach((c) => {
       byId.set(c.id, c.color);
       if (c.provider_calendar_id) byProvider.set(c.provider_calendar_id, c.color);
-      if (c.is_default && c.provider === "local") defaultColor = c.color;
+      if (c.is_default && c.provider === "local") {
+        defaultColor = c.color;
+        defaultVisible = c.is_visible;
+      }
+      if (c.is_visible) {
+        visibleIds.add(c.id);
+        if (c.provider_calendar_id) visibleProviderIds.add(c.provider_calendar_id);
+      }
     });
-    return { byId, byProvider, defaultColor };
+    return {
+      calendarColorMap: { byId, byProvider, defaultColor, defaultVisible },
+      visibleCalendarIds: visibleIds,
+      visibleProviderCalendarIds: visibleProviderIds,
+    };
   }, [calendarRecords]);
 
   const year = currentDate.getFullYear();
