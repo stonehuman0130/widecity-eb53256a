@@ -1337,6 +1337,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (updates.emoji !== undefined) dbUpdates.emoji = updates.emoji;
     if (updates.distance !== undefined) dbUpdates.distance = updates.distance;
     if (updates.distanceUnit !== undefined) dbUpdates.distance_unit = updates.distanceUnit;
+    if (updates.heartRateAvg !== undefined) dbUpdates.heart_rate_avg = updates.heartRateAvg;
+    if (updates.paceAvg !== undefined) dbUpdates.pace_avg = updates.paceAvg;
+    if (updates.speedAvg !== undefined) dbUpdates.speed_avg = updates.speedAvg;
+    if (updates.elevationGain !== undefined) dbUpdates.elevation_gain = updates.elevationGain;
+    if (updates.cadenceAvg !== undefined) dbUpdates.cadence_avg = updates.cadenceAvg;
+    if (updates.sourceApp !== undefined) dbUpdates.source_app = updates.sourceApp;
+    if (updates.sourceDevice !== undefined) dbUpdates.source_device = updates.sourceDevice;
     if (Object.keys(dbUpdates).length > 0) {
       await supabase.from("workouts").update(dbUpdates).eq("id", id);
     }
