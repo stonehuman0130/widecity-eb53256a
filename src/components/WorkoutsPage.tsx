@@ -956,6 +956,45 @@ const WorkoutCard = ({
                 )}
                 <GroupBadge groupId={workout.groupId} />
               </div>
+              {/* Cardio metrics row for running/walking/cycling */}
+              {isCardioWorkout(workout.title) && (workout.distance || workout.heartRateAvg || workout.paceAvg || workout.elevationGain) && (
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                  {(workout.distance ?? 0) > 0 && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      <Footprints size={10} /> {workout.distance} {workout.distanceUnit || "km"}
+                    </span>
+                  )}
+                  {workout.paceAvg && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      <Gauge size={10} /> {workout.paceAvg}
+                    </span>
+                  )}
+                  {workout.heartRateAvg && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      <Heart size={10} className="text-destructive/70" /> {workout.heartRateAvg} bpm
+                    </span>
+                  )}
+                  {workout.elevationGain != null && workout.elevationGain > 0 && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      <Mountain size={10} /> {workout.elevationGain}m
+                    </span>
+                  )}
+                  {workout.cadenceAvg != null && workout.cadenceAvg > 0 && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      ⚡ {workout.cadenceAvg} spm
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Source badge */}
+              {workout.sourceApp && (
+                <div className="flex items-center gap-1 mt-1">
+                  <Smartphone size={9} className="text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground italic">
+                    Imported from {workout.sourceApp}
+                  </span>
+                </div>
+              )}
             </div>
             {!readOnly && (
               <ItemActionMenu
