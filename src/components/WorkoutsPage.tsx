@@ -1214,4 +1214,35 @@ const ExerciseDetailDialog = ({ exerciseName, onClose }: { exerciseName: string 
   );
 };
 
+// Workout Data subpage
+const WorkoutDataPage = ({
+  workouts,
+  isViewingPartner,
+  partnerName,
+  onBack,
+}: {
+  workouts: Workout[];
+  isViewingPartner: boolean;
+  partnerName?: string;
+  onBack: () => void;
+}) => (
+  <div className="px-5 pb-24">
+    <header className="pt-12 pb-4 flex items-center gap-3">
+      <button
+        onClick={onBack}
+        className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+        aria-label="Back to Workouts"
+      >
+        <ArrowLeft size={18} />
+      </button>
+      <div>
+        <h1 className="text-[1.75rem] font-bold tracking-display">Workout Data</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Your activity insights</p>
+      </div>
+    </header>
+
+    <WorkoutStatsCards workouts={workouts} isViewingPartner={isViewingPartner} partnerName={partnerName} />
+  </div>
+);
+
 export default WorkoutsPage;
