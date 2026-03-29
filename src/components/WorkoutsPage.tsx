@@ -344,13 +344,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       <header className="pt-12 pb-4 flex items-start justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
-          <button
-            onClick={() => setShowDataPage(true)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-            aria-label="Workout Data"
-          >
-            <BarChart3 size={18} />
-          </button>
         </div>
         {onOpenSettings && (
           <button onClick={onOpenSettings} className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors mt-1" aria-label="Settings">
