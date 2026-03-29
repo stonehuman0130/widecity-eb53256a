@@ -123,6 +123,7 @@ export const mapWorkoutRow = (w: any, ownerUserId?: string): Workout => ({
   sourceApp: w.source_app ?? null,
   sourceDevice: w.source_device ?? null,
   routeData: w.route_data ?? null,
+  completionPhotoUrl: w.completion_photo_url ?? null,
 });
 
 export interface GoogleCalendarEvent {
