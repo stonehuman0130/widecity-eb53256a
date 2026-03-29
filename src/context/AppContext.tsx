@@ -1388,22 +1388,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const mapped: Workout[] = data.map((w: any) => ({
-      id: w.id,
-      title: w.title,
-      duration: w.duration,
-      cal: w.cal,
-      tag: w.tag,
-      emoji: w.emoji,
-      done: w.done,
-      scheduledDate: w.scheduled_date,
-      completedDate: w.completed_date,
-      exercises: w.exercises || [],
-      hiddenFromPartner: w.hidden_from_partner || false,
-      groupId: w.group_id || null,
-      distance: Number(w.distance) || 0,
-      distanceUnit: w.distance_unit || 'km',
-    }));
+    const mapped: Workout[] = data.map((w: any) => mapWorkoutRow(w));
 
     setWorkoutsState((prev) => [
       ...prev.filter((item) => !tempIds.has(item.id)),
