@@ -81,7 +81,47 @@ export interface Workout {
   ownerUserId?: string;
   distance?: number;
   distanceUnit?: string;
+  // Cardio metrics
+  heartRateAvg?: number | null;
+  paceAvg?: string | null;
+  speedAvg?: number | null;
+  elevationGain?: number | null;
+  cadenceAvg?: number | null;
+  // Device/source info
+  sourceApp?: string | null;
+  sourceDevice?: string | null;
+  routeData?: any | null;
 }
+
+const CARDIO_TYPES = ["Running", "Walking", "Cycling", "Swimming"];
+export const isCardioWorkout = (title: string) =>
+  CARDIO_TYPES.some((t) => title.toLowerCase().includes(t.toLowerCase()));
+
+export const mapWorkoutRow = (w: any, ownerUserId?: string): Workout => ({
+  id: w.id,
+  title: w.title,
+  duration: w.duration,
+  cal: w.cal,
+  tag: w.tag,
+  emoji: w.emoji,
+  done: w.done,
+  scheduledDate: w.scheduled_date,
+  completedDate: w.completed_date,
+  exercises: w.exercises || [],
+  hiddenFromPartner: w.hidden_from_partner || false,
+  groupId: w.group_id || null,
+  ownerUserId,
+  distance: Number(w.distance) || 0,
+  distanceUnit: w.distance_unit || "km",
+  heartRateAvg: w.heart_rate_avg ?? null,
+  paceAvg: w.pace_avg ?? null,
+  speedAvg: w.speed_avg != null ? Number(w.speed_avg) : null,
+  elevationGain: w.elevation_gain != null ? Number(w.elevation_gain) : null,
+  cadenceAvg: w.cadence_avg ?? null,
+  sourceApp: w.source_app ?? null,
+  sourceDevice: w.source_device ?? null,
+  routeData: w.route_data ?? null,
+});
 
 export interface GoogleCalendarEvent {
   id: string;
