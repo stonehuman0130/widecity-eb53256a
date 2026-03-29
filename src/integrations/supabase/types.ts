@@ -1227,6 +1227,7 @@ export type Database = {
           cadence_avg: number | null
           cal: number
           completed_date: string | null
+          completion_photo_url: string | null
           created_at: string
           distance: number
           distance_unit: string
@@ -1253,6 +1254,7 @@ export type Database = {
           cadence_avg?: number | null
           cal?: number
           completed_date?: string | null
+          completion_photo_url?: string | null
           created_at?: string
           distance?: number
           distance_unit?: string
@@ -1279,6 +1281,7 @@ export type Database = {
           cadence_avg?: number | null
           cal?: number
           completed_date?: string | null
+          completion_photo_url?: string | null
           created_at?: string
           distance?: number
           distance_unit?: string

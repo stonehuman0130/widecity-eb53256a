@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Settings, Heart, Gauge, Mountain, Footprints, Smartphone } from "lucide-react";
+import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Settings, Heart, Gauge, Mountain, Footprints, Smartphone, ImageIcon } from "lucide-react";
 import WorkoutStatsCards from "@/components/WorkoutStatsCards";
 import WorkoutAiSuggest from "@/components/WorkoutAiSuggest";
 import GroupBadge from "@/components/GroupBadge";
@@ -17,6 +17,7 @@ import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import ExerciseLogModal from "@/components/ExerciseLogModal";
+import WorkoutPhotoPrompt from "@/components/WorkoutPhotoPrompt";
 
 interface AIPlan {
   title: string;
@@ -95,7 +96,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editExReps, setEditExReps] = useState("");
   // Exercise logging
   const [loggingWorkout, setLoggingWorkout] = useState<Workout | null>(null);
-
+  // Photo sharing prompt
+  const [photoPromptWorkout, setPhotoPromptWorkout] = useState<Workout | null>(null);
   const isViewingPartner = viewFilter !== "mine" && viewFilter !== "together";
   const isTogetherView = viewFilter === "together";
   const today = todayStr();
@@ -197,8 +199,17 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     const workout = workouts.find((w) => w.id === id);
     if (workout && !workout.done) {
       setShowCongrats(true);
+      // If workout belongs to a group, offer photo sharing
+      if (workout.groupId) {
+        // Small delay so congrats shows first
+        setTimeout(() => setPhotoPromptWorkout(workout), 1200);
+      }
     }
     toggleWorkout(id);
+  };
+
+  const handlePhotoSent = (workoutId: string, photoUrl: string) => {
+    updateWorkout(workoutId, { completionPhotoUrl: photoUrl });
   };
 
   // Copy partner workouts for the selected date to own schedule
@@ -601,6 +612,16 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           onCaloriesSaved={(cal) => handleCaloriesSaved(loggingWorkout.id, cal)}
         />
       )}
+
+      {/* Workout Photo Sharing Prompt */}
+      {photoPromptWorkout && (
+        <WorkoutPhotoPrompt
+          open={!!photoPromptWorkout}
+          workout={photoPromptWorkout}
+          onClose={() => setPhotoPromptWorkout(null)}
+          onPhotoSent={(url) => handlePhotoSent(photoPromptWorkout.id, url)}
+        />
+      )}
     </>
     </div>
   );
@@ -971,6 +992,16 @@ const WorkoutCard = ({
                   <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{workout.tag}</span>
                 )}
                 <GroupBadge groupId={workout.groupId} />
+                {/* Completion photo indicator */}
+                {workout.done && workout.completionPhotoUrl && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); window.open(workout.completionPhotoUrl!, "_blank"); }}
+                    className="flex items-center gap-0.5 text-[10px] text-primary font-medium hover:underline"
+                    title="View workout photo"
+                  >
+                    <ImageIcon size={10} /> 📸
+                  </button>
+                )}
               </div>
               {/* Cardio metrics row for running/walking/cycling */}
               {isCardioWorkout(workout.title) && (workout.distance || workout.heartRateAvg || workout.paceAvg || workout.elevationGain) && (

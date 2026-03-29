@@ -91,6 +91,8 @@ export interface Workout {
   sourceApp?: string | null;
   sourceDevice?: string | null;
   routeData?: any | null;
+  // Completion photo
+  completionPhotoUrl?: string | null;
 }
 
 const CARDIO_TYPES = ["Running", "Walking", "Cycling", "Swimming"];
@@ -121,6 +123,7 @@ export const mapWorkoutRow = (w: any, ownerUserId?: string): Workout => ({
   sourceApp: w.source_app ?? null,
   sourceDevice: w.source_device ?? null,
   routeData: w.route_data ?? null,
+  completionPhotoUrl: w.completion_photo_url ?? null,
 });
 
 export interface GoogleCalendarEvent {
@@ -1344,6 +1347,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (updates.cadenceAvg !== undefined) dbUpdates.cadence_avg = updates.cadenceAvg;
     if (updates.sourceApp !== undefined) dbUpdates.source_app = updates.sourceApp;
     if (updates.sourceDevice !== undefined) dbUpdates.source_device = updates.sourceDevice;
+    if (updates.completionPhotoUrl !== undefined) dbUpdates.completion_photo_url = updates.completionPhotoUrl;
     if (Object.keys(dbUpdates).length > 0) {
       await supabase.from("workouts").update(dbUpdates).eq("id", id);
     }
