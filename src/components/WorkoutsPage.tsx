@@ -17,6 +17,7 @@ import CongratsPopup from "@/components/CongratsPopup";
 import GroupSelector from "@/components/GroupSelector";
 import { useGroupContext } from "@/hooks/useGroupContext";
 import ExerciseLogModal from "@/components/ExerciseLogModal";
+import WorkoutPhotoPrompt from "@/components/WorkoutPhotoPrompt";
 
 interface AIPlan {
   title: string;
