@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import GroupManager from "@/components/GroupManager";
+import HealthSyncSettings from "@/components/HealthSyncSettings";
 
 const settingsItems = [
   { icon: Bell, label: "Notifications", desc: "Reminders & alerts" },
@@ -266,6 +267,11 @@ const SettingsPage = () => {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Health & Device Sync */}
+      <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden p-4">
+        <HealthSyncSettings />
       </div>
 
       {/* Settings List */}

@@ -81,7 +81,47 @@ export interface Workout {
   ownerUserId?: string;
   distance?: number;
   distanceUnit?: string;
+  // Cardio metrics
+  heartRateAvg?: number | null;
+  paceAvg?: string | null;
+  speedAvg?: number | null;
+  elevationGain?: number | null;
+  cadenceAvg?: number | null;
+  // Device/source info
+  sourceApp?: string | null;
+  sourceDevice?: string | null;
+  routeData?: any | null;
 }
+
+const CARDIO_TYPES = ["Running", "Walking", "Cycling", "Swimming"];
+export const isCardioWorkout = (title: string) =>
+  CARDIO_TYPES.some((t) => title.toLowerCase().includes(t.toLowerCase()));
+
+export const mapWorkoutRow = (w: any, ownerUserId?: string): Workout => ({
+  id: w.id,
+  title: w.title,
+  duration: w.duration,
+  cal: w.cal,
+  tag: w.tag,
+  emoji: w.emoji,
+  done: w.done,
+  scheduledDate: w.scheduled_date,
+  completedDate: w.completed_date,
+  exercises: w.exercises || [],
+  hiddenFromPartner: w.hidden_from_partner || false,
+  groupId: w.group_id || null,
+  ownerUserId,
+  distance: Number(w.distance) || 0,
+  distanceUnit: w.distance_unit || "km",
+  heartRateAvg: w.heart_rate_avg ?? null,
+  paceAvg: w.pace_avg ?? null,
+  speedAvg: w.speed_avg != null ? Number(w.speed_avg) : null,
+  elevationGain: w.elevation_gain != null ? Number(w.elevation_gain) : null,
+  cadenceAvg: w.cadence_avg ?? null,
+  sourceApp: w.source_app ?? null,
+  sourceDevice: w.source_device ?? null,
+  routeData: w.route_data ?? null,
+});
 
 export interface GoogleCalendarEvent {
   id: string;
@@ -348,22 +388,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           .eq("user_id", user.id);
 
         if (workoutsData) {
-          setWorkoutsState(workoutsData.map((w: any) => ({
-            id: w.id,
-            title: w.title,
-            duration: w.duration,
-            cal: w.cal,
-            tag: w.tag,
-            emoji: w.emoji,
-            done: w.done,
-            scheduledDate: w.scheduled_date,
-            completedDate: w.completed_date,
-            exercises: w.exercises || [],
-            hiddenFromPartner: w.hidden_from_partner || false,
-            groupId: w.group_id || null,
-            distance: Number(w.distance) || 0,
-            distanceUnit: w.distance_unit || 'km',
-          })));
+          setWorkoutsState(workoutsData.map((w: any) => mapWorkoutRow(w)));
         }
 
         // Load water tracking for today
@@ -679,23 +704,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             .eq("user_id", otherUserId);
 
           if (pWorkouts) {
-            allWorkouts.push(...pWorkouts.map((w: any) => ({
-              id: w.id,
-              title: w.title,
-              duration: w.duration,
-              cal: w.cal,
-              tag: w.tag,
-              emoji: w.emoji,
-              done: w.done,
-              scheduledDate: w.scheduled_date,
-              completedDate: w.completed_date,
-              exercises: w.exercises || [],
-              hiddenFromPartner: w.hidden_from_partner || false,
-              groupId: w.group_id || null,
-              ownerUserId: otherUserId,
-              distance: Number(w.distance) || 0,
-              distanceUnit: w.distance_unit || 'km',
-            })));
+            allWorkouts.push(...pWorkouts.map((w: any) => mapWorkoutRow(w, otherUserId)));
           }
 
           // Other user's water tracking
@@ -1328,6 +1337,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (updates.emoji !== undefined) dbUpdates.emoji = updates.emoji;
     if (updates.distance !== undefined) dbUpdates.distance = updates.distance;
     if (updates.distanceUnit !== undefined) dbUpdates.distance_unit = updates.distanceUnit;
+    if (updates.heartRateAvg !== undefined) dbUpdates.heart_rate_avg = updates.heartRateAvg;
+    if (updates.paceAvg !== undefined) dbUpdates.pace_avg = updates.paceAvg;
+    if (updates.speedAvg !== undefined) dbUpdates.speed_avg = updates.speedAvg;
+    if (updates.elevationGain !== undefined) dbUpdates.elevation_gain = updates.elevationGain;
+    if (updates.cadenceAvg !== undefined) dbUpdates.cadence_avg = updates.cadenceAvg;
+    if (updates.sourceApp !== undefined) dbUpdates.source_app = updates.sourceApp;
+    if (updates.sourceDevice !== undefined) dbUpdates.source_device = updates.sourceDevice;
     if (Object.keys(dbUpdates).length > 0) {
       await supabase.from("workouts").update(dbUpdates).eq("id", id);
     }
@@ -1366,6 +1382,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       group_id: w.groupId ?? null,
       distance: w.distance || 0,
       distance_unit: w.distanceUnit || 'km',
+      heart_rate_avg: w.heartRateAvg ?? null,
+      pace_avg: w.paceAvg ?? null,
+      speed_avg: w.speedAvg ?? null,
+      elevation_gain: w.elevationGain ?? null,
+      cadence_avg: w.cadenceAvg ?? null,
+      source_app: w.sourceApp ?? null,
+      source_device: w.sourceDevice ?? null,
+      route_data: w.routeData ?? null,
     }));
 
     const { data, error } = await supabase
@@ -1379,22 +1403,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const mapped: Workout[] = data.map((w: any) => ({
-      id: w.id,
-      title: w.title,
-      duration: w.duration,
-      cal: w.cal,
-      tag: w.tag,
-      emoji: w.emoji,
-      done: w.done,
-      scheduledDate: w.scheduled_date,
-      completedDate: w.completed_date,
-      exercises: w.exercises || [],
-      hiddenFromPartner: w.hidden_from_partner || false,
-      groupId: w.group_id || null,
-      distance: Number(w.distance) || 0,
-      distanceUnit: w.distance_unit || 'km',
-    }));
+    const mapped: Workout[] = data.map((w: any) => mapWorkoutRow(w));
 
     setWorkoutsState((prev) => [
       ...prev.filter((item) => !tempIds.has(item.id)),

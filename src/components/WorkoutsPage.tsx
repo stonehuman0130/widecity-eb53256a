@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Settings } from "lucide-react";
+import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Settings, Heart, Gauge, Mountain, Footprints, Smartphone } from "lucide-react";
 import WorkoutStatsCards from "@/components/WorkoutStatsCards";
 import WorkoutAiSuggest from "@/components/WorkoutAiSuggest";
 import GroupBadge from "@/components/GroupBadge";
-import { useAppContext, Workout } from "@/context/AppContext";
+import { useAppContext, Workout, isCardioWorkout } from "@/context/AppContext";
 import ItemActionMenu from "@/components/ItemActionMenu";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,6 +85,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [customTitle, setCustomTitle] = useState("");
   const [customDuration, setCustomDuration] = useState("30");
   const [customCal, setCustomCal] = useState("200");
+  const [customDistance, setCustomDistance] = useState("");
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{ filter: "all" | "week" | "month" | "date" | "tomorrow"; message: string } | null>(null);
   // Exercise editing
@@ -150,6 +151,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   };
 
   const addManualActivity = (activity: typeof MANUAL_ACTIVITIES[0]) => {
+    const isCardio = isCardioWorkout(activity.title);
     const newWorkout: Workout = {
       id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
       title: activity.title,
@@ -159,6 +161,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       emoji: activity.emoji,
       done: false,
       scheduledDate: selectedDate,
+      distance: isCardio ? 0 : undefined,
+      distanceUnit: isCardio ? "km" : undefined,
     };
     addWorkouts([newWorkout]);
     toast.success(`Added ${activity.title}`);
@@ -166,6 +170,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
   const addCustomActivity = () => {
     if (!customTitle.trim()) return;
+    const isCardio = isCardioWorkout(customTitle);
     const newWorkout: Workout = {
       id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
       title: customTitle,
@@ -175,11 +180,14 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       emoji: "🏋️",
       done: false,
       scheduledDate: selectedDate,
+      distance: isCardio && customDistance ? parseFloat(customDistance) : undefined,
+      distanceUnit: isCardio ? "km" : undefined,
     };
     addWorkouts([newWorkout]);
     setCustomTitle("");
     setCustomDuration("30");
     setCustomCal("200");
+    setCustomDistance("");
     setShowManualAdd(false);
     toast.success(`Added ${customTitle}`);
   };
@@ -461,22 +469,28 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
               </div>
 
               {showManualAdd && (
-                <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
-                  <input value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="Activity name..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground" />
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
-                      <input type="number" value={customDuration} onChange={(e) => setCustomDuration(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
-                      <input type="number" value={customCal} onChange={(e) => setCustomCal(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
-                    </div>
+              <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
+                <input value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="Activity name..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground" />
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
+                    <input type="number" value={customDuration} onChange={(e) => setCustomDuration(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
                   </div>
-                  <button onClick={addCustomActivity} disabled={!customTitle.trim()} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
-                    Add Activity
-                  </button>
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
+                    <input type="number" value={customCal} onChange={(e) => setCustomCal(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
+                  </div>
+                  {isCardioWorkout(customTitle) && (
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground font-medium">Distance (km)</label>
+                      <input type="number" step="0.1" value={customDistance} onChange={(e) => setCustomDistance(e.target.value)} placeholder="0.0" className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
+                    </div>
+                  )}
                 </div>
+                <button onClick={addCustomActivity} disabled={!customTitle.trim()} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
+                  Add Activity
+                </button>
+              </div>
               )}
 
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -956,6 +970,45 @@ const WorkoutCard = ({
                 )}
                 <GroupBadge groupId={workout.groupId} />
               </div>
+              {/* Cardio metrics row for running/walking/cycling */}
+              {isCardioWorkout(workout.title) && (workout.distance || workout.heartRateAvg || workout.paceAvg || workout.elevationGain) && (
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                  {(workout.distance ?? 0) > 0 && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      <Footprints size={10} /> {workout.distance} {workout.distanceUnit || "km"}
+                    </span>
+                  )}
+                  {workout.paceAvg && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      <Gauge size={10} /> {workout.paceAvg}
+                    </span>
+                  )}
+                  {workout.heartRateAvg && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      <Heart size={10} className="text-destructive/70" /> {workout.heartRateAvg} bpm
+                    </span>
+                  )}
+                  {workout.elevationGain != null && workout.elevationGain > 0 && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      <Mountain size={10} /> {workout.elevationGain}m
+                    </span>
+                  )}
+                  {workout.cadenceAvg != null && workout.cadenceAvg > 0 && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                      ⚡ {workout.cadenceAvg} spm
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Source badge */}
+              {workout.sourceApp && (
+                <div className="flex items-center gap-1 mt-1">
+                  <Smartphone size={9} className="text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground italic">
+                    Imported from {workout.sourceApp}
+                  </span>
+                </div>
+              )}
             </div>
             {!readOnly && (
               <ItemActionMenu
