@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Settings, Heart, Gauge, Mountain, Footprints, Smartphone, BarChart3, ArrowLeft } from "lucide-react";
+import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Settings, Heart, Gauge, Mountain, Footprints, Smartphone, BarChart3 } from "lucide-react";
+import WorkoutDataPage from "@/components/WorkoutDataPage";
 import WorkoutStatsCards from "@/components/WorkoutStatsCards";
 import WorkoutAiSuggest from "@/components/WorkoutAiSuggest";
 import GroupBadge from "@/components/GroupBadge";
@@ -1207,36 +1208,5 @@ const ExerciseDetailDialog = ({ exerciseName, onClose }: { exerciseName: string 
     </Dialog>
   );
 };
-
-// Workout Data subpage
-const WorkoutDataPage = ({
-  workouts,
-  isViewingPartner,
-  partnerName,
-  onBack,
-}: {
-  workouts: Workout[];
-  isViewingPartner: boolean;
-  partnerName?: string;
-  onBack: () => void;
-}) => (
-  <div className="px-5 pb-24">
-    <header className="pt-12 pb-4 flex items-center gap-3">
-      <button
-        onClick={onBack}
-        className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-        aria-label="Back to Workouts"
-      >
-        <ArrowLeft size={18} />
-      </button>
-      <div>
-        <h1 className="text-[1.75rem] font-bold tracking-display">Workout Data</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Your activity insights</p>
-      </div>
-    </header>
-
-    <WorkoutStatsCards workouts={workouts} isViewingPartner={isViewingPartner} partnerName={partnerName} />
-  </div>
-);
 
 export default WorkoutsPage;
