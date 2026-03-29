@@ -3,7 +3,7 @@ import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbe
 import WorkoutStatsCards from "@/components/WorkoutStatsCards";
 import WorkoutAiSuggest from "@/components/WorkoutAiSuggest";
 import GroupBadge from "@/components/GroupBadge";
-import { useAppContext, Workout } from "@/context/AppContext";
+import { useAppContext, Workout, isCardioWorkout } from "@/context/AppContext";
 import ItemActionMenu from "@/components/ItemActionMenu";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
