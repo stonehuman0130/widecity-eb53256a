@@ -169,23 +169,7 @@ const Index = () => {
 
   return (
     <AppProvider>
-      <div className="flex flex-col w-full max-w-md mx-auto bg-background h-svh relative overflow-hidden" style={activeTab === "home" ? { perspective: "1200px" } : undefined}>
-
-        {/* Launcher peek layer — only visible while swiping on Home (cube left face) */}
-        {activeTab === "home" && (
-          <motion.div
-            className="absolute inset-0 z-0 overflow-y-auto pointer-events-none"
-            style={{
-              rotateY: launcherRotateY,
-              transformOrigin: "left center",
-              transformStyle: "preserve-3d",
-              backfaceVisibility: "hidden",
-              opacity: launcherPeekOpacity,
-            }}
-          >
-            {pages.launcher}
-          </motion.div>
-        )}
+      <div className="flex flex-col w-full max-w-md mx-auto bg-background h-svh relative overflow-hidden">
 
         {/* Main page area */}
         <AnimatePresence mode="wait">
@@ -211,13 +195,7 @@ const Index = () => {
               dragConstraints={{ left: 0, right: 300 }}
               dragElastic={0.15}
               onDragEnd={handleDragEnd}
-              style={activeTab === "home" ? {
-                x: swipeX,
-                rotateY: homeRotateY,
-                transformOrigin: "right center",
-                transformStyle: "preserve-3d",
-                backfaceVisibility: "hidden",
-              } : undefined}
+              style={activeTab === "home" ? { x: swipeX } : undefined}
               className={`flex-1 overflow-y-auto scroll-smooth-touch relative bg-background ${isInnerPage ? (showBottomNav ? "pb-24" : showDrawerButton ? "pb-20" : "pb-4") : ""}`}
             >
               {pages[activeTab]}
