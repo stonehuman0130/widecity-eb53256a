@@ -602,7 +602,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         />
       )}
     </>
-    )}
     </div>
   );
 };
