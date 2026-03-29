@@ -37,15 +37,8 @@ const Index = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { navStyle, setNavStyle } = useNavStyle();
 
-  // Swipe motion value for Home → Launcher cube transition
+  // Swipe tracking for Home → Launcher transition
   const swipeX = useMotionValue(0);
-
-  // Home face: right-edge hinge, rotates away to the right as user swipes right
-  const homeRotateY = useTransform(swipeX, [0, 300], [0, 90]);
-
-  // Launcher face: left-edge hinge, rotates into view from the right
-  const launcherRotateY = useTransform(swipeX, [0, 300], [-90, 0]);
-  const launcherPeekOpacity = useTransform(swipeX, [0, 30, 300], [0, 0.4, 1]);
 
   if (loading) {
     return (
