@@ -1382,6 +1382,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       group_id: w.groupId ?? null,
       distance: w.distance || 0,
       distance_unit: w.distanceUnit || 'km',
+      heart_rate_avg: w.heartRateAvg ?? null,
+      pace_avg: w.paceAvg ?? null,
+      speed_avg: w.speedAvg ?? null,
+      elevation_gain: w.elevationGain ?? null,
+      cadence_avg: w.cadenceAvg ?? null,
+      source_app: w.sourceApp ?? null,
+      source_device: w.sourceDevice ?? null,
+      route_data: w.routeData ?? null,
     }));
 
     const { data, error } = await supabase
