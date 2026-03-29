@@ -117,15 +117,6 @@ const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label }: P
     <div className="mb-5">
       {/* Time range selector + data icon */}
       <div className="flex items-center justify-end gap-1 mb-2">
-        {onOpenData && (
-          <button
-            onClick={onOpenData}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-            aria-label="Workout Data"
-          >
-            <BarChart3 size={15} />
-          </button>
-        )}
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>
             <button className="flex items-center gap-1 text-xs text-primary font-semibold px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">

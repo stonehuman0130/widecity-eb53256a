@@ -331,15 +331,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         </DialogContent>
       </Dialog>
 
-      {showDataPage ? (
-        <WorkoutDataPage
-          workouts={activeWorkouts}
-          isViewingPartner={isViewingPartner}
-          partnerName={partnerName}
-          onBack={() => setShowDataPage(false)}
-        />
-      ) : (
       <>
+
       <header className="pt-12 pb-4 flex items-start justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
