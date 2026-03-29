@@ -1347,6 +1347,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (updates.cadenceAvg !== undefined) dbUpdates.cadence_avg = updates.cadenceAvg;
     if (updates.sourceApp !== undefined) dbUpdates.source_app = updates.sourceApp;
     if (updates.sourceDevice !== undefined) dbUpdates.source_device = updates.sourceDevice;
+    if (updates.completionPhotoUrl !== undefined) dbUpdates.completion_photo_url = updates.completionPhotoUrl;
     if (Object.keys(dbUpdates).length > 0) {
       await supabase.from("workouts").update(dbUpdates).eq("id", id);
     }
