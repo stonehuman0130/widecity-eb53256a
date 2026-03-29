@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence, useMotionValue, PanInfo } from "framer-motion";
 import MorePage from "@/components/MorePage";
 import BottomNav, { type Tab, loadNavPages, saveNavPages, FIXED_NAV_PAGES, MAX_NAV_SLOTS } from "@/components/BottomNav";
@@ -40,6 +40,17 @@ const Index = () => {
   // Swipe tracking for Home → Launcher transition
   const swipeX = useMotionValue(0);
 
+  const resetHomeSwipeState = useCallback(() => {
+    swipeX.stop();
+    swipeX.set(0);
+  }, [swipeX]);
+
+  useEffect(() => {
+    if (activeTab !== "home") {
+      resetHomeSwipeState();
+    }
+  }, [activeTab, resetHomeSwipeState]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-svh bg-background">
@@ -53,16 +64,21 @@ const Index = () => {
   }
 
   const handleEnterGroup = (groupId: string | null) => {
+    resetHomeSwipeState();
+
     if (groupId) {
       const group = groups.find((g) => g.id === groupId);
       if (group) setActiveGroup(group);
     } else {
       setActiveGroup(null);
     }
+
     setActiveTab("home");
+    requestAnimationFrame(resetHomeSwipeState);
   };
 
   const handleBackToLauncher = () => {
+    resetHomeSwipeState();
     setActiveTab("launcher");
   };
 
@@ -132,8 +148,10 @@ const Index = () => {
   const handleDragEnd = (_: any, info: PanInfo) => {
     if (activeTab === "home" && (info.offset.x > SWIPE_THRESHOLD || info.velocity.x > 200)) {
       handleBackToLauncher();
+      return;
     }
-    swipeX.set(0);
+
+    resetHomeSwipeState();
   };
 
   const pages: Record<string, React.ReactNode> = {
