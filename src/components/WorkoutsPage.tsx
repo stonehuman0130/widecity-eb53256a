@@ -992,6 +992,16 @@ const WorkoutCard = ({
                   <span className="text-[11px] font-semibold text-tag-work-text bg-tag-work px-2 py-0.5 rounded-md">{workout.tag}</span>
                 )}
                 <GroupBadge groupId={workout.groupId} />
+                {/* Completion photo indicator */}
+                {workout.done && workout.completionPhotoUrl && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); window.open(workout.completionPhotoUrl!, "_blank"); }}
+                    className="flex items-center gap-0.5 text-[10px] text-primary font-medium hover:underline"
+                    title="View workout photo"
+                  >
+                    <ImageIcon size={10} /> 📸
+                  </button>
+                )}
               </div>
               {/* Cardio metrics row for running/walking/cycling */}
               {isCardioWorkout(workout.title) && (workout.distance || workout.heartRateAvg || workout.paceAvg || workout.elevationGain) && (
