@@ -95,6 +95,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editExReps, setEditExReps] = useState("");
   // Exercise logging
   const [loggingWorkout, setLoggingWorkout] = useState<Workout | null>(null);
+  const [showDataPage, setShowDataPage] = useState(false);
 
   const isViewingPartner = viewFilter !== "mine" && viewFilter !== "together";
   const isTogetherView = viewFilter === "together";
