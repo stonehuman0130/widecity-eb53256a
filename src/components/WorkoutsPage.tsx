@@ -612,6 +612,16 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           onCaloriesSaved={(cal) => handleCaloriesSaved(loggingWorkout.id, cal)}
         />
       )}
+
+      {/* Workout Photo Sharing Prompt */}
+      {photoPromptWorkout && (
+        <WorkoutPhotoPrompt
+          open={!!photoPromptWorkout}
+          workout={photoPromptWorkout}
+          onClose={() => setPhotoPromptWorkout(null)}
+          onPhotoSent={(url) => handlePhotoSent(photoPromptWorkout.id, url)}
+        />
+      )}
     </>
     </div>
   );
