@@ -389,7 +389,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         />
       ) : (
         <>
-          {/* Stats moved to Workout Data page */}
+          {/* Top Stats Summary */}
+          <WorkoutStatsCards workouts={activeWorkouts} isViewingPartner={isViewingPartner} partnerName={partnerName} onOpenData={() => setShowDataPage(true)} />
 
           {/* Missed Workouts Banner */}
           {missedWorkouts.length > 0 && selectedDate === today && !isViewingPartner && (

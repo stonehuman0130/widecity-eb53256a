@@ -29,7 +29,7 @@ interface Props {
   onOpenData?: () => void;
 }
 
-const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label }: Props) => {
+const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label, onOpenData }: Props) => {
   const [range, setRange] = useState<TimeRange>("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
