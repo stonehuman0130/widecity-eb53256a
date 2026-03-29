@@ -85,6 +85,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [customTitle, setCustomTitle] = useState("");
   const [customDuration, setCustomDuration] = useState("30");
   const [customCal, setCustomCal] = useState("200");
+  const [customDistance, setCustomDistance] = useState("");
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{ filter: "all" | "week" | "month" | "date" | "tomorrow"; message: string } | null>(null);
   // Exercise editing
