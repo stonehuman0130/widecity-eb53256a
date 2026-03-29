@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, PanInfo } from "framer-motion";
 import MorePage from "@/components/MorePage";
 import BottomNav, { type Tab, loadNavPages, saveNavPages, FIXED_NAV_PAGES, MAX_NAV_SLOTS } from "@/components/BottomNav";
 import HomePage from "@/components/HomePage";
