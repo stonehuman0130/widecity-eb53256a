@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ChevronDown, BarChart3 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Workout } from "@/context/AppContext";
@@ -26,10 +26,9 @@ interface Props {
   isViewingPartner?: boolean;
   partnerName?: string;
   label?: string; // e.g. "Harrison" for Together view
-  onOpenData?: () => void;
 }
 
-const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label, onOpenData }: Props) => {
+const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label }: Props) => {
   const [range, setRange] = useState<TimeRange>("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
@@ -118,15 +117,6 @@ const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label, onO
     <div className="mb-5">
       {/* Time range selector + data icon */}
       <div className="flex items-center justify-end gap-1 mb-2">
-        {onOpenData && (
-          <button
-            onClick={onOpenData}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-            aria-label="Workout Data"
-          >
-            <BarChart3 size={15} />
-          </button>
-        )}
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>
             <button className="flex items-center gap-1 text-xs text-primary font-semibold px-2 py-1 rounded-lg hover:bg-primary/5 transition-colors">

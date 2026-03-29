@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Settings, Heart, Gauge, Mountain, Footprints, Smartphone, BarChart3 } from "lucide-react";
-import WorkoutDataPage from "@/components/WorkoutDataPage";
+import { Clock, Flame, Check, Trash2, ChevronDown, ChevronUp, Loader2, X, Dumbbell, AlertTriangle, Target, ArrowRight, RotateCcw, Calendar as CalIcon, Plus, Copy, Pencil, Settings, Heart, Gauge, Mountain, Footprints, Smartphone } from "lucide-react";
 import WorkoutStatsCards from "@/components/WorkoutStatsCards";
 import WorkoutAiSuggest from "@/components/WorkoutAiSuggest";
 import GroupBadge from "@/components/GroupBadge";
@@ -96,7 +95,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editExReps, setEditExReps] = useState("");
   // Exercise logging
   const [loggingWorkout, setLoggingWorkout] = useState<Workout | null>(null);
-  const [showDataPage, setShowDataPage] = useState(false);
 
   const isViewingPartner = viewFilter !== "mine" && viewFilter !== "together";
   const isTogetherView = viewFilter === "together";
@@ -333,15 +331,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         </DialogContent>
       </Dialog>
 
-      {showDataPage ? (
-        <WorkoutDataPage
-          workouts={activeWorkouts}
-          isViewingPartner={isViewingPartner}
-          partnerName={partnerName}
-          onBack={() => setShowDataPage(false)}
-        />
-      ) : (
       <>
+
       <header className="pt-12 pb-4 flex items-start justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-[1.75rem] font-bold tracking-display">Workouts</h1>
@@ -391,7 +382,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       ) : (
         <>
           {/* Top Stats Summary */}
-          <WorkoutStatsCards workouts={activeWorkouts} isViewingPartner={isViewingPartner} partnerName={partnerName} onOpenData={() => setShowDataPage(true)} />
+          <WorkoutStatsCards workouts={activeWorkouts} isViewingPartner={isViewingPartner} partnerName={partnerName} />
 
           {/* Missed Workouts Banner */}
           {missedWorkouts.length > 0 && selectedDate === today && !isViewingPartner && (
@@ -611,7 +602,6 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
         />
       )}
     </>
-    )}
     </div>
   );
 };
