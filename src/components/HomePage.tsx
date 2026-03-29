@@ -499,7 +499,7 @@ const HomePage = ({ onBackToLauncher, onOpenSettings }: { onBackToLauncher?: () 
   );
 
   const hasSpecificTime = (time?: string) => Boolean(time) && time !== "" && time !== "All day";
-  const isTaskScheduled = (t: Task) => t.scheduledDay !== undefined && t.scheduledMonth !== undefined && t.scheduledYear !== undefined;
+  const isTaskScheduled = (t: Task) => t.scheduledDay != null && t.scheduledMonth != null && t.scheduledYear != null;
   const isTaskTimed = (t: Task) => hasSpecificTime(t.time);
 
   // Helper: parse any time representation to minutes for sorting
