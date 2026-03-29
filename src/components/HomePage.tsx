@@ -953,7 +953,7 @@ const TaskCard = ({ task, onToggle, onCongrats, readOnly }: { task: Task; onTogg
     onToggle(task.id);
   };
 
-  const hasDate = task.scheduledDay !== undefined && task.scheduledMonth !== undefined && task.scheduledYear !== undefined;
+  const hasDate = task.scheduledDay != null && task.scheduledMonth != null && task.scheduledYear != null;
   const dateLabel = hasDate
     ? new Date(task.scheduledYear!, task.scheduledMonth!, task.scheduledDay!).toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : null;
