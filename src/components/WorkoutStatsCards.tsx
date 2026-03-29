@@ -26,6 +26,7 @@ interface Props {
   isViewingPartner?: boolean;
   partnerName?: string;
   label?: string; // e.g. "Harrison" for Together view
+  onOpenData?: () => void;
 }
 
 const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label }: Props) => {
