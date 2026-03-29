@@ -26,10 +26,9 @@ interface Props {
   isViewingPartner?: boolean;
   partnerName?: string;
   label?: string; // e.g. "Harrison" for Together view
-  onOpenData?: () => void;
 }
 
-const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label, onOpenData }: Props) => {
+const WorkoutStatsCards = ({ workouts, isViewingPartner, partnerName, label }: Props) => {
   const [range, setRange] = useState<TimeRange>("all");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
