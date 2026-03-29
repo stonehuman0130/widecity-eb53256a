@@ -170,6 +170,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
 
   const addCustomActivity = () => {
     if (!customTitle.trim()) return;
+    const isCardio = isCardioWorkout(customTitle);
     const newWorkout: Workout = {
       id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
       title: customTitle,
@@ -179,11 +180,14 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       emoji: "🏋️",
       done: false,
       scheduledDate: selectedDate,
+      distance: isCardio && customDistance ? parseFloat(customDistance) : undefined,
+      distanceUnit: isCardio ? "km" : undefined,
     };
     addWorkouts([newWorkout]);
     setCustomTitle("");
     setCustomDuration("30");
     setCustomCal("200");
+    setCustomDistance("");
     setShowManualAdd(false);
     toast.success(`Added ${customTitle}`);
   };
