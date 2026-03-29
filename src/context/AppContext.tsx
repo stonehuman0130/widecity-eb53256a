@@ -91,6 +91,8 @@ export interface Workout {
   sourceApp?: string | null;
   sourceDevice?: string | null;
   routeData?: any | null;
+  // Completion photo
+  completionPhotoUrl?: string | null;
 }
 
 const CARDIO_TYPES = ["Running", "Walking", "Cycling", "Swimming"];
