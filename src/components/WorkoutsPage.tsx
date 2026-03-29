@@ -469,22 +469,28 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
               </div>
 
               {showManualAdd && (
-                <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
-                  <input value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="Activity name..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground" />
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
-                      <input type="number" value={customDuration} onChange={(e) => setCustomDuration(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
-                      <input type="number" value={customCal} onChange={(e) => setCustomCal(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
-                    </div>
+              <div className="bg-card rounded-xl border border-border p-3 mb-3 space-y-2">
+                <input value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} placeholder="Activity name..." className="w-full bg-secondary rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground" />
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground font-medium">Duration (min)</label>
+                    <input type="number" value={customDuration} onChange={(e) => setCustomDuration(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
                   </div>
-                  <button onClick={addCustomActivity} disabled={!customTitle.trim()} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
-                    Add Activity
-                  </button>
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground font-medium">Calories</label>
+                    <input type="number" value={customCal} onChange={(e) => setCustomCal(e.target.value)} className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
+                  </div>
+                  {isCardioWorkout(customTitle) && (
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground font-medium">Distance (km)</label>
+                      <input type="number" step="0.1" value={customDistance} onChange={(e) => setCustomDistance(e.target.value)} placeholder="0.0" className="w-full bg-secondary rounded-lg px-3 py-1.5 text-sm outline-none mt-0.5" />
+                    </div>
+                  )}
                 </div>
+                <button onClick={addCustomActivity} disabled={!customTitle.trim()} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
+                  Add Activity
+                </button>
+              </div>
               )}
 
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
