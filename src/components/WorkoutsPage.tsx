@@ -615,6 +615,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
           onCaloriesSaved={(cal) => handleCaloriesSaved(loggingWorkout.id, cal)}
         />
       )}
+    </>
+    )}
     </div>
   );
 };
