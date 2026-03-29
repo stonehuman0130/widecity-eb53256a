@@ -269,6 +269,11 @@ const SettingsPage = () => {
         </div>
       </div>
 
+      {/* Health & Device Sync */}
+      <div className="bg-card rounded-xl border border-border shadow-card mb-6 overflow-hidden p-4">
+        <HealthSyncSettings />
+      </div>
+
       {/* Settings List */}
       <div className="space-y-1">
         {settingsItems.map((item) => (
