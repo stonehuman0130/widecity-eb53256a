@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, BarChart3 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Workout } from "@/context/AppContext";
