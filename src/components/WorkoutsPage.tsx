@@ -199,8 +199,17 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
     const workout = workouts.find((w) => w.id === id);
     if (workout && !workout.done) {
       setShowCongrats(true);
+      // If workout belongs to a group, offer photo sharing
+      if (workout.groupId) {
+        // Small delay so congrats shows first
+        setTimeout(() => setPhotoPromptWorkout(workout), 1200);
+      }
     }
     toggleWorkout(id);
+  };
+
+  const handlePhotoSent = (workoutId: string, photoUrl: string) => {
+    updateWorkout(workoutId, { completionPhotoUrl: photoUrl });
   };
 
   // Copy partner workouts for the selected date to own schedule
