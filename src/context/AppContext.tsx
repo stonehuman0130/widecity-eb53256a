@@ -388,22 +388,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           .eq("user_id", user.id);
 
         if (workoutsData) {
-          setWorkoutsState(workoutsData.map((w: any) => ({
-            id: w.id,
-            title: w.title,
-            duration: w.duration,
-            cal: w.cal,
-            tag: w.tag,
-            emoji: w.emoji,
-            done: w.done,
-            scheduledDate: w.scheduled_date,
-            completedDate: w.completed_date,
-            exercises: w.exercises || [],
-            hiddenFromPartner: w.hidden_from_partner || false,
-            groupId: w.group_id || null,
-            distance: Number(w.distance) || 0,
-            distanceUnit: w.distance_unit || 'km',
-          })));
+          setWorkoutsState(workoutsData.map((w: any) => mapWorkoutRow(w)));
         }
 
         // Load water tracking for today
