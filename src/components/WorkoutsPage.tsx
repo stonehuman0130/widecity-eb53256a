@@ -96,7 +96,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   const [editExReps, setEditExReps] = useState("");
   // Exercise logging
   const [loggingWorkout, setLoggingWorkout] = useState<Workout | null>(null);
-
+  // Photo sharing prompt
+  const [photoPromptWorkout, setPhotoPromptWorkout] = useState<Workout | null>(null);
   const isViewingPartner = viewFilter !== "mine" && viewFilter !== "together";
   const isTogetherView = viewFilter === "together";
   const today = todayStr();
