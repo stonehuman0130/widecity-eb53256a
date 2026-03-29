@@ -151,6 +151,7 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
   };
 
   const addManualActivity = (activity: typeof MANUAL_ACTIVITIES[0]) => {
+    const isCardio = isCardioWorkout(activity.title);
     const newWorkout: Workout = {
       id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
       title: activity.title,
@@ -160,6 +161,8 @@ const WorkoutsPage = ({ onOpenSettings }: { onOpenSettings?: () => void } = {}) 
       emoji: activity.emoji,
       done: false,
       scheduledDate: selectedDate,
+      distance: isCardio ? 0 : undefined,
+      distanceUnit: isCardio ? "km" : undefined,
     };
     addWorkouts([newWorkout]);
     toast.success(`Added ${activity.title}`);
