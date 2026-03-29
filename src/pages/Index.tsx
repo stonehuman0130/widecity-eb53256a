@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, PanInfo } from "framer-motion";
 import MorePage from "@/components/MorePage";
 import BottomNav, { type Tab, loadNavPages, saveNavPages, FIXED_NAV_PAGES, MAX_NAV_SLOTS } from "@/components/BottomNav";
 import HomePage from "@/components/HomePage";
@@ -37,15 +37,8 @@ const Index = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { navStyle, setNavStyle } = useNavStyle();
 
-  // Swipe motion value for Home → Launcher cube transition
+  // Swipe tracking for Home → Launcher transition
   const swipeX = useMotionValue(0);
-
-  // Home face: right-edge hinge, rotates away to the right as user swipes right
-  const homeRotateY = useTransform(swipeX, [0, 300], [0, 90]);
-
-  // Launcher face: left-edge hinge, rotates into view from the right
-  const launcherRotateY = useTransform(swipeX, [0, 300], [-90, 0]);
-  const launcherPeekOpacity = useTransform(swipeX, [0, 30, 300], [0, 0.4, 1]);
 
   if (loading) {
     return (
@@ -137,7 +130,7 @@ const Index = () => {
 
   // Swipe handlers for Home → Launcher (right swipe)
   const handleDragEnd = (_: any, info: PanInfo) => {
-    if (activeTab === "home" && info.offset.x > SWIPE_THRESHOLD) {
+    if (activeTab === "home" && (info.offset.x > SWIPE_THRESHOLD || info.velocity.x > 200)) {
       handleBackToLauncher();
     }
     swipeX.set(0);
@@ -176,23 +169,7 @@ const Index = () => {
 
   return (
     <AppProvider>
-      <div className="flex flex-col w-full max-w-md mx-auto bg-background h-svh relative overflow-hidden" style={activeTab === "home" ? { perspective: "1200px" } : undefined}>
-
-        {/* Launcher peek layer — only visible while swiping on Home (cube left face) */}
-        {activeTab === "home" && (
-          <motion.div
-            className="absolute inset-0 z-0 overflow-y-auto pointer-events-none"
-            style={{
-              rotateY: launcherRotateY,
-              transformOrigin: "left center",
-              transformStyle: "preserve-3d",
-              backfaceVisibility: "hidden",
-              opacity: launcherPeekOpacity,
-            }}
-          >
-            {pages.launcher}
-          </motion.div>
-        )}
+      <div className="flex flex-col w-full max-w-md mx-auto bg-background h-svh relative overflow-hidden">
 
         {/* Main page area */}
         <AnimatePresence mode="wait">
@@ -218,13 +195,7 @@ const Index = () => {
               dragConstraints={{ left: 0, right: 300 }}
               dragElastic={0.15}
               onDragEnd={handleDragEnd}
-              style={activeTab === "home" ? {
-                x: swipeX,
-                rotateY: homeRotateY,
-                transformOrigin: "right center",
-                transformStyle: "preserve-3d",
-                backfaceVisibility: "hidden",
-              } : undefined}
+              style={activeTab === "home" ? { x: swipeX } : undefined}
               className={`flex-1 overflow-y-auto scroll-smooth-touch relative bg-background ${isInnerPage ? (showBottomNav ? "pb-24" : showDrawerButton ? "pb-20" : "pb-4") : ""}`}
             >
               {pages[activeTab]}
